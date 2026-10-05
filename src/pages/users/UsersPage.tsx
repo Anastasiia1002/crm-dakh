@@ -121,7 +121,7 @@ function UserDialog({
       firstName: item?.firstName ?? '',
       lastName: item?.lastName ?? '',
       email: item?.email ?? '',
-      role: item?.role ?? 'receptionist',
+      role: item?.role === 'owner' || item?.role === 'admin' || item?.role === 'receptionist' ? item.role : 'receptionist',
       active: item?.active === false ? 'no' : 'yes',
     },
   })
@@ -163,14 +163,14 @@ function UserDialog({
             <Input {...form.register('email')} />
           </Field>
           <Field label="Роль">
-            <Select value={form.watch('role')} onValueChange={(value: UserRole) => form.setValue('role', value)}>
+            <Select value={form.watch('role')} onValueChange={(value: 'owner' | 'admin' | 'receptionist') => form.setValue('role', value)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {Object.entries(userRoleLabel).map(([value, label]) => (
+                {(['owner', 'admin', 'receptionist'] as const).map((value) => (
                   <SelectItem key={value} value={value}>
-                    {label}
+                    {userRoleLabel[value]}
                   </SelectItem>
                 ))}
               </SelectContent>

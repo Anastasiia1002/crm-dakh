@@ -59,6 +59,7 @@ export const discountTypeLabel: Record<DiscountType, string> = {
 export const userRoleLabel: Record<UserRole, string> = {
   owner: 'Власник',
   admin: 'Адміністратор',
+  manager: 'Менеджер',
   receptionist: 'Ресепшен',
 }
 

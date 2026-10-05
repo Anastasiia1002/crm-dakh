@@ -59,11 +59,6 @@ export function LoginPage() {
           Увійти
         </Button>
       </form>
-      <div className="mt-8 border-t border-border pt-4 text-xs leading-5 text-muted-foreground">
-        <p>Демо-вхід</p>
-        <p>anastasiia@dakh.hotel</p>
-        <p>dakh</p>
-      </div>
     </AuthLayout>
   )
 }

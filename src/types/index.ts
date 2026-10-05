@@ -18,7 +18,7 @@ export type ServiceUnit = 'per_stay' | 'per_night' | 'per_person'
 
 export type DiscountType = 'percent' | 'fixed'
 
-export type UserRole = 'owner' | 'admin' | 'receptionist'
+export type UserRole = 'owner' | 'admin' | 'manager' | 'receptionist'
 
 export type Guest = {
   id: string
