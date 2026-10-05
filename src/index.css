@@ -1,0 +1,125 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f3eee6;
+  --foreground: #1e1b17;
+  --surface: #fbf8f3;
+  --surface-muted: #ebe4d8;
+  --border: #ddd4c6;
+  --primary: #2a2622;
+  --primary-foreground: #f7f3ec;
+  --secondary: #e7dfd2;
+  --secondary-foreground: #2a2622;
+  --accent: #6f5e49;
+  --accent-foreground: #f7f3ec;
+  --muted: #8c8378;
+  --muted-foreground: #6f675e;
+  --success: #4e5c46;
+  --warning: #8f6a3e;
+  --destructive: #8a4a3c;
+  --ring: #8c7355;
+  --sidebar: #1c1a17;
+  --sidebar-foreground: #e8e2d6;
+  --sidebar-muted: #a39a8e;
+  --sidebar-active: #2c2925;
+  --sidebar-border: #34302b;
+  --status-pending: #e8dcc8;
+  --status-pending-foreground: #5c4a32;
+  --status-confirmed: #ddd2be;
+  --status-confirmed-foreground: #3f3426;
+  --status-checked-in: #d5dece;
+  --status-checked-in-foreground: #31402c;
+  --status-checked-out: #e6e1d8;
+  --status-checked-out-foreground: #6a6258;
+  --status-cancelled: #f0e0da;
+  --status-cancelled-foreground: #7a4338;
+  --status-no-show: #e5e0d8;
+  --status-no-show-foreground: #6e665c;
+  --radius: 0.375rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-destructive: var(--destructive);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-sidebar-active: var(--sidebar-active);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-status-pending: var(--status-pending);
+  --color-status-pending-foreground: var(--status-pending-foreground);
+  --color-status-confirmed: var(--status-confirmed);
+  --color-status-confirmed-foreground: var(--status-confirmed-foreground);
+  --color-status-checked-in: var(--status-checked-in);
+  --color-status-checked-in-foreground: var(--status-checked-in-foreground);
+  --color-status-checked-out: var(--status-checked-out);
+  --color-status-checked-out-foreground: var(--status-checked-out-foreground);
+  --color-status-cancelled: var(--status-cancelled);
+  --color-status-cancelled-foreground: var(--status-cancelled-foreground);
+  --color-status-no-show: var(--status-no-show);
+  --color-status-no-show-foreground: var(--status-no-show-foreground);
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Cormorant Garamond", "Times New Roman", serif;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  font-family: var(--font-sans);
+  background: var(--background);
+  color: var(--foreground);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-feature-settings: "ss01" on, "cv11" on;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: #e4d5be;
+  color: #1e1b17;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: #d4cbbd transparent;
+}
+
+.scroll-thin::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.scroll-thin::-webkit-scrollbar-thumb {
+  background: #d4cbbd;
+  border-radius: 99px;
+}
