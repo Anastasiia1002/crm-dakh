@@ -21,7 +21,26 @@ import {
   updateRoomTypeImage,
 } from '@/api/accommodations'
 import { getCalendar } from '@/api/availability'
-import { deletePricePeriod, getPricePeriods, getRatePlans, savePricePeriod, saveRatePlan } from '@/api/rates'
+import {
+  createCancellationPolicy,
+  createRatePlan,
+  createRoomPrice,
+  deletePricePeriod,
+  deleteRoomPrice,
+  getCancellationPolicy,
+  getPricePeriods,
+  getRatePlan,
+  getRatePlans,
+  getRoomPrice,
+  listCancellationPolicies,
+  listRatePlans,
+  listRoomPrices,
+  savePricePeriod,
+  saveRatePlan,
+  updateCancellationPolicy,
+  updateRatePlan,
+  updateRoomPrice,
+} from '@/api/rates'
 import { getServices, saveService, setServiceActive } from '@/api/services'
 import { getPromoCodes, savePromoCode, setPromoActive } from '@/api/promoCodes'
 import {
@@ -46,9 +65,12 @@ import {
 import type {
   AccommodationKind,
   AdminUserListQuery,
+  CancellationPolicyListQuery,
   HotelBookingSettings,
   HotelSettings,
+  RatePlanListQuery,
   RoomListQuery,
+  RoomPriceListQuery,
   RoomTypeListQuery,
 } from '@/types'
 
@@ -242,10 +264,12 @@ export function useCalendar(from: string, days: number, kind: AccommodationKind 
   })
 }
 
+/** Mock rate plans for bookings until booking rates migrate. */
 export function useRatePlans() {
   return useQuery({ queryKey: ['rate-plans'], queryFn: getRatePlans })
 }
 
+/** Mock seasonal prices for bookings. */
 export function usePricePeriods() {
   return useQuery({ queryKey: ['prices'], queryFn: getPricePeriods })
 }
@@ -263,6 +287,110 @@ export function useSavePricePeriod() {
 export function useDeletePricePeriod() {
   const refresh = useRefresh()
   return useMutation({ mutationFn: deletePricePeriod, onSuccess: () => refresh(['prices']) })
+}
+
+export function useAdminRatePlans(query: RatePlanListQuery = {}) {
+  return useQuery({
+    queryKey: ['admin-rate-plans', query],
+    queryFn: () => listRatePlans(query),
+  })
+}
+
+export function useAdminRatePlan(id: string | undefined) {
+  return useQuery({
+    queryKey: ['admin-rate-plan', id],
+    queryFn: () => getRatePlan(id!),
+    enabled: Boolean(id),
+  })
+}
+
+export function useCreateAdminRatePlan() {
+  const refresh = useRefresh()
+  return useMutation({
+    mutationFn: createRatePlan,
+    onSuccess: () => refresh(['admin-rate-plans', 'admin-rate-plan']),
+  })
+}
+
+export function useUpdateAdminRatePlan() {
+  const refresh = useRefresh()
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: Parameters<typeof updateRatePlan>[1] }) =>
+      updateRatePlan(id, input),
+    onSuccess: () => refresh(['admin-rate-plans', 'admin-rate-plan']),
+  })
+}
+
+export function useAdminCancellationPolicies(query: CancellationPolicyListQuery = {}) {
+  return useQuery({
+    queryKey: ['admin-cancellation-policies', query],
+    queryFn: () => listCancellationPolicies(query),
+  })
+}
+
+export function useAdminCancellationPolicy(id: string | undefined) {
+  return useQuery({
+    queryKey: ['admin-cancellation-policy', id],
+    queryFn: () => getCancellationPolicy(id!),
+    enabled: Boolean(id),
+  })
+}
+
+export function useCreateAdminCancellationPolicy() {
+  const refresh = useRefresh()
+  return useMutation({
+    mutationFn: createCancellationPolicy,
+    onSuccess: () => refresh(['admin-cancellation-policies', 'admin-cancellation-policy', 'admin-rate-plans']),
+  })
+}
+
+export function useUpdateAdminCancellationPolicy() {
+  const refresh = useRefresh()
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: Parameters<typeof updateCancellationPolicy>[1] }) =>
+      updateCancellationPolicy(id, input),
+    onSuccess: () => refresh(['admin-cancellation-policies', 'admin-cancellation-policy', 'admin-rate-plans']),
+  })
+}
+
+export function useAdminRoomPrices(query: RoomPriceListQuery = {}) {
+  return useQuery({
+    queryKey: ['admin-room-prices', query],
+    queryFn: () => listRoomPrices(query),
+  })
+}
+
+export function useAdminRoomPrice(id: string | undefined) {
+  return useQuery({
+    queryKey: ['admin-room-price', id],
+    queryFn: () => getRoomPrice(id!),
+    enabled: Boolean(id),
+  })
+}
+
+export function useCreateAdminRoomPrice() {
+  const refresh = useRefresh()
+  return useMutation({
+    mutationFn: createRoomPrice,
+    onSuccess: () => refresh(['admin-room-prices', 'admin-room-price']),
+  })
+}
+
+export function useUpdateAdminRoomPrice() {
+  const refresh = useRefresh()
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: Parameters<typeof updateRoomPrice>[1] }) =>
+      updateRoomPrice(id, input),
+    onSuccess: () => refresh(['admin-room-prices', 'admin-room-price']),
+  })
+}
+
+export function useDeleteAdminRoomPrice() {
+  const refresh = useRefresh()
+  return useMutation({
+    mutationFn: deleteRoomPrice,
+    onSuccess: () => refresh(['admin-room-prices', 'admin-room-price']),
+  })
 }
 
 export function useServices() {
@@ -336,6 +464,7 @@ export function useUpdateSettings() {
   return useMutation({ mutationFn: updateSettings, onSuccess: () => refresh(['settings']) })
 }
 
+/** Mock booking policies (refund ladder). Admin Settings/Rates use admin-cancellation-policies. */
 export function usePolicies() {
   return useQuery({ queryKey: ['policies'], queryFn: getPolicies })
 }

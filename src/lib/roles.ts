@@ -50,6 +50,11 @@ export function canManageAccommodations(role: UserRole | undefined) {
   return role === 'owner' || role === 'admin'
 }
 
+/** Mirrors rates WRITE_ROLES: SUPER_ADMIN + ADMIN. Manager/receptionist may read. */
+export function canManageRates(role: UserRole | undefined) {
+  return role === 'owner' || role === 'admin'
+}
+
 function isBackendAdminRole(role: string): role is BackendAdminRole {
   return Object.prototype.hasOwnProperty.call(backendRoleToFrontend, role)
 }

@@ -4,7 +4,6 @@ import * as db from '@/mocks/db'
 import { getActorId } from '@/mocks/session'
 import type {
   BookingSettings,
-  CancellationPolicy,
   HotelBookingSettings,
   HotelBookingSettingsUpdate,
   HotelSettings,
@@ -53,12 +52,13 @@ export async function updateSettings(input: BookingSettings) {
   return clone(db.settings)
 }
 
+/** Mock booking policies. Admin Settings/Rates use `/api/admin/rates/cancellation-policies`. */
 export async function getPolicies() {
   await delay()
   return clone(db.policies)
 }
 
-export async function savePolicy(input: Omit<CancellationPolicy, 'id'> & { id?: string }) {
+export async function savePolicy(input: Omit<import('@/types').MockCancellationPolicy, 'id'> & { id?: string }) {
   await delay()
   if (!input.name.trim()) throw new ApiError('Вкажіть назву правила')
   if (input.rules.length === 0) throw new ApiError('Додайте хоча б одну умову')
@@ -76,7 +76,12 @@ export async function savePolicy(input: Omit<CancellationPolicy, 'id'> & { id?: 
     })
     return clone(current)
   }
-  const created: CancellationPolicy = { ...input, id: db.uid('pol'), name: input.name.trim(), rules }
+  const created: import('@/types').MockCancellationPolicy = {
+    ...input,
+    id: db.uid('pol'),
+    name: input.name.trim(),
+    rules,
+  }
   db.policies.push(created)
   db.addAudit({
     actorId: getActorId(),

@@ -5,6 +5,7 @@ import type {
   DiscountType,
   PaymentMethod,
   PaymentStatus,
+  RatePlanType,
   RoomBlockType,
   RoomStatus,
   RoomTypeKind,
@@ -51,6 +52,12 @@ export const accommodationKindLabel: Record<AccommodationKind, string> = {
 export const roomTypeKindLabel: Record<RoomTypeKind, string> = {
   ROOM: 'Номер',
   COTTAGE: 'Будиночок',
+}
+
+export const ratePlanTypeLabel: Record<RatePlanType, string> = {
+  STANDARD: 'Стандартний',
+  NON_REFUNDABLE: 'Без повернення',
+  SPECIAL: 'Спеціальний',
 }
 
 export const roomStatusLabel: Record<RoomStatus, string> = {

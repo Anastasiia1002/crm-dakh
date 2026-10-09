@@ -298,14 +298,22 @@ export type Booking = {
   updatedAt: string
 }
 
+export type RatePlanType = 'STANDARD' | 'NON_REFUNDABLE' | 'SPECIAL'
+
+/** Admin RatePlan (backend). Mock bookings use the same shape with seeded fields. */
 export type RatePlan = {
   id: string
   name: string
-  description: string
-  cancellationPolicyId: string
+  code: string
+  description: string | null
+  type: RatePlanType
+  cancellationPolicyId: string | null
   active: boolean
+  createdAt: string
+  updatedAt: string
 }
 
+/** Mock booking seasonal prices (`pricePerNight` number). Admin uses RoomPrice. */
 export type PricePeriod = {
   id: string
   ratePlanId: string
@@ -313,6 +321,114 @@ export type PricePeriod = {
   startDate: string
   endDate: string
   pricePerNight: number
+}
+
+/** Admin RoomPrice — `price` is a decimal string, never a JS number for money math. */
+export type RoomPrice = {
+  id: string
+  ratePlanId: string
+  roomTypeId: string
+  startDate: string
+  endDate: string
+  price: string
+  minStay: number
+  maxStay: number | null
+  active: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export type RatesPage<T> = {
+  items: T[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
+}
+
+export type RatePlanListQuery = {
+  page?: number
+  limit?: number
+  search?: string
+  type?: RatePlanType
+  active?: boolean
+}
+
+export type CancellationPolicyListQuery = {
+  page?: number
+  limit?: number
+  search?: string
+  active?: boolean
+}
+
+export type RoomPriceListQuery = {
+  page?: number
+  limit?: number
+  ratePlanId?: string
+  roomTypeId?: string
+  active?: boolean
+  startDate?: string
+  endDate?: string
+}
+
+export type RatePlanCreateInput = {
+  name: string
+  code: string
+  description?: string | null
+  type?: RatePlanType
+  cancellationPolicyId?: string | null
+  active?: boolean
+}
+
+export type RatePlanUpdateInput = {
+  name?: string
+  code?: string
+  description?: string | null
+  type?: RatePlanType
+  cancellationPolicyId?: string | null
+  active?: boolean
+}
+
+export type CancellationPolicyCreateInput = {
+  name: string
+  description?: string | null
+  hoursBefore: number
+  penaltyAmount?: string | null
+  penaltyPercent?: string | null
+  active?: boolean
+}
+
+export type CancellationPolicyUpdateInput = {
+  name?: string
+  description?: string | null
+  hoursBefore?: number
+  penaltyAmount?: string | null
+  penaltyPercent?: string | null
+  active?: boolean
+}
+
+export type RoomPriceCreateInput = {
+  ratePlanId: string
+  roomTypeId: string
+  startDate: string
+  endDate: string
+  price: string
+  minStay?: number
+  maxStay?: number | null
+  active?: boolean
+}
+
+export type RoomPriceUpdateInput = {
+  ratePlanId?: string
+  roomTypeId?: string
+  startDate?: string
+  endDate?: string
+  price?: string
+  minStay?: number
+  maxStay?: number | null
+  active?: boolean
 }
 
 export type Service = {
@@ -337,12 +453,30 @@ export type PromoCode = {
   active: boolean
 }
 
+/** @deprecated Mock-only ladder; bookings still seed this until booking rates migrate. */
 export type CancellationRule = {
   daysBefore: number
   refundPercent: number
 }
 
+/**
+ * Admin CancellationPolicy (backend).
+ * Mock bookings keep a parallel `MockCancellationPolicy` in mocks until booking phase migrates.
+ */
 export type CancellationPolicy = {
+  id: string
+  name: string
+  description: string | null
+  hoursBefore: number
+  penaltyAmount: string | null
+  penaltyPercent: string | null
+  active: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+/** Mock booking policy with refund ladder — not the admin API shape. */
+export type MockCancellationPolicy = {
   id: string
   name: string
   description: string

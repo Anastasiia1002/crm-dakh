@@ -6,7 +6,6 @@ import type {
   Block,
   Booking,
   BookingSettings,
-  CancellationPolicy,
   Guest,
   PricePeriod,
   PromoCode,
@@ -157,7 +156,8 @@ export const blocks: Block[] = [
   },
 ]
 
-export const policies: CancellationPolicy[] = [
+/** Mock booking policies (refund ladder). Admin Settings/Rates use the Nest API. */
+export const policies: import('@/types').MockCancellationPolicy[] = [
   {
     id: 'pol_flex',
     name: 'Гнучкі умови',
@@ -190,23 +190,35 @@ export const ratePlans: RatePlan[] = [
   {
     id: 'rp_flex',
     name: 'Гнучкий',
+    code: 'FLEX',
     description: 'Вільна зміна дат і повне повернення за тиждень.',
+    type: 'STANDARD',
     cancellationPolicyId: 'pol_flex',
     active: true,
+    createdAt: seedTs,
+    updatedAt: seedTs,
   },
   {
     id: 'rp_std',
     name: 'Стандартний',
+    code: 'STD',
     description: 'Основний тариф готелю з помірними умовами скасування.',
+    type: 'STANDARD',
     cancellationPolicyId: 'pol_moderate',
     active: true,
+    createdAt: seedTs,
+    updatedAt: seedTs,
   },
   {
     id: 'rp_nr',
     name: 'Без повернення',
+    code: 'NRFN',
     description: 'Нижча ціна без можливості повернення.',
+    type: 'NON_REFUNDABLE',
     cancellationPolicyId: 'pol_none',
     active: true,
+    createdAt: seedTs,
+    updatedAt: seedTs,
   },
 ]
 

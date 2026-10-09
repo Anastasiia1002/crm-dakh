@@ -3,25 +3,36 @@ import { useState } from 'react'
 import { Controller, useForm, type FieldValues, type Path, type UseFormReturn } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { LoadingState, SectionHeading } from '@/components/ui/states'
+import { Pagination } from '@/components/ui/pagination'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { EmptyState, LoadingState, SectionHeading } from '@/components/ui/states'
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/hooks/useAuth'
 import {
-  useDeletePolicy,
+  useAdminCancellationPolicies,
+  useCreateAdminCancellationPolicy,
   useHotelBookingSettings,
   useHotelSettings,
-  usePolicies,
-  useSavePolicy,
+  useUpdateAdminCancellationPolicy,
   useUpdateHotelBookingSettings,
   useUpdateHotelSettings,
 } from '@/hooks/useHotel'
 import { ApiError } from '@/lib/api-error'
 import { errorMessage } from '@/lib/errors'
+import {
+  formatMoneyAmount,
+  formatPercentAmount,
+  normalizeMoneyString,
+  normalizePercentString,
+  percentExceedsHundred,
+} from '@/lib/format'
+import { canManageRates } from '@/lib/roles'
 import type { CancellationPolicy, HotelBookingSettings, HotelBookingSettingsUpdate, HotelSettings, HotelSettingsUpdate } from '@/types'
 
 const timeField = z
@@ -87,13 +98,18 @@ const bookingSchema = z
 type HotelFormValues = z.infer<typeof hotelSchema>
 type BookingFormValues = z.infer<typeof bookingSchema>
 
+const POLICY_PAGE_SIZE = 20
+const MONEY_RE = /^(?:0|[1-9]\d{0,7})(?:\.\d{1,2})?$/
+const PERCENT_RE = /^(?:0|[1-9]\d{0,2})(?:\.\d{1,2})?$/
+
 export function SettingsPage() {
   const { user } = useAuth()
   const canEdit = user?.role === 'owner' || user?.role === 'admin'
+  const canEditPolicies = canManageRates(user?.role)
   const hotel = useHotelSettings()
   const booking = useHotelBookingSettings()
-  const policies = usePolicies()
-  const remove = useDeletePolicy()
+  const [policyPage, setPolicyPage] = useState(1)
+  const policies = useAdminCancellationPolicies({ page: policyPage, limit: POLICY_PAGE_SIZE })
   const [editing, setEditing] = useState<CancellationPolicy | 'new' | null>(null)
   const waiting = !hotel.data && !booking.data && (hotel.isLoading || booking.isLoading)
 
@@ -110,49 +126,63 @@ export function SettingsPage() {
         <SectionHeading
           title="Правила скасування"
           action={
-            canEdit && policies.data ? <Button onClick={() => setEditing('new')}>Додати правило</Button> : undefined
+            canEditPolicies ? (
+              <Button onClick={() => setEditing('new')}>Додати правило</Button>
+            ) : undefined
           }
         />
+        <p className="mb-4 max-w-xl text-sm text-muted-foreground">
+          Спільні правила для тарифів. Видалення не підтримується — вимикайте неактуальні правила.
+        </p>
         {policies.isLoading && !policies.data ? <LoadingState /> : null}
         {policies.isError ? <LoadError onRetry={() => void policies.refetch()} /> : null}
+        {!policies.isLoading && !policies.isError && (policies.data?.items.length ?? 0) === 0 ? (
+          <EmptyState>Правил скасування ще немає.</EmptyState>
+        ) : null}
         <div className="divide-y divide-border border-y border-border">
-          {policies.data?.map((policy) => (
+          {policies.data?.items.map((policy) => (
             <article key={policy.id} className="flex flex-wrap items-start justify-between gap-4 py-5">
               <div>
-                <h3 className="text-base">{policy.name}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">{policy.description}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-base">{policy.name}</h3>
+                  <Badge tone={policy.active ? 'success' : 'neutral'}>
+                    {policy.active ? 'Активне' : 'Вимкнене'}
+                  </Badge>
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">{policy.description ?? '—'}</p>
                 <ul className="mt-3 space-y-1 text-sm">
-                  {policy.rules.map((rule) => (
-                    <li key={`${policy.id}-${rule.daysBefore}`}>
-                      За {rule.daysBefore} дн. — повернення {rule.refundPercent}%
-                    </li>
-                  ))}
+                  <li>За {policy.hoursBefore} год. до заїзду</li>
+                  <li>
+                    Штраф:{' '}
+                    {policy.penaltyAmount || policy.penaltyPercent
+                      ? [
+                          policy.penaltyAmount ? formatMoneyAmount(policy.penaltyAmount) : null,
+                          policy.penaltyPercent ? formatPercentAmount(policy.penaltyPercent) : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')
+                      : 'немає'}
+                  </li>
                 </ul>
               </div>
-              {canEdit ? (
+              {canEditPolicies ? (
                 <div className="flex gap-2">
                   <Button size="sm" variant="ghost" onClick={() => setEditing(policy)}>
                     Редагувати
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={async () => {
-                      try {
-                        await remove.mutateAsync(policy.id)
-                        toast.success('Правило видалено')
-                      } catch (error) {
-                        toast.error(errorMessage(error))
-                      }
-                    }}
-                  >
-                    Видалити
-                  </Button>
                 </div>
-              ) : null}
+              ) : (
+                <span className="text-xs text-muted-foreground">Лише перегляд</span>
+              )}
             </article>
           ))}
         </div>
+        <Pagination
+          page={policyPage}
+          pageSize={POLICY_PAGE_SIZE}
+          total={policies.data?.pagination.total ?? 0}
+          onPageChange={setPolicyPage}
+        />
       </section>
 
       <section className="border-t border-border pt-8">
@@ -176,6 +206,7 @@ export function SettingsPage() {
       <PolicyDialog
         open={editing !== null}
         item={editing && editing !== 'new' ? editing : undefined}
+        canWrite={canEditPolicies}
         onOpenChange={(open) => !open && setEditing(null)}
       />
     </div>
@@ -471,36 +502,65 @@ function notifySettingsError(error: unknown, setField: (field: string, message: 
   toast.error(error.message)
 }
 
-const policySchema = z.object({
-  name: z.string().min(1, 'Вкажіть назву'),
-  description: z.string(),
-  daysBefore: z.number({ invalid_type_error: 'Вкажіть дні' }).int().min(0),
-  refundPercent: z.number({ invalid_type_error: 'Вкажіть відсоток' }).int().min(0).max(100),
-  daysBeforeLate: z.number({ invalid_type_error: 'Вкажіть дні' }).int().min(0),
-  refundPercentLate: z.number({ invalid_type_error: 'Вкажіть відсоток' }).int().min(0).max(100),
-})
+const policySchema = z
+  .object({
+    name: z.string().trim().min(1, 'Вкажіть назву').max(200, 'Назва задовга'),
+    description: z.string().max(4000, 'Опис задовгий'),
+    hoursBefore: z.number({ invalid_type_error: 'Вкажіть години' }).int().min(0, 'Має бути не менше 0'),
+    penaltyAmount: z.string(),
+    penaltyPercent: z.string(),
+    active: z.enum(['yes', 'no']),
+  })
+  .superRefine((values, ctx) => {
+    const amount = values.penaltyAmount.trim()
+    if (amount && !MONEY_RE.test(amount)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['penaltyAmount'],
+        message: 'Невідʼємне число з не більше ніж двома знаками після коми',
+      })
+    }
+    const percent = values.penaltyPercent.trim()
+    if (percent) {
+      if (!PERCENT_RE.test(percent)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['penaltyPercent'],
+          message: 'Відсоток від 0 до 100 з не більше ніж двома знаками після коми',
+        })
+      } else if (percentExceedsHundred(percent)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['penaltyPercent'],
+          message: 'Відсоток має бути від 0 до 100',
+        })
+      }
+    }
+  })
 
 function PolicyDialog({
   open,
   item,
+  canWrite,
   onOpenChange,
 }: {
   open: boolean
   item?: CancellationPolicy
+  canWrite: boolean
   onOpenChange: (open: boolean) => void
 }) {
-  const save = useSavePolicy()
-  const primary = item?.rules[0]
-  const secondary = item?.rules[1] ?? item?.rules[0]
+  const create = useCreateAdminCancellationPolicy()
+  const update = useUpdateAdminCancellationPolicy()
+  const pending = create.isPending || update.isPending
   const form = useForm<z.infer<typeof policySchema>>({
     resolver: zodResolver(policySchema),
     values: {
       name: item?.name ?? '',
       description: item?.description ?? '',
-      daysBefore: primary?.daysBefore ?? 7,
-      refundPercent: primary?.refundPercent ?? 100,
-      daysBeforeLate: secondary?.daysBefore ?? 0,
-      refundPercentLate: secondary?.refundPercent ?? 0,
+      hoursBefore: item?.hoursBefore ?? 24,
+      penaltyAmount: item?.penaltyAmount ?? '',
+      penaltyPercent: item?.penaltyPercent ?? '',
+      active: item?.active === false ? 'no' : 'yes',
     },
   })
 
@@ -513,48 +573,104 @@ function PolicyDialog({
         <form
           className="space-y-4"
           onSubmit={form.handleSubmit(async (values) => {
+            if (!canWrite) {
+              toast.error('Недостатньо прав для цієї дії')
+              return
+            }
             try {
-              await save.mutateAsync({
-                id: item?.id,
+              const amountTrimmed = values.penaltyAmount.trim()
+              const percentTrimmed = values.penaltyPercent.trim()
+              const penaltyAmount = amountTrimmed ? normalizeMoneyString(amountTrimmed) : null
+              const penaltyPercent = percentTrimmed ? normalizePercentString(percentTrimmed) : null
+              if (amountTrimmed && penaltyAmount === null) {
+                form.setError('penaltyAmount', {
+                  message: 'Невідʼємне число з не більше ніж двома знаками після коми',
+                })
+                return
+              }
+              if (percentTrimmed && penaltyPercent === null) {
+                form.setError('penaltyPercent', { message: 'Відсоток має бути від 0 до 100' })
+                return
+              }
+              const input = {
                 name: values.name,
-                description: values.description,
-                rules: [
-                  { daysBefore: values.daysBefore, refundPercent: values.refundPercent },
-                  { daysBefore: values.daysBeforeLate, refundPercent: values.refundPercentLate },
-                ],
-              })
+                description: values.description.trim() ? values.description.trim() : null,
+                hoursBefore: values.hoursBefore,
+                penaltyAmount,
+                penaltyPercent,
+                active: values.active === 'yes',
+              }
+              if (item) {
+                await update.mutateAsync({ id: item.id, input })
+              } else {
+                await create.mutateAsync(input)
+              }
               toast.success('Збережено')
               onOpenChange(false)
             } catch (error) {
+              if (error instanceof ApiError && error.status === 403) {
+                toast.error('Недостатньо прав для цієї дії')
+                return
+              }
+              if (error instanceof ApiError && error.details?.length) {
+                toast.error(error.details.join('. '))
+                return
+              }
               toast.error(errorMessage(error))
             }
           })}
         >
           <Field label="Назва" error={form.formState.errors.name?.message}>
-            <Input {...form.register('name')} />
+            <Input disabled={!canWrite} {...form.register('name')} />
           </Field>
-          <Field label="Опис">
-            <Textarea {...form.register('description')} />
+          <Field label="Опис" error={form.formState.errors.description?.message}>
+            <Textarea disabled={!canWrite} {...form.register('description')} />
+          </Field>
+          <Field label="Годин до заїзду" error={form.formState.errors.hoursBefore?.message}>
+            <Input
+              type="number"
+              disabled={!canWrite}
+              {...form.register('hoursBefore', { valueAsNumber: true })}
+            />
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Днів до заїзду" error={form.formState.errors.daysBefore?.message}>
-              <Input type="number" {...form.register('daysBefore', { valueAsNumber: true })} />
+            <Field label="Штраф, ₴" error={form.formState.errors.penaltyAmount?.message}>
+              <Input
+                inputMode="decimal"
+                placeholder="0.00"
+                disabled={!canWrite}
+                {...form.register('penaltyAmount')}
+              />
             </Field>
-            <Field label="Повернення, %" error={form.formState.errors.refundPercent?.message}>
-              <Input type="number" {...form.register('refundPercent', { valueAsNumber: true })} />
-            </Field>
-            <Field label="Пізніше, днів" error={form.formState.errors.daysBeforeLate?.message}>
-              <Input type="number" {...form.register('daysBeforeLate', { valueAsNumber: true })} />
-            </Field>
-            <Field label="Повернення, %" error={form.formState.errors.refundPercentLate?.message}>
-              <Input type="number" {...form.register('refundPercentLate', { valueAsNumber: true })} />
+            <Field label="Штраф, %" error={form.formState.errors.penaltyPercent?.message}>
+              <Input
+                inputMode="decimal"
+                placeholder="0.00"
+                disabled={!canWrite}
+                {...form.register('penaltyPercent')}
+              />
             </Field>
           </div>
+          <Field label="Стан">
+            <Select
+              value={form.watch('active')}
+              onValueChange={(value: 'yes' | 'no') => form.setValue('active', value)}
+              disabled={!canWrite}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="yes">Активне</SelectItem>
+                <SelectItem value="no">Вимкнене</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Скасувати
             </Button>
-            <Button type="submit" disabled={save.isPending}>
+            <Button type="submit" disabled={!canWrite || pending}>
               Зберегти
             </Button>
           </DialogFooter>
