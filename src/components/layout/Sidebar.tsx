@@ -1,5 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { Logo } from '@/components/brand/Logo'
+import { useAuth } from '@/hooks/useAuth'
+import { canAccessUsersManagement } from '@/lib/roles'
 import { primaryNav, secondaryNav, type NavItem } from '@/router/nav'
 import { cn } from '@/lib/utils'
 
@@ -33,6 +35,11 @@ function NavGroup({ items, onNavigate }: { items: NavItem[]; onNavigate?: () => 
 }
 
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
+  const { user } = useAuth()
+  const secondaryItems = canAccessUsersManagement(user?.role)
+    ? secondaryNav
+    : secondaryNav.filter((item) => item.to !== '/admin/users')
+
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
       <div className="px-6 pt-7 pb-6">
@@ -43,7 +50,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         <NavGroup items={primaryNav} onNavigate={onNavigate} />
       </div>
       <div className="border-t border-sidebar-border py-4">
-        <NavGroup items={secondaryNav} onNavigate={onNavigate} />
+        <NavGroup items={secondaryItems} onNavigate={onNavigate} />
       </div>
     </div>
   )

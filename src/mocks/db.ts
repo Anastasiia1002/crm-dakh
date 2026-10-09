@@ -744,6 +744,9 @@ export const users: AdminUser[] = [
     email: 'anastasiia@dakh.hotel',
     role: 'admin',
     active: true,
+    lastLoginAt: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   },
   {
     id: 'usr_oleh',
@@ -752,6 +755,9 @@ export const users: AdminUser[] = [
     email: 'oleh@dakh.hotel',
     role: 'receptionist',
     active: true,
+    lastLoginAt: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   },
   {
     id: 'usr_maria',
@@ -760,6 +766,9 @@ export const users: AdminUser[] = [
     email: 'maria@dakh.hotel',
     role: 'owner',
     active: true,
+    lastLoginAt: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   },
 ]
 

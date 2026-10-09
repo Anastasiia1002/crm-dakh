@@ -232,6 +232,47 @@ export type AdminUser = {
   email: string
   role: UserRole
   active: boolean
+  lastLoginAt?: string | null
+  createdAt?: string
+  updatedAt?: string
+}
+
+export type AdminUserDetails = AdminUser & {
+  activeSessionCount: number
+}
+
+export type AdminUserListQuery = {
+  page?: number
+  limit?: number
+  search?: string
+  role?: UserRole
+  active?: boolean
+}
+
+export type AdminUserPage = {
+  items: AdminUser[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
+}
+
+export type AdminUserCreateInput = {
+  email: string
+  firstName: string
+  lastName: string
+  role: UserRole
+  password: string
+}
+
+export type AdminUserUpdateInput = {
+  email?: string
+  firstName?: string
+  lastName?: string
+  role?: UserRole
+  active?: boolean
 }
 
 export type AuditEntry = {

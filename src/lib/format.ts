@@ -13,8 +13,10 @@ export function formatWeekday(iso: string) {
   return format(parseISO(iso), 'EEEEEE', { locale: uk })
 }
 
-export function formatDateTime(iso: string) {
-  return format(parseISO(iso), 'd MMM yyyy, HH:mm', { locale: uk })
+export function formatDateTime(value: string) {
+  const date = /^\d{4}-\d{2}-\d{2}/.test(value) ? parseISO(value) : new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return format(date, 'd MMM yyyy, HH:mm', { locale: uk })
 }
 
 export function formatMoney(amount: number) {

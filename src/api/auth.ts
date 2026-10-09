@@ -110,6 +110,7 @@ function toAdminUser(admin: BackendAdmin): AdminUser {
     lastName: admin.lastName,
     role: mapBackendRole(admin.role),
     active: admin.active,
+    lastLoginAt: null,
   }
 }
 

@@ -24,8 +24,20 @@ import {
   updateHotelSettings,
   updateSettings,
 } from '@/api/settings'
-import { getAudit, getUsers, saveUser } from '@/api/users'
-import type { AccommodationKind, HotelBookingSettings, HotelSettings } from '@/types'
+import {
+  changeAdminPassword,
+  createAdminUser,
+  getAudit,
+  listAdminUsers,
+  revokeAdminSessions,
+  updateAdminUser,
+} from '@/api/users'
+import type {
+  AccommodationKind,
+  AdminUserListQuery,
+  HotelBookingSettings,
+  HotelSettings,
+} from '@/types'
 
 function useRefresh() {
   const queryClient = useQueryClient()
@@ -206,23 +218,56 @@ export function useDeletePolicy() {
   return useMutation({ mutationFn: deletePolicy, onSuccess: () => refresh(['policies']) })
 }
 
-export function useUsers() {
-  return useQuery({ queryKey: ['users'], queryFn: getUsers })
+export function useUsers(query: AdminUserListQuery = {}) {
+  return useQuery({
+    queryKey: ['users', query],
+    queryFn: () => listAdminUsers(query),
+  })
 }
 
 export function useAudit() {
   return useQuery({ queryKey: ['audit'], queryFn: getAudit })
 }
 
-export function useSaveUser() {
+export function useCreateAdminUser() {
+  const refresh = useRefresh()
+  return useMutation({
+    mutationFn: createAdminUser,
+    onSuccess: () => refresh(['users']),
+  })
+}
+
+export function useUpdateAdminUser() {
   const queryClient = useQueryClient()
   const refresh = useRefresh()
   return useMutation({
-    mutationFn: saveUser,
+    mutationFn: ({ id, input }: { id: string; input: Parameters<typeof updateAdminUser>[1] }) =>
+      updateAdminUser(id, input),
     onSuccess: (user) => {
       refresh(['users'])
       const session = queryClient.getQueryData<{ id: string } | null>(['session'])
-      if (session?.id === user.id) queryClient.setQueryData(['session'], user)
+      if (session?.id === user.id) {
+        queryClient.setQueryData(['session'], {
+          ...session,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          role: user.role,
+          active: user.active,
+        })
+      }
     },
+  })
+}
+
+export function useChangeAdminPassword() {
+  return useMutation({
+    mutationFn: ({ id, password }: { id: string; password: string }) => changeAdminPassword(id, password),
+  })
+}
+
+export function useRevokeAdminSessions() {
+  return useMutation({
+    mutationFn: (id: string) => revokeAdminSessions(id),
   })
 }
