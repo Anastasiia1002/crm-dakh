@@ -1,11 +1,12 @@
-import { addDays, format, parseISO } from 'date-fns'
+import { format } from 'date-fns'
 
 export function todayIso() {
   return format(new Date(), 'yyyy-MM-dd')
 }
 
+/** @deprecated Prefer addCalendarDays for YYYY-MM-DD stay dates (timezone-safe). */
 export function addDaysIso(iso: string, days: number) {
-  return format(addDays(parseISO(iso), days), 'yyyy-MM-dd')
+  return addCalendarDays(iso, days)
 }
 
 /** Shift a YYYY-MM-DD calendar date in UTC so local timezone cannot change the day. */
@@ -30,13 +31,30 @@ export function roomDisplayName(room: { name: string | null; number: string }) {
 }
 
 export function eachDate(from: string, days: number) {
-  return Array.from({ length: days }, (_, index) => addDaysIso(from, index))
+  return Array.from({ length: days }, (_, index) => addCalendarDays(from, index))
 }
 
+/** Inclusive night count for half-open [checkIn, checkOut). */
 export function nightsBetween(checkIn: string, checkOut: string) {
-  const start = parseISO(checkIn).getTime()
-  const end = parseISO(checkOut).getTime()
-  return Math.round((end - start) / 86_400_000)
+  let count = 0
+  let cursor = checkIn
+  while (cursor < checkOut) {
+    count += 1
+    cursor = addCalendarDays(cursor, 1)
+    if (count > 10_000) break
+  }
+  return count
+}
+
+/** Weekday 0=Sun … 6=Sat for a YYYY-MM-DD calendar date (no TZ shift). */
+export function calendarWeekday(iso: string) {
+  const [year, month, day] = iso.split('-').map(Number)
+  return new Date(year, month - 1, day).getDay()
+}
+
+/** Day-of-month number for a YYYY-MM-DD calendar date. */
+export function calendarDayOfMonth(iso: string) {
+  return Number(iso.slice(8, 10))
 }
 
 export function stayOverlaps(aStart: string, aEnd: string, bStart: string, bEnd: string) {

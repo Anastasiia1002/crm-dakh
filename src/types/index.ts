@@ -667,3 +667,153 @@ export type NotificationItem = {
   title: string
   description: string
 }
+
+/** Backend availability calendar night state. */
+export type CalendarNightState =
+  | 'AVAILABLE'
+  | 'BOOKED'
+  | 'BLOCKED'
+  | 'CHECKED_IN'
+  | 'MAINTENANCE'
+  | 'OUT_OF_ORDER'
+  | 'INACTIVE'
+
+export type AdminCalendarNight = {
+  date: string
+  state: CalendarNightState
+  bookingId: string | null
+  blockId: string | null
+}
+
+export type AdminCalendarRoom = {
+  roomId: string
+  number: string
+  status: RoomStatus
+  active: boolean
+  nights: AdminCalendarNight[]
+}
+
+export type AdminCalendarRoomType = {
+  roomTypeId: string
+  name: string
+  rooms: AdminCalendarRoom[]
+}
+
+export type AdminCalendarView = {
+  from: string
+  to: string
+  roomTypes: AdminCalendarRoomType[]
+}
+
+export type AdminCalendarQuery = {
+  from: string
+  to: string
+  roomTypeId?: string
+}
+
+/** Backend admin booking list source enum. */
+export type AdminBookingSource = 'WEBSITE' | 'ADMIN' | 'PHONE' | 'EMAIL' | 'OTHER'
+
+export type AdminBookingGuest = {
+  id: string
+  firstName: string
+  lastName: string
+  email: string | null
+  phone: string | null
+  country: string | null
+  city: string | null
+}
+
+export type AdminBookingRoom = {
+  roomId: string
+  number: string
+  roomTypeId: string
+  roomTypeName: string
+  ratePlanId: string
+}
+
+export type AdminBookingListItem = {
+  id: string
+  status: BookingStatus
+  source: AdminBookingSource
+  checkIn: string
+  checkOut: string
+  adults: number
+  children: number
+  guestCount: number
+  promoCodeId: string | null
+  createdAt: string
+  guest: AdminBookingGuest
+  rooms: AdminBookingRoom[]
+  totalAmount: string
+  currency: string
+}
+
+export type AdminBookingListQuery = {
+  page?: number
+  limit?: number
+  status?: BookingStatus
+  source?: AdminBookingSource
+  id?: string
+  roomId?: string
+  roomTypeId?: string
+  /** Window start for overlap filter (with checkOut). */
+  checkIn?: string
+  /** Window end for overlap filter (with checkIn). */
+  checkOut?: string
+  createdFrom?: string
+  createdTo?: string
+  search?: string
+}
+
+export type AdminBookingPage = AccommodationPage<AdminBookingListItem>
+
+export type ChessboardBookingBar = {
+  bookingId: string
+  roomId: string
+  startDate: string
+  endDate: string
+  status: BookingStatus | 'UNKNOWN'
+  label: string
+  metadataMissing: boolean
+}
+
+export type ChessboardAdminBar = {
+  key: string
+  roomId: string
+  startDate: string
+  endDate: string
+  kind: 'BLOCKED' | 'MAINTENANCE' | 'OUT_OF_ORDER' | 'INACTIVE'
+  blockId: string | null
+  label: string
+}
+
+export type ChessboardRoomRow = {
+  roomId: string
+  number: string
+  roomTypeId: string
+  roomTypeName: string
+  kind: RoomTypeKind | 'UNKNOWN'
+  status: RoomStatus
+  active: boolean
+  nights: AdminCalendarNight[]
+}
+
+export type ChessboardGroup = {
+  roomTypeId: string
+  name: string
+  kind: RoomTypeKind | 'UNKNOWN'
+  rooms: ChessboardRoomRow[]
+}
+
+export type ChessboardModel = {
+  from: string
+  to: string
+  dates: string[]
+  groups: ChessboardGroup[]
+  bookingBars: ChessboardBookingBar[]
+  adminBars: ChessboardAdminBar[]
+  missingBookingIds: string[]
+  /** RoomType ids present on the calendar but missing kind metadata. */
+  unresolvedRoomTypeIds: string[]
+}

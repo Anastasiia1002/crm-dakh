@@ -1,4 +1,5 @@
 import { apiRequest } from '@/lib/api-client'
+import { ApiError } from '@/lib/api-error'
 import { delay } from '@/mocks/delay'
 import * as db from '@/mocks/db'
 import type {
@@ -49,18 +50,54 @@ export async function getBlocks() {
   return clone(db.blocks)
 }
 
-export async function listRoomTypes(query: RoomTypeListQuery = {}): Promise<AccommodationPage<RoomType>> {
-  return apiRequest(`/api/admin/accommodations/types${querySuffix({
-    page: query.page,
-    limit: query.limit,
-    search: query.search?.trim() || undefined,
-    active: query.active,
-    kind: query.kind,
-  })}`)
+export async function listRoomTypes(
+  query: RoomTypeListQuery = {},
+  signal?: AbortSignal,
+): Promise<AccommodationPage<RoomType>> {
+  return apiRequest(
+    `/api/admin/accommodations/types${querySuffix({
+      page: query.page,
+      limit: query.limit,
+      search: query.search?.trim() || undefined,
+      active: query.active,
+      kind: query.kind,
+    })}`,
+    { signal },
+  )
 }
 
-export async function getRoomType(id: string): Promise<RoomType> {
-  return apiRequest(`/api/admin/accommodations/types/${id}`)
+/** Paginate through every RoomType page (limit 100). Throws if the result set is truncated by a safety stop. */
+export async function listAllRoomTypes(
+  query: Omit<RoomTypeListQuery, 'page' | 'limit'> = {},
+  signal?: AbortSignal,
+): Promise<RoomType[]> {
+  const limit = 100
+  const byId = new Map<string, RoomType>()
+  let page = 1
+  let totalPages = 1
+
+  while (page <= totalPages) {
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
+    const result = await listRoomTypes({ ...query, page, limit }, signal)
+    for (const item of result.items) byId.set(item.id, item)
+    totalPages = result.pagination.totalPages
+    if (totalPages === 0 || result.items.length === 0) break
+    if (page >= totalPages) break
+    page += 1
+    if (page > 200) {
+      throw new ApiError(
+        'Занадто багато категорій для завантаження фільтра. Уточніть фільтр типу розміщення.',
+        0,
+        'ROOM_TYPES_WINDOW_TOO_LARGE',
+      )
+    }
+  }
+
+  return [...byId.values()]
+}
+
+export async function getRoomType(id: string, signal?: AbortSignal): Promise<RoomType> {
+  return apiRequest(`/api/admin/accommodations/types/${id}`, { signal })
 }
 
 export async function createRoomType(input: RoomTypeCreateInput): Promise<RoomType> {

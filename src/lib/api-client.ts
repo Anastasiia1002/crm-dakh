@@ -8,6 +8,7 @@ type ApiRequestOptions = {
   body?: unknown
   auth?: boolean
   retry?: boolean
+  signal?: AbortSignal
 }
 
 type TokenResponse = {
@@ -56,8 +57,12 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
       method,
       headers,
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      signal: options.signal,
     })
-  } catch {
+  } catch (error) {
+    if (options.signal?.aborted || (error instanceof DOMException && error.name === 'AbortError')) {
+      throw error
+    }
     if (import.meta.env.DEV) console.error('API network error', path)
     throw new ApiError('Сервер тимчасово недоступний. Спробуйте пізніше.', 0, 'NETWORK')
   }

@@ -1,13 +1,38 @@
+import { apiRequest } from '@/lib/api-client'
 import { addCalendarDays, eachDate } from '@/lib/dates'
 import { delay } from '@/mocks/delay'
 import * as db from '@/mocks/db'
 import { isBlockedOn, isOccupiedOn } from '@/mocks/inventory'
-import type { AccommodationKind } from '@/types'
+import type { AccommodationKind, AdminCalendarQuery, AdminCalendarView } from '@/types'
 
-function addOneDay(iso: string) {
-  return addCalendarDays(iso, 1)
+function querySuffix(params: Record<string, string | number | boolean | undefined>) {
+  const search = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined) continue
+    search.set(key, String(value))
+  }
+  const suffix = search.toString()
+  return suffix ? `?${suffix}` : ''
 }
 
+/** Admin availability calendar (backend). Window is half-open [from, to). */
+export async function getAdminCalendar(
+  query: AdminCalendarQuery,
+  signal?: AbortSignal,
+): Promise<AdminCalendarView> {
+  return apiRequest(
+    `/api/admin/availability/calendar${querySuffix({
+      from: query.from,
+      to: query.to,
+      roomTypeId: query.roomTypeId,
+    })}`,
+    { signal },
+  )
+}
+
+/* ─── Mock calendar for non-migrated modules ─── */
+
+/** Mock chessboard feed — bookings/dashboard still use mock inventory. */
 export async function getCalendar(from: string, days: number, kind: AccommodationKind | 'all' = 'all') {
   await delay()
   const dates = eachDate(from, days)
@@ -23,7 +48,7 @@ export async function getCalendar(from: string, days: number, kind: Accommodatio
       booking.checkOut > from,
   )
   const blocks = db.blocks.filter(
-    (block) => ids.has(block.roomId) && block.startDate < addOneDay(last) && block.endDate > from,
+    (block) => ids.has(block.roomId) && block.startDate < addCalendarDays(last, 1) && block.endDate > from,
   )
   return {
     dates,
