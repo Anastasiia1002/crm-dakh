@@ -126,14 +126,16 @@ async function readSuccess<T>(response: Response): Promise<T> {
 
 async function readError(response: Response): Promise<ApiError> {
   let code: string | undefined
+  let details: string[] | undefined
   let message = 'Не вдалося виконати запит'
   try {
     const body: unknown = await response.json()
     if (body && typeof body === 'object') {
-      const record = body as { error?: unknown; message?: unknown }
+      const record = body as { error?: unknown; message?: unknown; details?: unknown }
       if (typeof record.error === 'string') code = record.error
       const safe = safeMessage(record.message)
       if (safe) message = safe
+      details = safeDetails(record.details)
     }
   } catch {
     // Non-JSON error bodies stay on the generic message.
@@ -143,7 +145,7 @@ async function readError(response: Response): Promise<ApiError> {
   if (response.status >= 500) {
     return new ApiError('Сервер тимчасово недоступний. Спробуйте пізніше.', response.status, code)
   }
-  return new ApiError(message, response.status, code)
+  return new ApiError(message, response.status, code, details)
 }
 
 function safeMessage(value: unknown) {
@@ -152,4 +154,13 @@ function safeMessage(value: unknown) {
   if (!message || message.length > 240) return null
   if (/prisma|passwordhash|tokenhash|stack trace|at \/|exception/i.test(message)) return null
   return message
+}
+
+function safeDetails(value: unknown) {
+  if (!Array.isArray(value)) return undefined
+  const details = value.flatMap((item) => {
+    const message = safeMessage(item)
+    return message ? [message] : []
+  })
+  return details.length > 0 ? details : undefined
 }

@@ -13,9 +13,19 @@ import { getCalendar } from '@/api/availability'
 import { deletePricePeriod, getPricePeriods, getRatePlans, savePricePeriod, saveRatePlan } from '@/api/rates'
 import { getServices, saveService, setServiceActive } from '@/api/services'
 import { getPromoCodes, savePromoCode, setPromoActive } from '@/api/promoCodes'
-import { deletePolicy, getPolicies, getSettings, savePolicy, updateSettings } from '@/api/settings'
+import {
+  deletePolicy,
+  getHotelBookingSettings,
+  getHotelSettings,
+  getPolicies,
+  getSettings,
+  savePolicy,
+  updateHotelBookingSettings,
+  updateHotelSettings,
+  updateSettings,
+} from '@/api/settings'
 import { getAudit, getUsers, saveUser } from '@/api/users'
-import type { AccommodationKind } from '@/types'
+import type { AccommodationKind, HotelBookingSettings, HotelSettings } from '@/types'
 
 function useRefresh() {
   const queryClient = useQueryClient()
@@ -142,6 +152,34 @@ export function useTogglePromo() {
   return useMutation({
     mutationFn: ({ id, active }: { id: string; active: boolean }) => setPromoActive(id, active),
     onSuccess: () => refresh(['promo-codes']),
+  })
+}
+
+export function useHotelSettings() {
+  return useQuery({ queryKey: ['hotel-settings'], queryFn: getHotelSettings })
+}
+
+export function useUpdateHotelSettings() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: updateHotelSettings,
+    onSuccess: (hotel: HotelSettings) => {
+      queryClient.setQueryData(['hotel-settings'], hotel)
+    },
+  })
+}
+
+export function useHotelBookingSettings() {
+  return useQuery({ queryKey: ['hotel-booking-settings'], queryFn: getHotelBookingSettings })
+}
+
+export function useUpdateHotelBookingSettings() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: updateHotelBookingSettings,
+    onSuccess: (settings: HotelBookingSettings) => {
+      queryClient.setQueryData(['hotel-booking-settings'], settings)
+    },
   })
 }
 

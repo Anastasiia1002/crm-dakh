@@ -1,7 +1,31 @@
+import { apiRequest } from '@/lib/api-client'
 import { ApiError, delay } from '@/mocks/delay'
 import * as db from '@/mocks/db'
 import { getActorId } from '@/mocks/session'
-import type { BookingSettings, CancellationPolicy } from '@/types'
+import type {
+  BookingSettings,
+  CancellationPolicy,
+  HotelBookingSettings,
+  HotelBookingSettingsUpdate,
+  HotelSettings,
+  HotelSettingsUpdate,
+} from '@/types'
+
+export function getHotelSettings() {
+  return apiRequest<HotelSettings>('/api/admin/hotel')
+}
+
+export function updateHotelSettings(patch: HotelSettingsUpdate) {
+  return apiRequest<HotelSettings>('/api/admin/hotel', { method: 'PATCH', body: patch })
+}
+
+export function getHotelBookingSettings() {
+  return apiRequest<HotelBookingSettings>('/api/admin/hotel/booking-settings')
+}
+
+export function updateHotelBookingSettings(patch: HotelBookingSettingsUpdate) {
+  return apiRequest<HotelBookingSettings>('/api/admin/hotel/booking-settings', { method: 'PATCH', body: patch })
+}
 
 function clone<T>(value: T): T {
   return structuredClone(value)

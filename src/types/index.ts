@@ -252,6 +252,61 @@ export type BookingSettings = {
   currency: 'UAH'
 }
 
+export type HotelSettings = {
+  id: string
+  name: string
+  slug: string
+  description: string | null
+  email: string | null
+  phone: string | null
+  address: string | null
+  city: string | null
+  country: string | null
+  currency: string
+  timezone: string
+  checkInTime: string | null
+  checkOutTime: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type HotelSettingsUpdate = {
+  name?: string
+  slug?: string
+  description?: string | null
+  email?: string | null
+  phone?: string | null
+  address?: string | null
+  city?: string | null
+  country?: string | null
+  currency?: string
+  timezone?: string
+  checkInTime?: string | null
+  checkOutTime?: string | null
+}
+
+export type HotelBookingSettings = {
+  minAdvanceHours: number
+  maxAdvanceDays: number | null
+  defaultMinStay: number
+  defaultMaxStay: number | null
+  allowSameDayBooking: boolean
+  allowCancellation: boolean
+  cancellationHours: number | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type HotelBookingSettingsUpdate = {
+  minAdvanceHours?: number
+  maxAdvanceDays?: number | null
+  defaultMinStay?: number
+  defaultMaxStay?: number | null
+  allowSameDayBooking?: boolean
+  allowCancellation?: boolean
+  cancellationHours?: number | null
+}
+
 export type BookingFilters = {
   search?: string
   status?: BookingStatus | 'all'
