@@ -7,6 +7,7 @@ import type {
   PaymentStatus,
   RoomBlockType,
   RoomStatus,
+  RoomTypeKind,
   ServiceUnit,
   UserRole,
 } from '@/types'
@@ -45,6 +46,11 @@ export const paymentMethodLabel: Record<PaymentMethod, string> = {
 export const accommodationKindLabel: Record<AccommodationKind, string> = {
   room: 'Номер',
   house: 'Будиночок',
+}
+
+export const roomTypeKindLabel: Record<RoomTypeKind, string> = {
+  ROOM: 'Номер',
+  COTTAGE: 'Будиночок',
 }
 
 export const roomStatusLabel: Record<RoomStatus, string> = {

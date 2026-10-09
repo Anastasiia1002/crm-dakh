@@ -55,6 +55,7 @@ export async function listRoomTypes(query: RoomTypeListQuery = {}): Promise<Acco
     limit: query.limit,
     search: query.search?.trim() || undefined,
     active: query.active,
+    kind: query.kind,
   })}`)
 }
 
@@ -69,6 +70,7 @@ export async function createRoomType(input: RoomTypeCreateInput): Promise<RoomTy
       name: input.name.trim(),
       slug: input.slug.trim().toLowerCase(),
       description: input.description?.trim() ? input.description.trim() : null,
+      kind: input.kind,
       maxGuests: input.maxGuests,
       active: input.active,
     },
@@ -82,6 +84,7 @@ export async function updateRoomType(id: string, input: RoomTypeUpdateInput): Pr
   if (input.description !== undefined) {
     body.description = input.description?.trim() ? input.description.trim() : null
   }
+  if (input.kind !== undefined) body.kind = input.kind
   if (input.maxGuests !== undefined) body.maxGuests = input.maxGuests
   if (input.active !== undefined) body.active = input.active
   return apiRequest(`/api/admin/accommodations/types/${id}`, {
@@ -98,6 +101,7 @@ export async function listRooms(query: RoomListQuery = {}): Promise<Accommodatio
     active: query.active,
     roomTypeId: query.roomTypeId,
     status: query.status,
+    kind: query.kind,
   })}`)
 }
 

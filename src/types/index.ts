@@ -12,7 +12,11 @@ export type PaymentStatus = 'unpaid' | 'deposit' | 'paid' | 'refunded'
 
 export type PaymentMethod = 'cash' | 'terminal' | 'invoice' | 'online'
 
+/** Mock calendar filter only (`room` / `house`). Not the admin RoomType.kind API. */
 export type AccommodationKind = 'room' | 'house'
+
+/** Backend RoomType.kind — physical units inherit this via their category. */
+export type RoomTypeKind = 'ROOM' | 'COTTAGE'
 
 export type RoomStatus = 'AVAILABLE' | 'MAINTENANCE' | 'OUT_OF_ORDER' | 'INACTIVE'
 
@@ -128,21 +132,18 @@ export type RoomType = {
   name: string
   slug: string
   description: string | null
+  kind: RoomTypeKind
   maxGuests: number
   active: boolean
   createdAt: string
   updatedAt: string
   /** Mock-only until rates API; ignored by accommodation admin API. */
   basePrice?: number
-  /** Mock-only calendar filter; backend has no room/cottage kind. */
-  kind?: AccommodationKind
 }
 
 /**
  * Physical room or cottage unit (backend Room).
- * No explicit room/cottage kind exists in the Nest/Prisma contract today.
- * Long-term: add RoomType.kind or Room.kind (enum) via an approved backend migration —
- * do not infer from floor/name/slug on the frontend.
+ * Kind is inherited from RoomType — there is no Room.kind field.
  */
 export type Accommodation = {
   id: string
@@ -154,7 +155,7 @@ export type Accommodation = {
   active: boolean
   createdAt: string
   updatedAt: string
-  /** Mock-only calendar filter until bookings/calendar migrate; not sent to admin API. */
+  /** Mock-only calendar filter (`room`/`house`) until bookings/calendar migrate. */
   kind?: AccommodationKind
 }
 
@@ -194,6 +195,7 @@ export type RoomTypeListQuery = {
   limit?: number
   search?: string
   active?: boolean
+  kind?: RoomTypeKind
 }
 
 export type RoomListQuery = {
@@ -203,12 +205,14 @@ export type RoomListQuery = {
   active?: boolean
   roomTypeId?: string
   status?: RoomStatus
+  kind?: RoomTypeKind
 }
 
 export type RoomTypeCreateInput = {
   name: string
   slug: string
   description?: string | null
+  kind: RoomTypeKind
   maxGuests: number
   active?: boolean
 }
@@ -217,6 +221,7 @@ export type RoomTypeUpdateInput = {
   name?: string
   slug?: string
   description?: string | null
+  kind?: RoomTypeKind
   maxGuests?: number
   active?: boolean
 }

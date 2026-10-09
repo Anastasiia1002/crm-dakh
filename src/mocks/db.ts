@@ -89,7 +89,7 @@ export const roomTypes: RoomType[] = [
     active: true,
     createdAt: seedTs,
     updatedAt: seedTs,
-    kind: 'room',
+    kind: 'ROOM',
     basePrice: 3200,
   },
   {
@@ -101,7 +101,7 @@ export const roomTypes: RoomType[] = [
     active: true,
     createdAt: seedTs,
     updatedAt: seedTs,
-    kind: 'room',
+    kind: 'ROOM',
     basePrice: 4800,
   },
   {
@@ -113,7 +113,7 @@ export const roomTypes: RoomType[] = [
     active: true,
     createdAt: seedTs,
     updatedAt: seedTs,
-    kind: 'room',
+    kind: 'ROOM',
     basePrice: 7200,
   },
   {
@@ -125,7 +125,7 @@ export const roomTypes: RoomType[] = [
     active: true,
     createdAt: seedTs,
     updatedAt: seedTs,
-    kind: 'house',
+    kind: 'COTTAGE',
     basePrice: 8900,
   },
 ]

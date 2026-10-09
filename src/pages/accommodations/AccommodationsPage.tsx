@@ -39,53 +39,74 @@ import { ApiError } from '@/lib/api-error'
 import { isDateInHalfOpenRange, roomDisplayName, todayIso } from '@/lib/dates'
 import { errorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
-import { roomBlockTypeLabel, roomStatusLabel } from '@/lib/labels'
+import { roomBlockTypeLabel, roomStatusLabel, roomTypeKindLabel } from '@/lib/labels'
 import { canManageAccommodations } from '@/lib/roles'
-import type { Accommodation, Block, RoomBlockType, RoomStatus, RoomType, RoomTypeImage } from '@/types'
+import type {
+  Accommodation,
+  Block,
+  RoomBlockType,
+  RoomStatus,
+  RoomType,
+  RoomTypeImage,
+  RoomTypeKind,
+} from '@/types'
 
 const PAGE_SIZE = 20
 const TYPE_SEARCH_LIMIT = 20
 const ROOM_STATUSES = ['AVAILABLE', 'MAINTENANCE', 'OUT_OF_ORDER', 'INACTIVE'] as const
 const BLOCK_TYPES = ['MAINTENANCE', 'OWNER_USE', 'OTHER'] as const
+const ROOM_TYPE_KINDS = ['ROOM', 'COTTAGE'] as const
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
 export function AccommodationsPage() {
-  const [tab, setTab] = useState('units')
-  const [roomPage, setRoomPage] = useState(1)
+  const [tab, setTab] = useState<'rooms' | 'cottages' | 'categories'>('rooms')
+  const [unitPage, setUnitPage] = useState(1)
   const [typePage, setTypePage] = useState(1)
-  const [roomSearch, setRoomSearch] = useState('')
+  const [unitSearch, setUnitSearch] = useState('')
   const [typeSearch, setTypeSearch] = useState('')
-  const [roomSearchApplied, setRoomSearchApplied] = useState('')
+  const [unitSearchApplied, setUnitSearchApplied] = useState('')
   const [typeSearchApplied, setTypeSearchApplied] = useState('')
+  const [categoryKindFilter, setCategoryKindFilter] = useState<RoomTypeKind | 'all'>('all')
 
-  const roomsQuery = useAdminRooms({
-    page: roomPage,
-    limit: PAGE_SIZE,
-    search: roomSearchApplied || undefined,
-  })
+  const inventoryKind: RoomTypeKind = tab === 'cottages' ? 'COTTAGE' : 'ROOM'
+
+  const inventoryTab = tab === 'rooms' || tab === 'cottages'
+  const roomsQuery = useAdminRooms(
+    {
+      page: unitPage,
+      limit: PAGE_SIZE,
+      search: unitSearchApplied || undefined,
+      kind: inventoryKind,
+    },
+    { enabled: inventoryTab },
+  )
   const typesQuery = useAdminRoomTypes({
     page: typePage,
     limit: PAGE_SIZE,
     search: typeSearchApplied || undefined,
+    kind: categoryKindFilter === 'all' ? undefined : categoryKindFilter,
   })
 
-  const loading =
-    (roomsQuery.isLoading && !roomsQuery.data) || (typesQuery.isLoading && !typesQuery.data)
+  const unitsLoading = inventoryTab && roomsQuery.isLoading && !roomsQuery.data
+  const typesLoading = tab === 'categories' && typesQuery.isLoading && !typesQuery.data
+  if (unitsLoading || typesLoading) return <LoadingState />
 
-  if (loading) return <LoadingState />
-
-  if (roomsQuery.isError || typesQuery.isError) {
+  if (inventoryTab && roomsQuery.isError) {
     return (
       <div className="space-y-3 border-t border-border py-10">
         <p className="text-sm">Не вдалося завантажити розміщення</p>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => {
-            void roomsQuery.refetch()
-            void typesQuery.refetch()
-          }}
-        >
+        <Button size="sm" variant="outline" onClick={() => void roomsQuery.refetch()}>
+          Спробувати ще раз
+        </Button>
+      </div>
+    )
+  }
+
+  if (tab === 'categories' && typesQuery.isError) {
+    return (
+      <div className="space-y-3 border-t border-border py-10">
+        <p className="text-sm">Не вдалося завантажити категорії</p>
+        <Button size="sm" variant="outline" onClick={() => void typesQuery.refetch()}>
           Спробувати ще раз
         </Button>
       </div>
@@ -95,32 +116,74 @@ export function AccommodationsPage() {
   const today = todayIso()
 
   return (
-    <Tabs value={tab} onValueChange={setTab}>
+    <Tabs
+      value={tab}
+      onValueChange={(value) => {
+        const next = value as 'rooms' | 'cottages' | 'categories'
+        setTab(next)
+        if (next === 'rooms' || next === 'cottages') {
+          setUnitPage(1)
+          setUnitSearch('')
+          setUnitSearchApplied('')
+        }
+        if (next === 'categories') {
+          setTypePage(1)
+        }
+      }}
+    >
       <TabsList>
-        <TabsTrigger value="units">Розміщення</TabsTrigger>
+        <TabsTrigger value="rooms">Номери</TabsTrigger>
+        <TabsTrigger value="cottages">Будиночки</TabsTrigger>
         <TabsTrigger value="categories">Категорії</TabsTrigger>
       </TabsList>
-      <TabsContent value="units">
-        <UnitSection
-          items={roomsQuery.data?.items ?? []}
-          today={today}
-          page={roomPage}
-          pageSize={PAGE_SIZE}
-          total={roomsQuery.data?.pagination.total ?? 0}
-          search={roomSearch}
-          onSearchChange={setRoomSearch}
-          onSearchSubmit={() => {
-            setRoomSearchApplied(roomSearch.trim())
-            setRoomPage(1)
-          }}
-          onPageChange={setRoomPage}
-        />
+      <TabsContent value="rooms">
+        {tab === 'rooms' ? (
+          <UnitSection
+            kind="ROOM"
+            items={roomsQuery.data?.items ?? []}
+            today={today}
+            page={unitPage}
+            pageSize={PAGE_SIZE}
+            total={roomsQuery.data?.pagination.total ?? 0}
+            search={unitSearch}
+            onSearchChange={setUnitSearch}
+            onSearchSubmit={() => {
+              setUnitSearchApplied(unitSearch.trim())
+              setUnitPage(1)
+            }}
+            onPageChange={setUnitPage}
+          />
+        ) : null}
+      </TabsContent>
+      <TabsContent value="cottages">
+        {tab === 'cottages' ? (
+          <UnitSection
+            kind="COTTAGE"
+            items={roomsQuery.data?.items ?? []}
+            today={today}
+            page={unitPage}
+            pageSize={PAGE_SIZE}
+            total={roomsQuery.data?.pagination.total ?? 0}
+            search={unitSearch}
+            onSearchChange={setUnitSearch}
+            onSearchSubmit={() => {
+              setUnitSearchApplied(unitSearch.trim())
+              setUnitPage(1)
+            }}
+            onPageChange={setUnitPage}
+          />
+        ) : null}
       </TabsContent>
       <TabsContent value="categories">
         <CategorySection
           page={typesQuery.data}
           currentPage={typePage}
           search={typeSearch}
+          kindFilter={categoryKindFilter}
+          onKindFilterChange={(value) => {
+            setCategoryKindFilter(value)
+            setTypePage(1)
+          }}
           onSearchChange={setTypeSearch}
           onSearchSubmit={() => {
             setTypeSearchApplied(typeSearch.trim())
@@ -134,6 +197,7 @@ export function AccommodationsPage() {
 }
 
 function UnitSection({
+  kind,
   items,
   today,
   page,
@@ -144,6 +208,7 @@ function UnitSection({
   onSearchSubmit,
   onPageChange,
 }: {
+  kind: RoomTypeKind
   items: Accommodation[]
   today: string
   page: number
@@ -182,11 +247,11 @@ function UnitSection({
       enabled: Boolean(id),
     })),
   })
-  const typeNameById = useMemo(() => {
-    const map = new Map<string, string>()
+  const typeMetaById = useMemo(() => {
+    const map = new Map<string, { name: string; kind: RoomTypeKind }>()
     typeIds.forEach((id, index) => {
-      const name = typeQueries[index]?.data?.name
-      if (name) map.set(id, name)
+      const type = typeQueries[index]?.data
+      if (type) map.set(id, { name: type.name, kind: type.kind })
     })
     return map
   }, [typeIds, typeQueries])
@@ -218,12 +283,18 @@ function UnitSection({
   return (
     <div>
       <SectionHeading
-        title="Розміщення"
-        action={canWrite ? <Button onClick={openCreate}>Додати розміщення</Button> : undefined}
+        title={kind === 'ROOM' ? 'Номери' : 'Будиночки'}
+        action={
+          canWrite ? (
+            <Button onClick={openCreate}>
+              {kind === 'ROOM' ? 'Додати номер' : 'Додати будиночок'}
+            </Button>
+          ) : undefined
+        }
       />
       <p className="mb-4 max-w-2xl text-sm text-muted-foreground">
-        Єдиний інвентар номерів і будиночків (backend Room). Окремої класифікації cottage/room у API немає —
-        категорія задається через тип розміщення.
+        Фізичні одиниці (Room) успадковують тип розміщення від категорії ({roomTypeKindLabel[kind]}). Список
+        фільтрується на сервері за `kind`.
       </p>
       <form
         className="mb-4 flex max-w-md gap-2"
@@ -242,7 +313,9 @@ function UnitSection({
         </Button>
       </form>
       {items.length === 0 ? (
-        <EmptyState>Розміщень за цим запитом немає.</EmptyState>
+        <EmptyState>
+          {kind === 'ROOM' ? 'Номерів за цим запитом немає.' : 'Будиночків за цим запитом немає.'}
+        </EmptyState>
       ) : (
         <Table>
           <TableHeader>
@@ -258,13 +331,19 @@ function UnitSection({
             {items.map((item) => {
               const ownBlocks = blocksByRoom.get(item.id) ?? []
               const state = presence(item, ownBlocks, today)
+              const typeMeta = typeMetaById.get(item.roomTypeId)
               return (
                 <TableRow key={item.id}>
                   <TableCell>
                     <div>{roomDisplayName(item)}</div>
                     <div className="text-xs text-muted-foreground">{item.number}</div>
                   </TableCell>
-                  <TableCell>{typeNameById.get(item.roomTypeId) ?? '—'}</TableCell>
+                  <TableCell>
+                    <div>{typeMeta?.name ?? '—'}</div>
+                    {typeMeta ? (
+                      <div className="text-xs text-muted-foreground">{roomTypeKindLabel[typeMeta.kind]}</div>
+                    ) : null}
+                  </TableCell>
                   <TableCell>{item.floor ?? '—'}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap items-center gap-2">
@@ -319,6 +398,7 @@ function UnitSection({
       <Pagination page={page} pageSize={pageSize} total={total} onPageChange={onPageChange} />
       <UnitDialog
         open={editing !== null}
+        kind={kind}
         item={editing && editing !== 'new' ? editing : undefined}
         onOpenChange={(open) => !open && setEditing(null)}
       />
@@ -386,15 +466,20 @@ const unitSchema = z.object({
   active: z.enum(['yes', 'no']),
 })
 
-/** Server-side searchable category picker — does not silently cap at a fixed first page. */
+/** Server-side searchable category picker scoped to a RoomType.kind. */
 function RoomTypePicker({
   value,
+  kind,
   onChange,
   disabled,
+  activeOnly,
 }: {
   value: string
+  kind: RoomTypeKind
   onChange: (value: string) => void
   disabled?: boolean
+  /** When true (create flow), only active categories are listed. */
+  activeOnly: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState('')
@@ -404,14 +489,28 @@ function RoomTypePicker({
     page: 1,
     limit: TYPE_SEARCH_LIMIT,
     search: applied || undefined,
-    active: true,
+    active: activeOnly ? true : undefined,
+    kind,
   })
 
-  const selectedLabel = selected.data
-    ? `${selected.data.name} (${selected.data.slug})`
-    : value
+  const selectedCompatible = selected.data?.kind === kind
+  const selectedLabel = !value
+    ? 'Оберіть категорію'
+    : selected.isLoading
       ? 'Завантаження…'
-      : 'Оберіть категорію'
+      : selected.data
+        ? selectedCompatible
+          ? `${selected.data.name}${selected.data.active ? '' : ' (вимкнена)'} (${selected.data.slug})`
+          : `${selected.data.name} — інший тип (${roomTypeKindLabel[selected.data.kind]})`
+        : 'Категорію не знайдено'
+
+  const options = useMemo(() => {
+    const items = results.data?.items ?? []
+    if (!selected.data || !selectedCompatible) return items
+    if (items.some((item) => item.id === selected.data.id)) return items
+    // Keep the current (possibly inactive) category visible while editing.
+    return [selected.data, ...items]
+  }, [results.data?.items, selected.data, selectedCompatible])
 
   return (
     <>
@@ -427,10 +526,16 @@ function RoomTypePicker({
       >
         {selectedLabel}
       </Button>
+      {value && selected.data && !selectedCompatible ? (
+        <p className="mt-1 text-xs text-destructive">
+          Поточна категорія має тип «{roomTypeKindLabel[selected.data.kind]}». Оберіть категорію типу «
+          {roomTypeKindLabel[kind]}» — поточний вибір не змінюється автоматично.
+        </p>
+      ) : null}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Обрати категорію</DialogTitle>
+            <DialogTitle>Обрати категорію ({roomTypeKindLabel[kind]})</DialogTitle>
           </DialogHeader>
           <form
             className="flex gap-2"
@@ -459,10 +564,10 @@ function RoomTypePicker({
                 </Button>
               </div>
             ) : null}
-            {!results.isLoading && !results.isError && (results.data?.items.length ?? 0) === 0 ? (
+            {!results.isLoading && !results.isError && options.length === 0 ? (
               <p className="text-sm text-muted-foreground">Нічого не знайдено. Змініть пошук.</p>
             ) : null}
-            {(results.data?.items ?? []).map((type) => (
+            {options.map((type) => (
               <button
                 key={type.id}
                 type="button"
@@ -472,7 +577,11 @@ function RoomTypePicker({
                   setOpen(false)
                 }}
               >
-                <span>{type.name}</span>
+                <span>
+                  {type.name}
+                  {!type.active ? ' (вимкнена)' : ''}
+                  {type.id === value ? ' · поточна' : ''}
+                </span>
                 <span className="font-mono text-xs text-muted-foreground">{type.slug}</span>
               </button>
             ))}
@@ -495,10 +604,12 @@ function RoomTypePicker({
 
 function UnitDialog({
   open,
+  kind,
   item,
   onOpenChange,
 }: {
   open: boolean
+  kind: RoomTypeKind
   item?: Accommodation
   onOpenChange: (open: boolean) => void
 }) {
@@ -507,6 +618,7 @@ function UnitDialog({
   const create = useCreateAdminRoom()
   const update = useUpdateAdminRoom()
   const pending = create.isPending || update.isPending
+  const assignedType = useAdminRoomType(item?.roomTypeId)
   const form = useForm<z.infer<typeof unitSchema>>({
     resolver: zodResolver(unitSchema),
     values: {
@@ -518,18 +630,38 @@ function UnitDialog({
       active: item?.active === false ? 'no' : 'yes',
     },
   })
+  const selectedTypeId = form.watch('roomTypeId')
+  const selectedType = useAdminRoomType(selectedTypeId || undefined)
+  const categoryPending = Boolean(selectedTypeId) && (selectedType.isLoading || selectedType.isFetching)
+  const kindMismatch = Boolean(selectedType.data && selectedType.data.kind !== kind)
+  const categoryMissing = Boolean(selectedTypeId && !categoryPending && !selectedType.data)
+  const canSubmitCategory = Boolean(selectedTypeId) && !categoryPending && !kindMismatch && !categoryMissing
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{item ? 'Редагувати розміщення' : 'Нове розміщення'}</DialogTitle>
+          <DialogTitle>
+            {item
+              ? kind === 'ROOM'
+                ? 'Редагувати номер'
+                : 'Редагувати будиночок'
+              : kind === 'ROOM'
+                ? 'Новий номер'
+                : 'Новий будиночок'}
+          </DialogTitle>
         </DialogHeader>
         <form
           className="space-y-4"
           onSubmit={form.handleSubmit(async (values) => {
             if (!canWrite) {
               toast.error('Недостатньо прав для цієї дії')
+              return
+            }
+            if (!canSubmitCategory) {
+              form.setError('roomTypeId', {
+                message: `Оберіть категорію типу «${roomTypeKindLabel[kind]}»`,
+              })
               return
             }
             const floorTrimmed = values.floor.trim()
@@ -563,6 +695,14 @@ function UnitDialog({
             }
           })}
         >
+          {item && assignedType.data && assignedType.data.kind !== kind ? (
+            <p className="rounded-md border border-border bg-surface-muted px-3 py-2 text-sm text-muted-foreground">
+              Призначена категорія «{assignedType.data.name}» має тип «
+              {roomTypeKindLabel[assignedType.data.kind]}», тоді як цей список — «{roomTypeKindLabel[kind]}».
+              Категорію не змінено автоматично. Оберіть сумісну категорію нижче, щоб зберегти, або
+              закрийте діалог і відкрийте одиницю у відповідній вкладці.
+            </p>
+          ) : null}
           <Field label="Назва">
             <Input disabled={!canWrite} {...form.register('name')} />
           </Field>
@@ -572,6 +712,8 @@ function UnitDialog({
           <Field label="Категорія" error={form.formState.errors.roomTypeId?.message}>
             <RoomTypePicker
               value={form.watch('roomTypeId')}
+              kind={kind}
+              activeOnly={!item}
               disabled={!canWrite}
               onChange={(value) => form.setValue('roomTypeId', value, { shouldValidate: true })}
             />
@@ -616,7 +758,7 @@ function UnitDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Скасувати
             </Button>
-            <Button type="submit" disabled={!canWrite || pending}>
+            <Button type="submit" disabled={!canWrite || pending || !canSubmitCategory}>
               Зберегти
             </Button>
           </DialogFooter>
@@ -746,6 +888,7 @@ const categorySchema = z.object({
     .max(80, 'Slug задовгий')
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Лише малі латинські літери, цифри та дефіси'),
   description: z.string().max(4000, 'Опис задовгий'),
+  kind: z.enum(ROOM_TYPE_KINDS),
   maxGuests: z.number({ invalid_type_error: 'Вкажіть місткість' }).int().min(1, 'Мінімум 1 гість'),
   active: z.enum(['yes', 'no']),
 })
@@ -754,6 +897,8 @@ function CategorySection({
   page,
   currentPage,
   search,
+  kindFilter,
+  onKindFilterChange,
   onSearchChange,
   onSearchSubmit,
   onPageChange,
@@ -761,6 +906,8 @@ function CategorySection({
   page?: { items: RoomType[]; pagination: { page: number; totalPages: number; total: number } }
   currentPage: number
   search: string
+  kindFilter: RoomTypeKind | 'all'
+  onKindFilterChange: (value: RoomTypeKind | 'all') => void
   onSearchChange: (value: string) => void
   onSearchSubmit: () => void
   onPageChange: (page: number) => void
@@ -776,22 +923,41 @@ function CategorySection({
         title="Категорії"
         action={canWrite ? <Button onClick={() => setEditing('new')}>Додати категорію</Button> : undefined}
       />
-      <form
-        className="mb-4 flex max-w-md gap-2"
-        onSubmit={(event) => {
-          event.preventDefault()
-          onSearchSubmit()
-        }}
-      >
-        <Input
-          value={search}
-          onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="Пошук категорій"
-        />
-        <Button type="submit" variant="outline">
-          Знайти
-        </Button>
-      </form>
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+        <form
+          className="flex max-w-md flex-1 gap-2"
+          onSubmit={(event) => {
+            event.preventDefault()
+            onSearchSubmit()
+          }}
+        >
+          <Input
+            value={search}
+            onChange={(event) => onSearchChange(event.target.value)}
+            placeholder="Пошук категорій"
+          />
+          <Button type="submit" variant="outline">
+            Знайти
+          </Button>
+        </form>
+        <div className="w-full max-w-xs">
+          <Field label="Тип розміщення">
+            <Select
+              value={kindFilter}
+              onValueChange={(value: RoomTypeKind | 'all') => onKindFilterChange(value)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Усі</SelectItem>
+                <SelectItem value="ROOM">{roomTypeKindLabel.ROOM}</SelectItem>
+                <SelectItem value="COTTAGE">{roomTypeKindLabel.COTTAGE}</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+        </div>
+      </div>
       {items.length === 0 ? (
         <EmptyState>Категорій поки немає.</EmptyState>
       ) : (
@@ -799,6 +965,7 @@ function CategorySection({
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead>Назва</TableHead>
+              <TableHead>Тип</TableHead>
               <TableHead>Slug</TableHead>
               <TableHead>Місткість</TableHead>
               <TableHead>Стан</TableHead>
@@ -812,6 +979,7 @@ function CategorySection({
                   <div>{type.name}</div>
                   <div className="max-w-md text-xs text-muted-foreground">{type.description ?? '—'}</div>
                 </TableCell>
+                <TableCell>{roomTypeKindLabel[type.kind]}</TableCell>
                 <TableCell className="font-mono text-xs">{type.slug}</TableCell>
                 <TableCell>{type.maxGuests}</TableCell>
                 <TableCell>
@@ -868,6 +1036,7 @@ function CategoryDialog({
       name: item?.name ?? '',
       slug: item?.slug ?? '',
       description: item?.description ?? '',
+      kind: item?.kind ?? 'ROOM',
       maxGuests: item?.maxGuests ?? 2,
       active: item?.active === false ? 'no' : 'yes',
     },
@@ -891,6 +1060,7 @@ function CategoryDialog({
                 name: values.name,
                 slug: values.slug,
                 description: values.description.trim() ? values.description.trim() : null,
+                kind: values.kind,
                 maxGuests: values.maxGuests,
                 active: values.active === 'yes',
               }
@@ -911,6 +1081,24 @@ function CategoryDialog({
           </Field>
           <Field label="Slug" error={form.formState.errors.slug?.message} hint="Лише a-z, 0-9 та дефіси">
             <Input disabled={!canWrite} {...form.register('slug')} />
+          </Field>
+          <Field label="Тип розміщення" error={form.formState.errors.kind?.message}>
+            <Select
+              value={form.watch('kind')}
+              onValueChange={(value: RoomTypeKind) => form.setValue('kind', value, { shouldValidate: true })}
+              disabled={!canWrite}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {ROOM_TYPE_KINDS.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {roomTypeKindLabel[value]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </Field>
           <Field label="Опис" error={form.formState.errors.description?.message}>
             <Textarea disabled={!canWrite} {...form.register('description')} />

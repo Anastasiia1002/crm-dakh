@@ -92,10 +92,11 @@ export function useAdminRoomType(id: string | undefined) {
   })
 }
 
-export function useAdminRooms(query: RoomListQuery = {}) {
+export function useAdminRooms(query: RoomListQuery = {}, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['admin-rooms', query],
     queryFn: () => listRooms(query),
+    enabled: options?.enabled ?? true,
   })
 }
 
@@ -121,7 +122,8 @@ export function useCreateAdminRoomType() {
   const refresh = useRefresh()
   return useMutation({
     mutationFn: createRoomType,
-    onSuccess: () => refresh(['admin-room-types', 'admin-room-type']),
+    // Rooms inherit kind from RoomType; keep filtered room lists in sync.
+    onSuccess: () => refresh(['admin-room-types', 'admin-room-type', 'admin-rooms']),
   })
 }
 
@@ -130,7 +132,9 @@ export function useUpdateAdminRoomType() {
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: Parameters<typeof updateRoomType>[1] }) =>
       updateRoomType(id, input),
-    onSuccess: () => refresh(['admin-room-types', 'admin-room-type', 'admin-room-type-images']),
+    // Kind changes move units between ROOM/COTTAGE inventory queries.
+    onSuccess: () =>
+      refresh(['admin-room-types', 'admin-room-type', 'admin-room-type-images', 'admin-rooms']),
   })
 }
 
