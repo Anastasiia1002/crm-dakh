@@ -5,6 +5,8 @@ import type {
   DiscountType,
   PaymentMethod,
   PaymentStatus,
+  RoomBlockType,
+  RoomStatus,
   ServiceUnit,
   UserRole,
 } from '@/types'
@@ -43,6 +45,19 @@ export const paymentMethodLabel: Record<PaymentMethod, string> = {
 export const accommodationKindLabel: Record<AccommodationKind, string> = {
   room: 'Номер',
   house: 'Будиночок',
+}
+
+export const roomStatusLabel: Record<RoomStatus, string> = {
+  AVAILABLE: 'Вільний',
+  MAINTENANCE: 'Обслуговування',
+  OUT_OF_ORDER: 'Не працює',
+  INACTIVE: 'Неактивний',
+}
+
+export const roomBlockTypeLabel: Record<RoomBlockType, string> = {
+  MAINTENANCE: 'Обслуговування',
+  OWNER_USE: 'Використання власником',
+  OTHER: 'Інше',
 }
 
 export const serviceUnitLabel: Record<ServiceUnit, string> = {

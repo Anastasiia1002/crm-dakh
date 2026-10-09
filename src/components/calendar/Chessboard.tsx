@@ -1,4 +1,4 @@
-import { addDays, format, getDay, parseISO } from 'date-fns'
+import { format, getDay, parseISO } from 'date-fns'
 import { uk } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
 import type { Accommodation, Block, Booking, Guest, RoomType } from '@/types'
@@ -88,20 +88,21 @@ export function Chessboard({
                 })
                 .filter((bar) => bar.span > 0 && bar.start < dates.length)
               const blockBars = blocks
-                .filter((block) => block.accommodationId === item.id)
+                .filter((block) => block.roomId === item.id)
                 .map((block) => {
-                  const start = offsetIndex(dates, block.from)
-                  const end = endIndex(dates, format(addDays(parseISO(block.to), 1), 'yyyy-MM-dd'))
+                  const start = offsetIndex(dates, block.startDate)
+                  const end = endIndex(dates, block.endDate)
                   return { start, span: end - start, block }
                 })
                 .filter((bar) => bar.span > 0 && bar.start < dates.length)
+              const label = item.name?.trim() || item.number
 
               return (
                 <div key={item.id} className="flex border-b border-border">
                   <div className="sticky left-0 z-10 flex w-52 shrink-0 items-center border-r border-border bg-background px-3">
                     <div>
-                      <div className="text-sm">{item.name}</div>
-                      <div className="text-[11px] text-muted-foreground">{item.code}</div>
+                      <div className="text-sm">{label}</div>
+                      <div className="text-[11px] text-muted-foreground">{item.number}</div>
                     </div>
                   </div>
                   <div className="relative h-12" style={{ width }}>
@@ -120,7 +121,7 @@ export function Chessboard({
                             )}
                             style={{ width: CELL }}
                             onClick={() => onEmpty(item.id, date)}
-                            aria-label={`Нове бронювання, ${item.name}, ${date}`}
+                            aria-label={`Нове бронювання, ${label}, ${date}`}
                           />
                         )
                       })}
@@ -128,7 +129,7 @@ export function Chessboard({
                     {blockBars.map((bar) => (
                       <div
                         key={bar.block.id}
-                        title={bar.block.reason}
+                        title={bar.block.reason ? bar.block.reason : undefined}
                         className="absolute top-1.5 flex h-9 items-center overflow-hidden rounded-sm border border-[#d7c3b4] bg-[#f3e6df] px-2 text-[11px] text-status-cancelled-foreground"
                         style={{
                           left: bar.start * CELL + 3,

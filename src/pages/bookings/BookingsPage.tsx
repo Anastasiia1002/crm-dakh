@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { LoadingState } from '@/components/ui/states'
 import { useBookings, useGuests } from '@/hooks/useBookings'
 import { useAccommodations } from '@/hooks/useHotel'
+import { roomDisplayName } from '@/lib/dates'
 import { bookingSourceLabel, bookingStatusLabel } from '@/lib/labels'
 import type { BookingSource, BookingStatus } from '@/types'
 
@@ -74,7 +75,7 @@ export function BookingsPage() {
               <SelectItem value="all">Усі</SelectItem>
               {(accommodations.data ?? []).map((item) => (
                 <SelectItem key={item.id} value={item.id}>
-                  {item.name}
+                  {roomDisplayName(item)}
                 </SelectItem>
               ))}
             </SelectContent>

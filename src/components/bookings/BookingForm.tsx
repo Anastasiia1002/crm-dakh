@@ -9,7 +9,7 @@ import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { addDaysIso } from '@/lib/dates'
+import { addDaysIso, roomDisplayName } from '@/lib/dates'
 import { formatMoney } from '@/lib/format'
 import { bookingSourceLabel, paymentMethodLabel, paymentStatusLabel, serviceUnitLabel } from '@/lib/labels'
 import { quoteStay } from '@/lib/pricing'
@@ -161,7 +161,7 @@ export function BookingForm({
       checkOut: values.checkOut,
       ratePlanId: values.ratePlanId,
       roomTypeId: roomType.id,
-      basePrice: roomType.basePrice,
+      basePrice: roomType.basePrice ?? 0,
       periods,
       services,
       serviceIds: values.serviceIds,
@@ -172,7 +172,7 @@ export function BookingForm({
   }, [periods, promo, roomType, services, values])
 
   const people = (Number.isFinite(values.adults) ? values.adults : 0) + (Number.isFinite(values.children) ? values.children : 0)
-  const overCapacity = roomType ? people > roomType.capacity : false
+  const overCapacity = roomType ? people > roomType.maxGuests : false
 
   return (
     <form
@@ -277,7 +277,7 @@ export function BookingForm({
                     <SelectContent>
                       {accommodations.map((item) => (
                         <SelectItem key={item.id} value={item.id}>
-                          {item.name}
+                          {roomDisplayName(item)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -368,7 +368,7 @@ export function BookingForm({
           </div>
           {overCapacity ? (
             <p className="text-sm text-destructive">
-              Кількість гостей перевищує місткість категорії ({roomType?.capacity}).
+              Кількість гостей перевищує місткість категорії ({roomType?.maxGuests}).
             </p>
           ) : null}
         </section>

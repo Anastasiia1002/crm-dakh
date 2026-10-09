@@ -1,8 +1,12 @@
-import { eachDate } from '@/lib/dates'
+import { addCalendarDays, eachDate } from '@/lib/dates'
 import { delay } from '@/mocks/delay'
 import * as db from '@/mocks/db'
 import { isBlockedOn, isOccupiedOn } from '@/mocks/inventory'
 import type { AccommodationKind } from '@/types'
+
+function addOneDay(iso: string) {
+  return addCalendarDays(iso, 1)
+}
 
 export async function getCalendar(from: string, days: number, kind: AccommodationKind | 'all' = 'all') {
   await delay()
@@ -19,7 +23,7 @@ export async function getCalendar(from: string, days: number, kind: Accommodatio
       booking.checkOut > from,
   )
   const blocks = db.blocks.filter(
-    (block) => ids.has(block.accommodationId) && block.from <= last && block.to >= from,
+    (block) => ids.has(block.roomId) && block.startDate < addOneDay(last) && block.endDate > from,
   )
   return {
     dates,

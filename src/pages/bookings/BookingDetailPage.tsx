@@ -115,7 +115,7 @@ export function BookingDetailPage() {
       <div className="grid gap-10 md:grid-cols-2">
         <section className="space-y-3 border-t border-border pt-5">
           <h3 className="font-serif text-2xl">Проживання</h3>
-          <Info label="Номер / будиночок" value={place ? `${place.name}${roomType ? ` · ${roomType.name}` : ''}` : '—'} />
+          <Info label="Номер / будиночок" value={place ? `${place.name?.trim() || place.number}${roomType ? ` · ${roomType.name}` : ''}` : '—'} />
           <Info label="Заїзд" value={`${formatDate(booking.checkIn)}, ${booking.checkInTime}`} />
           <Info label="Виїзд" value={`${formatDate(booking.checkOut)}, ${booking.checkOutTime}`} />
           <Info label="Гості" value={formatGuests(booking.adults, booking.children)} />

@@ -1,16 +1,24 @@
 import { format, parseISO } from 'date-fns'
 import { uk } from 'date-fns/locale'
 
+function calendarDate(iso: string) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+    const [year, month, day] = iso.split('-').map(Number)
+    return new Date(year, month - 1, day)
+  }
+  return parseISO(iso)
+}
+
 export function formatDate(iso: string) {
-  return format(parseISO(iso), 'd MMM yyyy', { locale: uk })
+  return format(calendarDate(iso), 'd MMM yyyy', { locale: uk })
 }
 
 export function formatDateShort(iso: string) {
-  return format(parseISO(iso), 'd MMM', { locale: uk })
+  return format(calendarDate(iso), 'd MMM', { locale: uk })
 }
 
 export function formatWeekday(iso: string) {
-  return format(parseISO(iso), 'EEEEEE', { locale: uk })
+  return format(calendarDate(iso), 'EEEEEE', { locale: uk })
 }
 
 export function formatDateTime(value: string) {

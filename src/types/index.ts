@@ -14,6 +14,10 @@ export type PaymentMethod = 'cash' | 'terminal' | 'invoice' | 'online'
 
 export type AccommodationKind = 'room' | 'house'
 
+export type RoomStatus = 'AVAILABLE' | 'MAINTENANCE' | 'OUT_OF_ORDER' | 'INACTIVE'
+
+export type RoomBlockType = 'MAINTENANCE' | 'OWNER_USE' | 'OTHER'
+
 export type ServiceUnit = 'per_stay' | 'per_night' | 'per_person'
 
 export type DiscountType = 'percent' | 'fixed'
@@ -118,32 +122,147 @@ export type GuestWriteInput = {
   notes: string
 }
 
+/** Room category (backend RoomType). */
 export type RoomType = {
   id: string
   name: string
-  kind: AccommodationKind
-  description: string
-  capacity: number
-  sizeM2: number
-  basePrice: number
-  amenities: string[]
+  slug: string
+  description: string | null
+  maxGuests: number
+  active: boolean
+  createdAt: string
+  updatedAt: string
+  /** Mock-only until rates API; ignored by accommodation admin API. */
+  basePrice?: number
+  /** Mock-only calendar filter; backend has no room/cottage kind. */
+  kind?: AccommodationKind
 }
 
+/**
+ * Physical room or cottage unit (backend Room).
+ * No explicit room/cottage kind exists in the Nest/Prisma contract today.
+ * Long-term: add RoomType.kind or Room.kind (enum) via an approved backend migration —
+ * do not infer from floor/name/slug on the frontend.
+ */
 export type Accommodation = {
   id: string
-  name: string
-  code: string
-  kind: AccommodationKind
   roomTypeId: string
+  number: string
+  name: string | null
   floor: number | null
+  status: RoomStatus
+  active: boolean
+  createdAt: string
+  updatedAt: string
+  /** Mock-only calendar filter until bookings/calendar migrate; not sent to admin API. */
+  kind?: AccommodationKind
 }
 
+/** Unavailable range [startDate, endDate) in YYYY-MM-DD. */
 export type Block = {
   id: string
-  accommodationId: string
-  from: string
-  to: string
-  reason: string
+  roomId: string
+  startDate: string
+  endDate: string
+  type: RoomBlockType
+  reason: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type RoomTypeImage = {
+  id: string
+  roomTypeId: string
+  url: string
+  alt: string | null
+  sortOrder: number
+  createdAt: string
+}
+
+export type AccommodationPage<T> = {
+  items: T[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
+}
+
+export type RoomTypeListQuery = {
+  page?: number
+  limit?: number
+  search?: string
+  active?: boolean
+}
+
+export type RoomListQuery = {
+  page?: number
+  limit?: number
+  search?: string
+  active?: boolean
+  roomTypeId?: string
+  status?: RoomStatus
+}
+
+export type RoomTypeCreateInput = {
+  name: string
+  slug: string
+  description?: string | null
+  maxGuests: number
+  active?: boolean
+}
+
+export type RoomTypeUpdateInput = {
+  name?: string
+  slug?: string
+  description?: string | null
+  maxGuests?: number
+  active?: boolean
+}
+
+export type RoomCreateInput = {
+  roomTypeId: string
+  number: string
+  name?: string | null
+  floor?: number | null
+  status?: RoomStatus
+  active?: boolean
+}
+
+export type RoomUpdateInput = {
+  roomTypeId?: string
+  number?: string
+  name?: string | null
+  floor?: number | null
+  status?: RoomStatus
+  active?: boolean
+}
+
+export type RoomBlockCreateInput = {
+  startDate: string
+  endDate: string
+  type: RoomBlockType
+  reason?: string | null
+}
+
+export type RoomBlockUpdateInput = {
+  startDate?: string
+  endDate?: string
+  type?: RoomBlockType
+  reason?: string | null
+}
+
+export type RoomImageCreateInput = {
+  url: string
+  alt?: string | null
+  sortOrder?: number
+}
+
+export type RoomImageUpdateInput = {
+  url?: string
+  alt?: string | null
+  sortOrder?: number
 }
 
 export type Booking = {

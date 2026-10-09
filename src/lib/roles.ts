@@ -45,6 +45,11 @@ export function canManageAdminAccount(actorRole: UserRole | undefined, target: {
   return false
 }
 
+/** Mirrors accommodation WRITE_ROLES: SUPER_ADMIN + ADMIN. All staff roles may read. */
+export function canManageAccommodations(role: UserRole | undefined) {
+  return role === 'owner' || role === 'admin'
+}
+
 function isBackendAdminRole(role: string): role is BackendAdminRole {
   return Object.prototype.hasOwnProperty.call(backendRoleToFrontend, role)
 }

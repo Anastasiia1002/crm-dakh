@@ -37,7 +37,7 @@ function buildQuote(input: BookingWriteInput, roomTypeId: string, promoCode: str
       checkOut: input.checkOut,
       ratePlanId: input.ratePlanId,
       roomTypeId,
-      basePrice: roomType.basePrice,
+      basePrice: roomType.basePrice ?? 0,
       periods: db.pricePeriods,
       services: db.services,
       serviceIds: input.serviceIds,
@@ -57,8 +57,8 @@ function assertStay(input: BookingWriteInput, excludeId?: string) {
   if (!accommodation) throw new ApiError('Оберіть номер або будиночок')
   const roomType = db.roomTypes.find((item) => item.id === accommodation.roomTypeId)
   if (!roomType) throw new ApiError('Категорію не знайдено')
-  if (input.adults + input.children > roomType.capacity) {
-    throw new ApiError(`Місткість цього розміщення — ${roomType.capacity}`)
+  if (input.adults + input.children > roomType.maxGuests) {
+    throw new ApiError(`Місткість цього розміщення — ${roomType.maxGuests}`)
   }
   if (!db.ratePlans.some((item) => item.id === input.ratePlanId && item.active)) {
     throw new ApiError('Оберіть активний тариф')

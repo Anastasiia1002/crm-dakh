@@ -65,7 +65,7 @@ export function BookingTable({
                   {name}
                 </Link>
               </TableCell>
-              <TableCell>{place?.name ?? '—'}</TableCell>
+              <TableCell>{place ? (place.name?.trim() || place.number) : '—'}</TableCell>
               {variant === 'arrivals' ? <TableCell>{booking.checkInTime}</TableCell> : null}
               {variant === 'departures' ? <TableCell>{booking.checkOutTime}</TableCell> : null}
               {variant === 'full' || variant === 'upcoming' ? (

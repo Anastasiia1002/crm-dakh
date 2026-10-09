@@ -1,14 +1,39 @@
-import { ApiError, delay } from '@/mocks/delay'
+import { apiRequest } from '@/lib/api-client'
+import { delay } from '@/mocks/delay'
 import * as db from '@/mocks/db'
-import { findBookingConflict } from '@/mocks/inventory'
-import { getActorId } from '@/mocks/session'
-import { addDaysIso } from '@/lib/dates'
-import type { Accommodation, AccommodationKind, RoomType } from '@/types'
+import type {
+  Accommodation,
+  AccommodationPage,
+  Block,
+  RoomBlockCreateInput,
+  RoomBlockUpdateInput,
+  RoomCreateInput,
+  RoomImageCreateInput,
+  RoomImageUpdateInput,
+  RoomListQuery,
+  RoomType,
+  RoomTypeCreateInput,
+  RoomTypeImage,
+  RoomTypeListQuery,
+  RoomTypeUpdateInput,
+  RoomUpdateInput,
+} from '@/types'
 
 function clone<T>(value: T): T {
   return structuredClone(value)
 }
 
+function querySuffix(params: Record<string, string | number | boolean | undefined>) {
+  const search = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined) continue
+    search.set(key, String(value))
+  }
+  const suffix = search.toString()
+  return suffix ? `?${suffix}` : ''
+}
+
+/** Mock inventory for bookings / calendar / rates until those phases migrate. */
 export async function getRoomTypes() {
   await delay()
   return clone(db.roomTypes)
@@ -24,138 +49,170 @@ export async function getBlocks() {
   return clone(db.blocks)
 }
 
-export async function saveRoomType(input: Omit<RoomType, 'id'> & { id?: string }) {
-  await delay()
-  if (!input.name.trim()) throw new ApiError('Вкажіть назву категорії')
-  if (input.capacity < 1) throw new ApiError('Місткість має бути більшою за нуль')
-  if (input.id) {
-    const current = db.roomTypes.find((item) => item.id === input.id)
-    if (!current) throw new ApiError('Категорію не знайдено')
-    Object.assign(current, { ...input, name: input.name.trim() })
-    db.addAudit({
-      actorId: getActorId(),
-      action: 'Оновлено категорію',
-      entity: 'roomType',
-      entityId: current.id,
-      details: current.name,
-    })
-    return clone(current)
-  }
-  const created: RoomType = { ...input, id: db.uid('rt'), name: input.name.trim() }
-  db.roomTypes.push(created)
-  db.addAudit({
-    actorId: getActorId(),
-    action: 'Створено категорію',
-    entity: 'roomType',
-    entityId: created.id,
-    details: created.name,
-  })
-  return clone(created)
+export async function listRoomTypes(query: RoomTypeListQuery = {}): Promise<AccommodationPage<RoomType>> {
+  return apiRequest(`/api/admin/accommodations/types${querySuffix({
+    page: query.page,
+    limit: query.limit,
+    search: query.search?.trim() || undefined,
+    active: query.active,
+  })}`)
 }
 
-export async function deleteRoomType(id: string) {
-  await delay()
-  if (db.accommodations.some((item) => item.roomTypeId === id)) {
-    throw new ApiError('Категорія використовується розміщеннями')
-  }
-  const index = db.roomTypes.findIndex((item) => item.id === id)
-  if (index < 0) throw new ApiError('Категорію не знайдено')
-  const [removed] = db.roomTypes.splice(index, 1)
-  db.addAudit({
-    actorId: getActorId(),
-    action: 'Видалено категорію',
-    entity: 'roomType',
-    entityId: id,
-    details: removed.name,
-  })
+export async function getRoomType(id: string): Promise<RoomType> {
+  return apiRequest(`/api/admin/accommodations/types/${id}`)
 }
 
-export async function saveAccommodation(
-  input: Omit<Accommodation, 'id' | 'kind'> & { id?: string; kind: AccommodationKind },
-) {
-  await delay()
-  if (!input.name.trim() || !input.code.trim()) throw new ApiError('Вкажіть назву і код')
-  const duplicate = db.accommodations.find(
-    (item) => item.code.toLowerCase() === input.code.trim().toLowerCase() && item.id !== input.id,
-  )
-  if (duplicate) throw new ApiError('Такий код уже існує')
-  if (input.id) {
-    const current = db.accommodations.find((item) => item.id === input.id)
-    if (!current) throw new ApiError('Розміщення не знайдено')
-    Object.assign(current, {
+export async function createRoomType(input: RoomTypeCreateInput): Promise<RoomType> {
+  return apiRequest('/api/admin/accommodations/types', {
+    method: 'POST',
+    body: {
       name: input.name.trim(),
-      code: input.code.trim(),
+      slug: input.slug.trim().toLowerCase(),
+      description: input.description?.trim() ? input.description.trim() : null,
+      maxGuests: input.maxGuests,
+      active: input.active,
+    },
+  })
+}
+
+export async function updateRoomType(id: string, input: RoomTypeUpdateInput): Promise<RoomType> {
+  const body: RoomTypeUpdateInput = {}
+  if (input.name !== undefined) body.name = input.name.trim()
+  if (input.slug !== undefined) body.slug = input.slug.trim().toLowerCase()
+  if (input.description !== undefined) {
+    body.description = input.description?.trim() ? input.description.trim() : null
+  }
+  if (input.maxGuests !== undefined) body.maxGuests = input.maxGuests
+  if (input.active !== undefined) body.active = input.active
+  return apiRequest(`/api/admin/accommodations/types/${id}`, {
+    method: 'PATCH',
+    body,
+  })
+}
+
+export async function listRooms(query: RoomListQuery = {}): Promise<AccommodationPage<Accommodation>> {
+  return apiRequest(`/api/admin/accommodations/rooms${querySuffix({
+    page: query.page,
+    limit: query.limit,
+    search: query.search?.trim() || undefined,
+    active: query.active,
+    roomTypeId: query.roomTypeId,
+    status: query.status,
+  })}`)
+}
+
+export async function getRoom(id: string): Promise<Accommodation> {
+  return apiRequest(`/api/admin/accommodations/rooms/${id}`)
+}
+
+export async function createRoom(input: RoomCreateInput): Promise<Accommodation> {
+  return apiRequest('/api/admin/accommodations/rooms', {
+    method: 'POST',
+    body: {
       roomTypeId: input.roomTypeId,
-      floor: input.floor,
-      kind: input.kind,
-    })
-    db.addAudit({
-      actorId: getActorId(),
-      action: 'Оновлено розміщення',
-      entity: 'accommodation',
-      entityId: current.id,
-      details: current.name,
-    })
-    return clone(current)
-  }
-  const created: Accommodation = {
-    id: db.uid('acc'),
-    name: input.name.trim(),
-    code: input.code.trim(),
-    kind: input.kind,
-    roomTypeId: input.roomTypeId,
-    floor: input.floor,
-  }
-  db.accommodations.push(created)
-  db.addAudit({
-    actorId: getActorId(),
-    action: 'Створено розміщення',
-    entity: 'accommodation',
-    entityId: created.id,
-    details: created.name,
+      number: input.number.trim(),
+      name: input.name?.trim() ? input.name.trim() : null,
+      floor: input.floor ?? null,
+      status: input.status,
+      active: input.active,
+    },
   })
-  return clone(created)
 }
 
-export async function createBlock(input: { accommodationId: string; from: string; to: string; reason: string }) {
-  await delay()
-  if (!input.from || !input.to || input.to < input.from) throw new ApiError('Вкажіть коректний період блокування')
-  if (!input.reason.trim()) throw new ApiError('Вкажіть причину блокування')
-  const endExclusive = addDaysIso(input.to, 1)
-  if (findBookingConflict(input.accommodationId, input.from, endExclusive)) {
-    throw new ApiError('На ці дати є активне бронювання')
-  }
-  const accommodation = db.accommodations.find((item) => item.id === input.accommodationId)
-  if (!accommodation) throw new ApiError('Розміщення не знайдено')
-  const block = {
-    id: db.uid('blk'),
-    accommodationId: input.accommodationId,
-    from: input.from,
-    to: input.to,
-    reason: input.reason.trim(),
-  }
-  db.blocks.push(block)
-  db.addAudit({
-    actorId: getActorId(),
-    action: 'Заблоковано',
-    entity: 'accommodation',
-    entityId: accommodation.id,
-    details: `${accommodation.name} · ${input.reason.trim()}`,
+export async function updateRoom(id: string, input: RoomUpdateInput): Promise<Accommodation> {
+  const body: RoomUpdateInput = {}
+  if (input.roomTypeId !== undefined) body.roomTypeId = input.roomTypeId
+  if (input.number !== undefined) body.number = input.number.trim()
+  if (input.name !== undefined) body.name = input.name?.trim() ? input.name.trim() : null
+  if (input.floor !== undefined) body.floor = input.floor
+  if (input.status !== undefined) body.status = input.status
+  if (input.active !== undefined) body.active = input.active
+  return apiRequest(`/api/admin/accommodations/rooms/${id}`, {
+    method: 'PATCH',
+    body,
   })
-  return clone(block)
 }
 
-export async function deleteBlock(id: string) {
-  await delay()
-  const index = db.blocks.findIndex((item) => item.id === id)
-  if (index < 0) throw new ApiError('Блокування не знайдено')
-  const [removed] = db.blocks.splice(index, 1)
-  const accommodation = db.accommodations.find((item) => item.id === removed.accommodationId)
-  db.addAudit({
-    actorId: getActorId(),
-    action: 'Знято блокування',
-    entity: 'accommodation',
-    entityId: removed.accommodationId,
-    details: accommodation?.name ?? removed.accommodationId,
+export async function listRoomBlocks(roomId: string): Promise<Block[]> {
+  return apiRequest(`/api/admin/accommodations/rooms/${roomId}/blocks`)
+}
+
+export async function createRoomBlock(roomId: string, input: RoomBlockCreateInput): Promise<Block> {
+  return apiRequest(`/api/admin/accommodations/rooms/${roomId}/blocks`, {
+    method: 'POST',
+    body: {
+      startDate: input.startDate,
+      endDate: input.endDate,
+      type: input.type,
+      reason: input.reason?.trim() ? input.reason.trim() : null,
+    },
+  })
+}
+
+export async function updateRoomBlock(
+  roomId: string,
+  blockId: string,
+  input: RoomBlockUpdateInput,
+): Promise<Block> {
+  const body: RoomBlockUpdateInput = {}
+  if (input.startDate !== undefined) body.startDate = input.startDate
+  if (input.endDate !== undefined) body.endDate = input.endDate
+  if (input.type !== undefined) body.type = input.type
+  if (input.reason !== undefined) body.reason = input.reason?.trim() ? input.reason.trim() : null
+  return apiRequest(`/api/admin/accommodations/rooms/${roomId}/blocks/${blockId}`, {
+    method: 'PATCH',
+    body,
+  })
+}
+
+export async function deleteRoomBlock(roomId: string, blockId: string) {
+  return apiRequest<{ ok: true }>(`/api/admin/accommodations/rooms/${roomId}/blocks/${blockId}`, {
+    method: 'DELETE',
+  })
+}
+
+export async function listRoomTypeImages(roomTypeId: string): Promise<RoomTypeImage[]> {
+  return apiRequest(`/api/admin/accommodations/types/${roomTypeId}/images`)
+}
+
+export async function createRoomTypeImage(
+  roomTypeId: string,
+  input: RoomImageCreateInput,
+): Promise<RoomTypeImage> {
+  return apiRequest(`/api/admin/accommodations/types/${roomTypeId}/images`, {
+    method: 'POST',
+    body: {
+      url: input.url.trim(),
+      alt: input.alt?.trim() ? input.alt.trim() : null,
+      sortOrder: input.sortOrder,
+    },
+  })
+}
+
+export async function updateRoomTypeImage(
+  roomTypeId: string,
+  imageId: string,
+  input: RoomImageUpdateInput,
+): Promise<RoomTypeImage> {
+  const body: RoomImageUpdateInput = {}
+  if (input.url !== undefined) body.url = input.url.trim()
+  if (input.alt !== undefined) body.alt = input.alt?.trim() ? input.alt.trim() : null
+  if (input.sortOrder !== undefined) body.sortOrder = input.sortOrder
+  return apiRequest(`/api/admin/accommodations/types/${roomTypeId}/images/${imageId}`, {
+    method: 'PATCH',
+    body,
+  })
+}
+
+export async function reorderRoomTypeImages(roomTypeId: string, imageIds: string[]): Promise<RoomTypeImage[]> {
+  return apiRequest(`/api/admin/accommodations/types/${roomTypeId}/images/reorder`, {
+    method: 'PATCH',
+    body: { imageIds },
+  })
+}
+
+export async function deleteRoomTypeImage(roomTypeId: string, imageId: string) {
+  return apiRequest<{ ok: true }>(`/api/admin/accommodations/types/${roomTypeId}/images/${imageId}`, {
+    method: 'DELETE',
   })
 }
