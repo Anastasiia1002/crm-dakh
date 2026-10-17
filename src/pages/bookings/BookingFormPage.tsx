@@ -1,81 +1,108 @@
+import { useMemo } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { BookingForm } from '@/components/bookings/BookingForm'
+import { AdminBookingForm } from '@/components/bookings/AdminBookingForm'
+import { Button } from '@/components/ui/button'
 import { LoadingState } from '@/components/ui/states'
-import { useBooking, useCreateBooking, useGuests, useUpdateBooking } from '@/hooks/useBookings'
 import {
-  useAccommodations,
-  usePricePeriods,
-  usePromoCodes,
-  useRatePlans,
-  useRoomTypes,
-  useServices,
-  useSettings,
-} from '@/hooks/useHotel'
-import { addDaysIso } from '@/lib/dates'
+  useAdminBooking,
+  useCreateAdminBooking,
+  useUpdateAdminBooking,
+} from '@/hooks/useBookings'
+import { useAdminRatePlans, useAdminRooms } from '@/hooks/useHotel'
+import { addCalendarDays } from '@/lib/dates'
 import { errorMessage } from '@/lib/errors'
+import { parseCalendarPrefill } from '@/lib/admin-booking-view'
+import type { AdminBookingCreateInput, AdminBookingUpdateInput } from '@/types'
 
 export function BookingFormPage() {
   const { id } = useParams()
   const [params] = useSearchParams()
   const navigate = useNavigate()
-  const booking = useBooking(id ?? '')
-  const guests = useGuests()
-  const accommodations = useAccommodations()
-  const roomTypes = useRoomTypes()
-  const ratePlans = useRatePlans()
-  const periods = usePricePeriods()
-  const services = useServices()
-  const promos = usePromoCodes()
-  const settings = useSettings()
-  const createBooking = useCreateBooking()
-  const updateBooking = useUpdateBooking(id ?? '')
+  const isEdit = Boolean(id)
 
-  if (id && booking.isError) return <p className="text-sm text-destructive">Бронювання не знайдено.</p>
+  const bookingQuery = useAdminBooking(id ?? '')
+  const roomsQuery = useAdminRooms({ page: 1, limit: 100, active: true })
+  const plansQuery = useAdminRatePlans({ page: 1, limit: 100, active: true })
+  const createMutation = useCreateAdminBooking()
+  const updateMutation = useUpdateAdminBooking(id ?? '')
 
-  if (
-    !guests.data ||
-    !accommodations.data ||
-    !roomTypes.data ||
-    !ratePlans.data ||
-    !periods.data ||
-    !services.data ||
-    !promos.data ||
-    !settings.data ||
-    (id && !booking.data)
-  ) {
-    return <LoadingState />
+  const preset = useMemo(() => {
+    const parsed = parseCalendarPrefill(params)
+    return {
+      roomId: parsed.roomId,
+      checkIn: parsed.checkIn,
+      checkOut: parsed.checkOut ?? (parsed.checkIn ? addCalendarDays(parsed.checkIn, 1) : undefined),
+    }
+  }, [params])
+
+  if (isEdit && bookingQuery.isLoading) return <LoadingState />
+  if (roomsQuery.isLoading || plansQuery.isLoading) return <LoadingState />
+
+  if (isEdit && bookingQuery.isError) {
+    return (
+      <div className="space-y-3 py-10">
+        <p className="text-sm">Не вдалося завантажити бронювання.</p>
+        <p className="text-sm text-muted-foreground">{errorMessage(bookingQuery.error)}</p>
+        <Button size="sm" variant="outline" onClick={() => void bookingQuery.refetch()}>
+          Спробувати ще раз
+        </Button>
+      </div>
+    )
   }
 
-  const checkIn = params.get('checkIn') ?? undefined
-  const preset = {
-    accommodationId: params.get('accommodationId') ?? undefined,
-    checkIn,
-    checkOut: params.get('checkOut') ?? (checkIn ? addDaysIso(checkIn, 1) : undefined),
+  if (roomsQuery.isError || plansQuery.isError) {
+    return (
+      <div className="space-y-3 py-10">
+        <p className="text-sm">Не вдалося завантажити номери або тарифи.</p>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            void roomsQuery.refetch()
+            void plansQuery.refetch()
+          }}
+        >
+          Спробувати ще раз
+        </Button>
+      </div>
+    )
   }
+
+  if (isEdit && !bookingQuery.data) {
+    return <p className="text-sm text-destructive">Бронювання не знайдено.</p>
+  }
+
+  const rooms = roomsQuery.data?.items ?? []
+  const ratePlans = plansQuery.data?.items ?? []
+  const submitting = createMutation.isPending || updateMutation.isPending
 
   return (
-    <BookingForm
-      booking={booking.data}
-      guests={guests.data}
-      accommodations={accommodations.data}
-      roomTypes={roomTypes.data}
-      ratePlans={ratePlans.data}
-      periods={periods.data}
-      services={services.data}
-      promos={promos.data}
-      defaultCheckInTime={settings.data.checkInTime}
-      preset={id ? undefined : preset}
-      submitting={createBooking.isPending || updateBooking.isPending}
-      onSubmit={async (input) => {
-        try {
-          const saved = id ? await updateBooking.mutateAsync(input) : await createBooking.mutateAsync(input)
-          toast.success(id ? 'Бронювання оновлено' : 'Бронювання створено')
+    <div className="space-y-6">
+      <div>
+        <h2 className="font-serif text-3xl font-medium">{isEdit ? 'Редагування бронювання' : 'Нове бронювання'}</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Ціна розраховується на сервері. Джерело: ADMIN. Статус при створенні: CONFIRMED.
+        </p>
+      </div>
+      <AdminBookingForm
+        booking={bookingQuery.data}
+        rooms={rooms}
+        ratePlans={ratePlans}
+        preset={isEdit ? undefined : preset}
+        submitting={submitting}
+        onSubmit={async (input) => {
+          if (isEdit) {
+            const saved = await updateMutation.mutateAsync(input as AdminBookingUpdateInput)
+            toast.success('Бронювання оновлено')
+            navigate(`/admin/bookings/${saved.id}`)
+            return
+          }
+          const saved = await createMutation.mutateAsync(input as AdminBookingCreateInput)
+          toast.success('Бронювання створено')
           navigate(`/admin/bookings/${saved.id}`)
-        } catch (error) {
-          toast.error(errorMessage(error))
-        }
-      }}
-    />
+        }}
+      />
+    </div>
   )
 }

@@ -11,13 +11,8 @@ import { roomTypeKindLabel } from '@/lib/labels'
 import type { RoomTypeKind } from '@/types'
 
 /**
- * Phase 6 prefill contract (not applied by the current mock booking form):
- * - roomId: physical Room UUID from availability calendar
- * - checkIn: YYYY-MM-DD stay start
- * - checkOut: optional half-open end date
- *
- * Until Bookings API integration, empty-cell navigation only passes checkIn
- * (supported by the mock form) and does not pass roomId/accommodationId.
+ * Empty-cell → /admin/bookings/new?roomId&checkIn&checkOut
+ * Prefill is validated in the booking form; URL params never reserve inventory.
  */
 
 const kindOptions: { id: RoomTypeKind | 'all'; label: string }[] = [
@@ -148,10 +143,14 @@ export function CalendarPage() {
         <Chessboard
           model={board.model}
           onBooking={(bookingId) => navigate(`/admin/bookings/${bookingId}`)}
-          onEmpty={(_roomId, date) => {
-            // Mock booking form only safely consumes checkIn today.
-            // Phase 6: also pass roomId=<physical Room UUID>.
-            navigate(`/admin/bookings/new?checkIn=${encodeURIComponent(date)}`)
+          onEmpty={(roomId, date) => {
+            const checkOut = addCalendarDays(date, 1)
+            const params = new URLSearchParams({
+              roomId,
+              checkIn: date,
+              checkOut,
+            })
+            navigate(`/admin/bookings/new?${params.toString()}`)
           }}
         />
       ) : null}

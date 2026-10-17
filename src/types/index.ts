@@ -749,6 +749,41 @@ export type AdminBookingListItem = {
   currency: string
 }
 
+export type AdminBookingNight = {
+  id: string
+  roomId: string
+  date: string
+  price: string
+  currency: string
+}
+
+export type AdminBookingServiceLine = {
+  id: string
+  serviceId: string
+  quantity: number
+  unitPrice: string
+  totalPrice: string
+}
+
+export type AdminBookingPrice = {
+  roomSubtotal: string
+  servicesTotal: string
+  discountAmount: string
+  taxAmount: string
+  totalAmount: string
+  currency: string
+}
+
+/** GET /api/admin/bookings/:id — list fields plus detail enrichment. */
+export type AdminBookingDetail = AdminBookingListItem & {
+  notes: string | null
+  cancellationReason: string | null
+  cancelledAt: string | null
+  nights: AdminBookingNight[]
+  price: AdminBookingPrice
+  services: AdminBookingServiceLine[]
+}
+
 export type AdminBookingListQuery = {
   page?: number
   limit?: number
@@ -767,6 +802,116 @@ export type AdminBookingListQuery = {
 }
 
 export type AdminBookingPage = AccommodationPage<AdminBookingListItem>
+
+/** UI filters for admin booking list (mapped to AdminBookingListQuery). */
+export type AdminBookingListFilters = {
+  page: number
+  limit: number
+  search: string
+  status: BookingStatus | 'all'
+  source: AdminBookingSource | 'all'
+  roomId: string | 'all'
+  /** Stay overlap window start — requires checkOut. */
+  checkIn: string
+  /** Stay overlap window end — requires checkIn. */
+  checkOut: string
+}
+
+export type AdminBookingGuestInput = {
+  firstName: string
+  lastName: string
+  email?: string
+  phone?: string
+  country?: string
+  city?: string
+}
+
+export type AdminBookingRoomInput = {
+  roomId: string
+  ratePlanId: string
+}
+
+/** POST /api/admin/bookings — no client totals/prices. */
+export type AdminBookingCreateInput = {
+  guestId?: string
+  guest?: AdminBookingGuestInput
+  checkIn: string
+  checkOut: string
+  adults?: number
+  children?: number
+  guestCount: number
+  notes?: string
+  source?: AdminBookingSource
+  status?: 'PENDING' | 'CONFIRMED'
+  rooms: AdminBookingRoomInput[]
+}
+
+/** PATCH /api/admin/bookings/:id */
+export type AdminBookingUpdateInput = {
+  guestId?: string
+  guest?: {
+    firstName?: string
+    lastName?: string
+    email?: string | null
+    phone?: string | null
+    country?: string | null
+    city?: string | null
+  }
+  checkIn?: string
+  checkOut?: string
+  adults?: number
+  children?: number
+  guestCount?: number
+  notes?: string | null
+  rooms?: AdminBookingRoomInput[]
+}
+
+export type AdminBookingCancelInput = {
+  cancellationReason?: string
+}
+
+export type AdminBookingQuoteInput = {
+  checkIn: string
+  checkOut: string
+  guestCount: number
+  rooms: AdminBookingRoomInput[]
+}
+
+export type AdminBookingQuoteNight = {
+  date: string
+  price: string
+  currency: string
+}
+
+export type AdminBookingQuoteRoom = {
+  roomId: string
+  ratePlanId: string
+  nights: AdminBookingQuoteNight[]
+  roomSubtotal: string
+}
+
+export type AdminBookingQuote = {
+  checkIn: string
+  checkOut: string
+  guestCount: number
+  currency: string
+  rooms: AdminBookingQuoteRoom[]
+  services: { serviceId: string; quantity: number; unitPrice: string; totalPrice: string }[]
+  promoCodeId: string | null
+  price: AdminBookingPrice
+}
+
+export type AdminBookingGuestSelection = {
+  id: string
+  firstName: string
+  lastName: string
+  email: string | null
+  phone: string | null
+}
+
+export type AdminBookingGuestSelectionPage = AccommodationPage<AdminBookingGuestSelection>
+
+export type AdminBookingStatusAction = 'confirm' | 'check-in' | 'check-out' | 'no-show' | 'cancel'
 
 export type ChessboardBookingBar = {
   bookingId: string

@@ -1,6 +1,18 @@
 import { apiRequest } from '@/lib/api-client'
 import { ApiError } from '@/lib/api-error'
-import type { AdminBookingListItem, AdminBookingListQuery, AdminBookingPage } from '@/types'
+import { sanitizeAdminBookingCreateBody, sanitizeAdminBookingQuoteBody } from '@/lib/admin-booking-view'
+import type {
+  AdminBookingCancelInput,
+  AdminBookingCreateInput,
+  AdminBookingDetail,
+  AdminBookingGuestSelectionPage,
+  AdminBookingListItem,
+  AdminBookingListQuery,
+  AdminBookingPage,
+  AdminBookingQuote,
+  AdminBookingQuoteInput,
+  AdminBookingUpdateInput,
+} from '@/types'
 
 const PAGE_LIMIT = 100
 /** Hard stop — above this, return an explicit incomplete-data error instead of truncating. */
@@ -39,8 +51,76 @@ export async function listAdminBookings(
   )
 }
 
-export async function getAdminBooking(id: string, signal?: AbortSignal): Promise<AdminBookingListItem> {
+export async function getAdminBooking(id: string, signal?: AbortSignal): Promise<AdminBookingDetail> {
   return apiRequest(`/api/admin/bookings/${id}`, { signal })
+}
+
+export async function listAdminBookingGuests(
+  query: { page?: number; limit?: number; search?: string } = {},
+  signal?: AbortSignal,
+): Promise<AdminBookingGuestSelectionPage> {
+  return apiRequest(
+    `/api/admin/bookings/guests${querySuffix({
+      page: query.page,
+      limit: query.limit,
+      search: query.search?.trim() || undefined,
+    })}`,
+    { signal },
+  )
+}
+
+export async function quoteAdminBooking(
+  input: AdminBookingQuoteInput,
+  signal?: AbortSignal,
+): Promise<AdminBookingQuote> {
+  return apiRequest('/api/admin/bookings/quote', {
+    method: 'POST',
+    body: sanitizeAdminBookingQuoteBody(input),
+    signal,
+  })
+}
+
+export async function createAdminBooking(input: AdminBookingCreateInput): Promise<AdminBookingDetail> {
+  return apiRequest('/api/admin/bookings', {
+    method: 'POST',
+    body: sanitizeAdminBookingCreateBody(input),
+  })
+}
+
+export async function updateAdminBooking(
+  id: string,
+  input: AdminBookingUpdateInput,
+): Promise<AdminBookingDetail> {
+  return apiRequest(`/api/admin/bookings/${id}`, {
+    method: 'PATCH',
+    body: input,
+  })
+}
+
+export async function confirmAdminBooking(id: string): Promise<AdminBookingDetail> {
+  return apiRequest(`/api/admin/bookings/${id}/confirm`, { method: 'POST' })
+}
+
+export async function checkInAdminBooking(id: string): Promise<AdminBookingDetail> {
+  return apiRequest(`/api/admin/bookings/${id}/check-in`, { method: 'POST' })
+}
+
+export async function checkOutAdminBooking(id: string): Promise<AdminBookingDetail> {
+  return apiRequest(`/api/admin/bookings/${id}/check-out`, { method: 'POST' })
+}
+
+export async function noShowAdminBooking(id: string): Promise<AdminBookingDetail> {
+  return apiRequest(`/api/admin/bookings/${id}/no-show`, { method: 'POST' })
+}
+
+export async function cancelAdminBooking(
+  id: string,
+  input: AdminBookingCancelInput = {},
+): Promise<AdminBookingDetail> {
+  return apiRequest(`/api/admin/bookings/${id}/cancel`, {
+    method: 'POST',
+    body: input,
+  })
 }
 
 /**

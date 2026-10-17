@@ -55,6 +55,11 @@ export function canManageRates(role: UserRole | undefined) {
   return role === 'owner' || role === 'admin'
 }
 
+/** Mirrors booking REASSIGN_ROLES: SUPER_ADMIN + ADMIN + MANAGER. */
+export function canReassignBookingRoom(role: UserRole | undefined) {
+  return role === 'owner' || role === 'admin' || role === 'manager'
+}
+
 function isBackendAdminRole(role: string): role is BackendAdminRole {
   return Object.prototype.hasOwnProperty.call(backendRoleToFrontend, role)
 }

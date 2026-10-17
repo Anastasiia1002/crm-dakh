@@ -1,5 +1,6 @@
 import type {
   AccommodationKind,
+  AdminBookingSource,
   BookingSource,
   BookingStatus,
   DiscountType,
@@ -28,6 +29,15 @@ export const bookingSourceLabel: Record<BookingSource, string> = {
   walk_in: 'Стійка',
   admin: 'Адмінпанель',
   partner: 'Партнер',
+}
+
+/** Backend BookingSource labels for admin bookings API. */
+export const adminBookingSourceLabel: Record<AdminBookingSource, string> = {
+  WEBSITE: 'Сайт',
+  ADMIN: 'Адмінпанель',
+  PHONE: 'Телефон',
+  EMAIL: 'Email',
+  OTHER: 'Інше',
 }
 
 export const paymentStatusLabel: Record<PaymentStatus, string> = {
