@@ -24,9 +24,36 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Require production API origin
+        env:
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VITE_API_BASE_URL:-}" ]; then
+            echo "Missing GitHub Actions repository variable VITE_API_BASE_URL."
+            echo "Set it to the Nest API https origin (no /api path, no secrets)."
+            exit 1
+          fi
+          case "$VITE_API_BASE_URL" in
+            http://localhost*|https://localhost*|http://127.0.0.1*|https://127.0.0.1*)
+              echo "VITE_API_BASE_URL must not be localhost for GitHub Pages production builds."
+              exit 1
+              ;;
+            http://*)
+              echo "VITE_API_BASE_URL must use https for production builds."
+              exit 1
+              ;;
+            https://*)
+              ;;
+            *)
+              echo "VITE_API_BASE_URL must be an https:// origin."
+              exit 1
+              ;;
+          esac
       - run: npm run build
         env:
           GITHUB_PAGES: 'true'
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
       - run: cp dist/index.html dist/404.html
       - uses: actions/upload-pages-artifact@v3
         with:

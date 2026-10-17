@@ -22,7 +22,9 @@ type BackendAdmin = {
 }
 
 setSessionLostHandler(() => {
+  // Drop cached hotel data as soon as refresh fails — do not keep scoped lists in memory.
   queryClient.setQueryData(['session'], null)
+  queryClient.clear()
 })
 
 export async function login(email: string, password: string): Promise<AdminUser> {
@@ -102,6 +104,9 @@ function toAdminUser(admin: BackendAdmin): AdminUser {
     typeof admin.active !== 'boolean'
   ) {
     throw new ApiError('Сервер тимчасово недоступний. Спробуйте пізніше.', 0, 'INVALID_PROFILE')
+  }
+  if (!admin.active) {
+    throw new ApiError('Обліковий запис неактивний', 403, 'INACTIVE_ADMIN')
   }
   return {
     id: admin.id,

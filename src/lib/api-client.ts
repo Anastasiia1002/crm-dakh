@@ -1,4 +1,5 @@
 import { ApiError } from '@/lib/api-error'
+import { assertViteApiBaseUrl } from '@/lib/api-env'
 import { clearAuthStorage, readRefreshToken, writeRefreshToken } from '@/lib/auth-storage'
 
 type Method = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
@@ -28,12 +29,32 @@ export function setSessionLostHandler(handler: () => void) {
   onSessionLost = handler
 }
 
+/** Test-only: inspect in-memory access token. */
+export function getAccessTokenForTests() {
+  return accessToken
+}
+
+/** Test-only: reset module session state between verify cases. */
+export function resetApiClientForTests() {
+  accessToken = null
+  refreshInFlight = null
+  onSessionLost = null
+}
+
+function processEnv(name: string): string | undefined {
+  const proc = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process
+  return proc?.env?.[name]
+}
+
 export function apiBaseUrl() {
-  const configured = import.meta.env.VITE_API_BASE_URL
-  if (typeof configured !== 'string' || configured.trim().length === 0) {
+  try {
+    const fromImport = import.meta.env?.VITE_API_BASE_URL
+    const fromProcess = processEnv('VITE_API_BASE_URL')
+    const mode = import.meta.env?.MODE ?? processEnv('MODE') ?? 'development'
+    return assertViteApiBaseUrl(fromImport ?? fromProcess, mode)
+  } catch {
     throw new ApiError('Сервер тимчасово недоступний. Спробуйте пізніше.', 0, 'API_URL_MISSING')
   }
-  return configured.trim().replace(/\/+$/, '')
 }
 
 export async function refreshAccessToken(): Promise<boolean> {
@@ -63,7 +84,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     if (options.signal?.aborted || (error instanceof DOMException && error.name === 'AbortError')) {
       throw error
     }
-    if (import.meta.env.DEV) console.error('API network error', path)
+    if (import.meta.env?.DEV) console.error('API network error', path)
     throw new ApiError('Сервер тимчасово недоступний. Спробуйте пізніше.', 0, 'NETWORK')
   }
 
@@ -104,7 +125,7 @@ async function rotateSession(): Promise<boolean> {
     writeRefreshToken(session.refreshToken)
     return true
   } catch (error) {
-    if (import.meta.env.DEV && error instanceof ApiError) {
+    if (import.meta.env?.DEV && error instanceof ApiError) {
       console.error('Session refresh failed', error.status, error.code ?? '')
     }
     dropSession()
