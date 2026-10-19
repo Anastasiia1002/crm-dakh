@@ -34,6 +34,12 @@ assert(
   'staging localhost allowed and trimmed',
 )
 assert(
+  assertViteApiBaseUrl('https://dakh-staging-api.example', 'staging') === 'https://dakh-staging-api.example',
+  'remote staging https allowed',
+)
+throws(() => assertViteApiBaseUrl('http://dakh-staging-api.example', 'staging'), /must use https/)
+throws(() => assertViteApiBaseUrl('https://dakh-backend.onrender.com', 'staging'), /production Render/)
+assert(
   assertViteApiBaseUrl('https://api.example.com', 'production') === 'https://api.example.com',
   'production https allowed',
 )

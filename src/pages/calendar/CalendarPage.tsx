@@ -7,6 +7,10 @@ import { EmptyState, LoadingState } from '@/components/ui/states'
 import { CALENDAR_WINDOW_DAYS, useAdminCalendarBoard } from '@/hooks/useCalendarBoard'
 import { addCalendarDays, todayIso } from '@/lib/dates'
 import { formatDateShort } from '@/lib/format'
+import {
+  INVENTORY_ACTIVE_FILTER_LABEL,
+  type InventoryActiveFilter,
+} from '@/lib/inventory-status'
 import { roomTypeKindLabel } from '@/lib/labels'
 import type { RoomTypeKind } from '@/types'
 
@@ -26,12 +30,14 @@ export function CalendarPage() {
   const [start, setStart] = useState(todayIso())
   const [kind, setKind] = useState<RoomTypeKind | 'all'>('all')
   const [roomTypeId, setRoomTypeId] = useState<string>('all')
+  const [inventoryFilter, setInventoryFilter] = useState<InventoryActiveFilter>('active')
 
   const board = useAdminCalendarBoard({
     from: start,
     days: CALENDAR_WINDOW_DAYS,
     kind,
     roomTypeId: roomTypeId === 'all' ? undefined : roomTypeId,
+    inventoryFilter,
   })
 
   const typeOptions = useMemo(() => {
@@ -95,6 +101,24 @@ export function CalendarPage() {
               {typeOptions.map((type) => (
                 <SelectItem key={type.id} value={type.id}>
                   {type.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={inventoryFilter}
+            onValueChange={(value: InventoryActiveFilter) => {
+              setInventoryFilter(value)
+              setRoomTypeId('all')
+            }}
+          >
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Статус" />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(INVENTORY_ACTIVE_FILTER_LABEL) as InventoryActiveFilter[]).map((key) => (
+                <SelectItem key={key} value={key}>
+                  {INVENTORY_ACTIVE_FILTER_LABEL[key]}
                 </SelectItem>
               ))}
             </SelectContent>

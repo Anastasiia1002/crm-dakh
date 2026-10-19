@@ -279,6 +279,56 @@ export function runCalendarAdapterChecks(): string[] {
   assert(states.has('BLOCKED'), 'status: BLOCKED')
   results.push('Status PASS: BLOCKED/MAINTENANCE/OUT_OF_ORDER/INACTIVE from calendar states')
 
+  // Archived inventory (room.active=false): API night state is INACTIVE; bookingId still attached.
+  // Occupancy bars require BOOKED/CHECKED_IN — history stays on bookings list, not silently dropped.
+  const archivedCalendar: AdminCalendarView = {
+    from: '2026-10-10',
+    to: '2026-10-13',
+    roomTypes: [
+      {
+        roomTypeId: 'rt-archived',
+        name: 'Fiction',
+        rooms: [
+          {
+            roomId: 'room-archived',
+            number: 'X1',
+            status: 'AVAILABLE',
+            active: false,
+            nights: [
+              night('2026-10-10', 'INACTIVE', 'b-hist'),
+              night('2026-10-11', 'INACTIVE', 'b-hist'),
+              night('2026-10-12', 'INACTIVE'),
+            ],
+          },
+        ],
+      },
+    ],
+  }
+  const modelHist = buildChessboardModel({
+    calendar: archivedCalendar,
+    roomTypeMeta: [{ id: 'rt-archived', kind: 'ROOM', name: 'Fiction' }],
+    bookings: [bookingMeta('b-hist', ['room-archived'], 'CONFIRMED')],
+    kindFilter: 'all',
+  })
+  assert(modelHist.groups.length === 1, 'hist: archived type kept in archive mode')
+  assert(
+    modelHist.groups[0]?.rooms.some((room) => room.roomId === 'room-archived' && room.active === false),
+    'hist: inactive room row present',
+  )
+  assert(
+    modelHist.adminBars.some((bar) => bar.roomId === 'room-archived' && bar.kind === 'INACTIVE'),
+    'hist: INACTIVE admin bar (nightDecision precedence unchanged)',
+  )
+  assert(
+    !modelHist.bookingBars.some((bar) => bar.bookingId === 'b-hist'),
+    'hist: no fake BOOKED bar when state is INACTIVE',
+  )
+  assert(
+    archivedCalendar.roomTypes[0]?.rooms[0]?.nights.some((n) => n.bookingId === 'b-hist'),
+    'hist: bookingId retained on night payload for cross-ref',
+  )
+  results.push('History PASS: archived units visible in archive mode; bookingId kept; list history separate')
+
   return results
 }
 

@@ -45,6 +45,9 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       <div className="px-6 pt-7 pb-6">
         <Logo className="w-full max-w-[11.75rem]" />
         <p className="mt-3 text-[10px] tracking-[0.22em] text-sidebar-muted uppercase">Адмінпанель</p>
+        {import.meta.env.MODE === 'staging' ? (
+          <p className="mt-2 text-[10px] tracking-[0.14em] text-[#c4b49a] uppercase">Тестове середовище</p>
+        ) : null}
       </div>
       <div className="flex-1">
         <NavGroup items={primaryNav} onNavigate={onNavigate} />

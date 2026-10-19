@@ -4,6 +4,7 @@ import { listAllOverlappingBookings } from '@/api/admin-bookings'
 import { getAdminCalendar } from '@/api/availability'
 import { buildChessboardModel } from '@/lib/calendar-adapter'
 import { addCalendarDays } from '@/lib/dates'
+import { activeFilterToQuery, type InventoryActiveFilter } from '@/lib/inventory-status'
 import type { AdminCalendarQuery, RoomTypeKind } from '@/types'
 
 export const CALENDAR_WINDOW_DAYS = 14
@@ -19,13 +20,18 @@ export function useAdminCalendarBoard(input: {
   days?: number
   roomTypeId?: string
   kind: RoomTypeKind | 'all'
+  /** Default operational view is active-only. */
+  inventoryFilter?: InventoryActiveFilter
 }) {
   const days = Math.min(Math.max(input.days ?? CALENDAR_WINDOW_DAYS, 1), CALENDAR_MAX_WINDOW_DAYS)
   const to = calendarWindowEnd(input.from, days)
+  const inventoryFilter = input.inventoryFilter ?? 'active'
+  const active = activeFilterToQuery(inventoryFilter)
   const query: AdminCalendarQuery = {
     from: input.from,
     to,
     roomTypeId: input.roomTypeId,
+    active,
   }
 
   const calendarQuery = useQuery({
@@ -44,16 +50,20 @@ export function useAdminCalendarBoard(input: {
     })),
   })
 
-  // Filter dropdown: paginate all types for the active kind filter (avoids unrelated kinds when scoped).
+  // Filter dropdown: paginate types for the kind + inventory visibility filter.
   const pickerTypesQuery = useQuery({
-    queryKey: ['admin-room-types-all', { kind: input.kind }],
+    queryKey: ['admin-room-types-all', { kind: input.kind, active }],
     queryFn: ({ signal }) =>
       listAllRoomTypes(
-        { kind: input.kind === 'all' ? undefined : input.kind },
+        {
+          kind: input.kind === 'all' ? undefined : input.kind,
+          active,
+        },
         signal,
       ),
   })
 
+  // Booking enrichment is independent of inventory visibility — historical stays stay accessible.
   const bookingsQuery = useQuery({
     queryKey: ['admin-calendar-bookings', { from: query.from, to: query.to }],
     queryFn: ({ signal }) => listAllOverlappingBookings(query.from, query.to, signal),

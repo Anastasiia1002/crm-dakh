@@ -709,6 +709,8 @@ export type AdminCalendarQuery = {
   from: string
   to: string
   roomTypeId?: string
+  /** When set, backend returns only matching active/inactive inventory. */
+  active?: boolean
 }
 
 /** Backend admin booking list source enum. */

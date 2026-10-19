@@ -25,6 +25,7 @@ export async function getAdminCalendar(
       from: query.from,
       to: query.to,
       roomTypeId: query.roomTypeId,
+      active: query.active,
     })}`,
     { signal },
   )

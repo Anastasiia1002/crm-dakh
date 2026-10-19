@@ -43,8 +43,13 @@ export function assertViteApiBaseUrl(raw: string | undefined, mode: ApiEnvMode):
     }
   }
 
-  if (mode === 'staging' && !loopback && url.protocol !== 'http:' && url.protocol !== 'https:') {
-    throw new Error('Staging VITE_API_BASE_URL must use http or https.')
+  if (mode === 'staging' && !loopback) {
+    if (url.protocol !== 'https:') {
+      throw new Error('Remote staging VITE_API_BASE_URL must use https.')
+    }
+    if (host === 'dakh-backend.onrender.com') {
+      throw new Error('Staging VITE_API_BASE_URL must not use the production Render API.')
+    }
   }
 
   // Frontend must never embed database / secret material.

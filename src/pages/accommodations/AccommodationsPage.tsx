@@ -41,6 +41,11 @@ import { isDateInHalfOpenRange, roomDisplayName, todayIso } from '@/lib/dates'
 import { errorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
 import { roomBlockTypeLabel, roomStatusLabel, roomTypeKindLabel } from '@/lib/labels'
+import {
+  INVENTORY_ACTIVE_FILTER_LABEL,
+  activeFilterToQuery,
+  type InventoryActiveFilter,
+} from '@/lib/inventory-status'
 import { canManageAccommodations } from '@/lib/roles'
 import type {
   Accommodation,
@@ -67,6 +72,8 @@ export function AccommodationsPage() {
   const [unitSearchApplied, setUnitSearchApplied] = useState('')
   const [typeSearchApplied, setTypeSearchApplied] = useState('')
   const [categoryKindFilter, setCategoryKindFilter] = useState<RoomTypeKind | 'all'>('all')
+  const [inventoryFilter, setInventoryFilter] = useState<InventoryActiveFilter>('active')
+  const active = activeFilterToQuery(inventoryFilter)
 
   const inventoryKind: RoomTypeKind = tab === 'cottages' ? 'COTTAGE' : 'ROOM'
 
@@ -77,6 +84,7 @@ export function AccommodationsPage() {
       limit: PAGE_SIZE,
       search: unitSearchApplied || undefined,
       kind: inventoryKind,
+      active,
     },
     { enabled: inventoryTab },
   )
@@ -85,7 +93,14 @@ export function AccommodationsPage() {
     limit: PAGE_SIZE,
     search: typeSearchApplied || undefined,
     kind: categoryKindFilter === 'all' ? undefined : categoryKindFilter,
+    active,
   })
+
+  function onInventoryFilterChange(value: InventoryActiveFilter) {
+    setInventoryFilter(value)
+    setUnitPage(1)
+    setTypePage(1)
+  }
 
   const unitsLoading = inventoryTab && roomsQuery.isLoading && !roomsQuery.data
   const typesLoading = tab === 'categories' && typesQuery.isLoading && !typesQuery.data
@@ -146,6 +161,8 @@ export function AccommodationsPage() {
             pageSize={PAGE_SIZE}
             total={roomsQuery.data?.pagination.total ?? 0}
             search={unitSearch}
+            inventoryFilter={inventoryFilter}
+            onInventoryFilterChange={onInventoryFilterChange}
             onSearchChange={setUnitSearch}
             onSearchSubmit={() => {
               setUnitSearchApplied(unitSearch.trim())
@@ -165,6 +182,8 @@ export function AccommodationsPage() {
             pageSize={PAGE_SIZE}
             total={roomsQuery.data?.pagination.total ?? 0}
             search={unitSearch}
+            inventoryFilter={inventoryFilter}
+            onInventoryFilterChange={onInventoryFilterChange}
             onSearchChange={setUnitSearch}
             onSearchSubmit={() => {
               setUnitSearchApplied(unitSearch.trim())
@@ -180,6 +199,8 @@ export function AccommodationsPage() {
           currentPage={typePage}
           search={typeSearch}
           kindFilter={categoryKindFilter}
+          inventoryFilter={inventoryFilter}
+          onInventoryFilterChange={onInventoryFilterChange}
           onKindFilterChange={(value) => {
             setCategoryKindFilter(value)
             setTypePage(1)
@@ -204,6 +225,8 @@ function UnitSection({
   pageSize,
   total,
   search,
+  inventoryFilter,
+  onInventoryFilterChange,
   onSearchChange,
   onSearchSubmit,
   onPageChange,
@@ -215,6 +238,8 @@ function UnitSection({
   pageSize: number
   total: number
   search: string
+  inventoryFilter: InventoryActiveFilter
+  onInventoryFilterChange: (value: InventoryActiveFilter) => void
   onSearchChange: (value: string) => void
   onSearchSubmit: () => void
   onPageChange: (page: number) => void
@@ -293,25 +318,46 @@ function UnitSection({
         }
       />
       <p className="mb-4 max-w-2xl text-sm text-muted-foreground">
-        Фізичні одиниці (Room) успадковують тип розміщення від категорії ({roomTypeKindLabel[kind]}). Список
-        фільтрується на сервері за `kind`.
+        Фізичні одиниці (Room) успадковують тип розміщення від категорії ({roomTypeKindLabel[kind]}). За
+        замовчуванням показано лише активні одиниці; вимкнені доступні через фільтр статусу.
       </p>
-      <form
-        className="mb-4 flex max-w-md gap-2"
-        onSubmit={(event) => {
-          event.preventDefault()
-          onSearchSubmit()
-        }}
-      >
-        <Input
-          value={search}
-          onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="Пошук за номером або назвою"
-        />
-        <Button type="submit" variant="outline">
-          Знайти
-        </Button>
-      </form>
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+        <form
+          className="flex max-w-md flex-1 gap-2"
+          onSubmit={(event) => {
+            event.preventDefault()
+            onSearchSubmit()
+          }}
+        >
+          <Input
+            value={search}
+            onChange={(event) => onSearchChange(event.target.value)}
+            placeholder="Пошук за номером або назвою"
+          />
+          <Button type="submit" variant="outline">
+            Знайти
+          </Button>
+        </form>
+        <div className="w-full max-w-xs">
+          <Field label="Статус">
+            <Select
+              value={inventoryFilter}
+              onValueChange={(value: InventoryActiveFilter) => onInventoryFilterChange(value)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(INVENTORY_ACTIVE_FILTER_LABEL) as InventoryActiveFilter[]).map((key) => (
+                  <SelectItem key={key} value={key}>
+                    {INVENTORY_ACTIVE_FILTER_LABEL[key]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        </div>
+      </div>
       {items.length === 0 ? (
         <EmptyState>
           {kind === 'ROOM' ? 'Номерів за цим запитом немає.' : 'Будиночків за цим запитом немає.'}
@@ -762,6 +808,8 @@ function CategorySection({
   currentPage,
   search,
   kindFilter,
+  inventoryFilter,
+  onInventoryFilterChange,
   onKindFilterChange,
   onSearchChange,
   onSearchSubmit,
@@ -771,6 +819,8 @@ function CategorySection({
   currentPage: number
   search: string
   kindFilter: RoomTypeKind | 'all'
+  inventoryFilter: InventoryActiveFilter
+  onInventoryFilterChange: (value: InventoryActiveFilter) => void
   onKindFilterChange: (value: RoomTypeKind | 'all') => void
   onSearchChange: (value: string) => void
   onSearchSubmit: () => void
@@ -821,9 +871,28 @@ function CategorySection({
             </Select>
           </Field>
         </div>
+        <div className="w-full max-w-xs">
+          <Field label="Статус">
+            <Select
+              value={inventoryFilter}
+              onValueChange={(value: InventoryActiveFilter) => onInventoryFilterChange(value)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(INVENTORY_ACTIVE_FILTER_LABEL) as InventoryActiveFilter[]).map((key) => (
+                  <SelectItem key={key} value={key}>
+                    {INVENTORY_ACTIVE_FILTER_LABEL[key]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        </div>
       </div>
       {items.length === 0 ? (
-        <EmptyState>Категорій поки немає.</EmptyState>
+        <EmptyState>Категорій за цим запитом немає.</EmptyState>
       ) : (
         <Table>
           <TableHeader>
