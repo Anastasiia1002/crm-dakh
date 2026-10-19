@@ -1,12 +1,29 @@
+import { useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { StayCalendar } from '@/components/bookings/StayCalendar'
 import { Button } from '@/components/ui/button'
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { useAdminBookingGuests, useAdminBookingQuote } from '@/hooks/useBookings'
+import { listAdminBookingGuests, quoteAdminBooking } from '@/api/admin-bookings'
+import { getAdminCalendar } from '@/api/availability'
+import { useAdminBookingQuote } from '@/hooks/useBookings'
 import { useAuth } from '@/hooks/useAuth'
+import { useHotelBookingSettings, useHotelSettings } from '@/hooks/useHotel'
+import {
+  applyGuestFill,
+  bookingConflictMessage,
+  createSubmitLock,
+  hasFieldErrors,
+  proposeGuestFill,
+  stayNightCount,
+  validateGuestFields,
+  validateStayFields,
+  type FieldErrors,
+  type GuestCard,
+} from '@/lib/booking-form'
 import {
   buildAdminBookingCreateInput,
   buildAdminBookingUpdateInput,
@@ -16,144 +33,363 @@ import {
   formatAdminBookingMoney,
   guestCountFromOccupancy,
 } from '@/lib/admin-booking-view'
-import { addCalendarDays, roomDisplayName } from '@/lib/dates'
+import { ApiError } from '@/lib/api-error'
+import { roomDisplayName } from '@/lib/dates'
 import { errorMessage } from '@/lib/errors'
+import { normalizePhone, phonesMatch } from '@/lib/phone'
+import {
+  HOTEL_TIME_ZONE,
+  kyivTodayIso,
+  monthKey,
+  monthQueryRange,
+  nightsLabel,
+  roomNightMap,
+  selectStayDate,
+  stayNightsAvailable,
+  type NightAvailability,
+} from '@/lib/stay-calendar'
 import type {
   Accommodation,
   AdminBookingCreateInput,
   AdminBookingDetail,
+  AdminBookingGuest,
   AdminBookingUpdateInput,
   RatePlan,
+  RoomType,
 } from '@/types'
 
 type Props = {
   booking?: AdminBookingDetail
   rooms: Accommodation[]
+  roomTypes: RoomType[]
   ratePlans: RatePlan[]
   preset?: { roomId?: string; checkIn?: string; checkOut?: string }
   submitting: boolean
   onSubmit: (input: AdminBookingCreateInput | AdminBookingUpdateInput) => Promise<void>
 }
 
-export function AdminBookingForm({ booking, rooms, ratePlans, preset, submitting, onSubmit }: Props) {
+export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset, submitting, onSubmit }: Props) {
   const { user } = useAuth()
+  const hotelQuery = useHotelSettings()
+  const policyQuery = useHotelBookingSettings()
   const isEdit = Boolean(booking)
   const commercial = !booking || canEditAdminBookingCommercial(booking.status)
   const profile = !booking || canEditAdminBookingProfile(booking.status)
   const canReassign = canReassignAdminBookingRoom(user?.role)
 
-  const [guestMode, setGuestMode] = useState<'existing' | 'new'>(booking ? 'new' : 'new')
-  const [guestSearch, setGuestSearch] = useState('')
+  const [guestMode, setGuestMode] = useState<'existing' | 'new'>('new')
   const [guestId, setGuestId] = useState(booking?.guest.id ?? '')
   const [firstName, setFirstName] = useState(booking?.guest.firstName ?? '')
   const [lastName, setLastName] = useState(booking?.guest.lastName ?? '')
   const [phone, setPhone] = useState(booking?.guest.phone ?? '')
   const [email, setEmail] = useState(booking?.guest.email ?? '')
+  const [matches, setMatches] = useState<GuestCard[]>([])
+  const [searchState, setSearchState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
+  const [searchError, setSearchError] = useState<string | null>(null)
+  const [pendingGuest, setPendingGuest] = useState<GuestCard | null>(null)
   const [roomId, setRoomId] = useState(booking?.rooms[0]?.roomId ?? preset?.roomId ?? '')
   const [ratePlanId, setRatePlanId] = useState(booking?.rooms[0]?.ratePlanId ?? '')
   const [checkIn, setCheckIn] = useState(booking?.checkIn ?? preset?.checkIn ?? '')
-  const [checkOut, setCheckOut] = useState(
-    booking?.checkOut ?? preset?.checkOut ?? (preset?.checkIn ? addCalendarDays(preset.checkIn, 1) : ''),
-  )
-  const [adults, setAdults] = useState(booking?.adults ?? 1)
+  const [checkOut, setCheckOut] = useState(booking?.checkOut ?? preset?.checkOut ?? '')
+  const [adults, setAdults] = useState(booking?.adults ?? 2)
   const [children, setChildren] = useState(booking?.children ?? 0)
   const [notes, setNotes] = useState(booking?.notes ?? '')
+  const [calendarMonth, setCalendarMonth] = useState(monthKey(booking?.checkIn ?? preset?.checkIn ?? kyivTodayIso()))
+  const [selectionError, setSelectionError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
+  const [showErrors, setShowErrors] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
-  const submitLock = useRef(false)
+  const submitLock = useRef(createSubmitLock())
 
-  const guestsQuery = useAdminBookingGuests(guestSearch, { enabled: guestMode === 'existing' })
+  const selectedRoom = rooms.find((room) => room.id === roomId)
+  const roomType = roomTypes.find((type) => type.id === selectedRoom?.roomTypeId)
+  const maxGuests = roomType?.maxGuests ?? null
   const guestCount = guestCountFromOccupancy(adults, children)
-
-  const quoteInput = useMemo(() => {
-    if (!commercial) return null
-    if (!checkIn || !checkOut || !roomId || !ratePlanId) return null
-    if (checkOut <= checkIn) return null
-    return {
-      checkIn,
-      checkOut,
-      guestCount,
-      rooms: [{ roomId, ratePlanId }],
-    }
-  }, [checkIn, checkOut, commercial, guestCount, ratePlanId, roomId])
-
-  const quoteQuery = useAdminBookingQuote(quoteInput)
-
   const activePlans = ratePlans.filter((plan) => plan.active || plan.id === ratePlanId)
   const roomLocked = isEdit && (!commercial || !canReassign)
+  const timeZone = hotelQuery.data?.timezone || HOTEL_TIME_ZONE
+  const rules = policyQuery.data
+    ? {
+        timeZone,
+        minAdvanceHours: policyQuery.data.minAdvanceHours,
+        maxAdvanceDays: policyQuery.data.maxAdvanceDays,
+        allowSameDayBooking: policyQuery.data.allowSameDayBooking,
+        defaultMinStay: policyQuery.data.defaultMinStay,
+        defaultMaxStay: policyQuery.data.defaultMaxStay,
+      }
+    : null
 
+  const visibleRange = monthQueryRange(calendarMonth)
+  const calendarQuery = useQuery({
+    queryKey: ['admin-stay-calendar', roomId, visibleRange.from, visibleRange.to],
+    enabled: Boolean(roomId && commercial),
+    queryFn: ({ signal }) =>
+      getAdminCalendar(
+        {
+          from: visibleRange.from,
+          to: visibleRange.to,
+          roomTypeId: selectedRoom?.roomTypeId,
+          active: true,
+        },
+        signal,
+      ),
+  })
+
+  const nightKinds = useMemo(() => roomNightMap(calendarQuery.data?.roomTypes, roomId), [calendarQuery.data, roomId])
+  const rangeQuery = useQuery({
+    queryKey: ['admin-stay-range', roomId, checkIn, checkOut],
+    enabled: Boolean(commercial && roomId && checkIn && checkOut && checkOut > checkIn),
+    queryFn: ({ signal }) =>
+      getAdminCalendar(
+        {
+          from: checkIn,
+          to: checkOut,
+          roomTypeId: selectedRoom?.roomTypeId,
+          active: true,
+        },
+        signal,
+      ),
+  })
+  const rangeNights = useMemo(
+    () => (rangeQuery.data ? roomNightMap(rangeQuery.data.roomTypes, roomId) : null),
+    [rangeQuery.data, roomId],
+  )
+
+  const quoteInput = useMemo(() => {
+    if (!commercial || !checkIn || !checkOut || !roomId || !ratePlanId || checkOut <= checkIn) return null
+    return { checkIn, checkOut, guestCount, rooms: [{ roomId, ratePlanId }] }
+  }, [checkIn, checkOut, commercial, guestCount, ratePlanId, roomId])
+  const quoteQuery = useAdminBookingQuote(quoteInput)
+
+  const solePlanId = activePlans.length === 1 ? activePlans[0].id : ''
   useEffect(() => {
-    if (guestMode !== 'existing' || !guestId) return
-    const selected = guestsQuery.data?.items.find((item) => item.id === guestId)
-    if (!selected) return
-    setFirstName(selected.firstName)
-    setLastName(selected.lastName)
-    setPhone(selected.phone ?? '')
-    setEmail(selected.email ?? '')
-  }, [guestId, guestMode, guestsQuery.data?.items])
+    if (!ratePlanId && solePlanId) setRatePlanId(solePlanId)
+  }, [ratePlanId, solePlanId])
+
+  const draftErrors = useMemo(() => {
+    const guestErrors = profile
+      ? validateGuestFields({ firstName, lastName, phone, email })
+      : {}
+    const stayErrors = commercial
+      ? validateStayFields({
+          checkIn,
+          checkOut,
+          roomId,
+          roomActive: selectedRoom ? selectedRoom.active : false,
+          ratePlanId,
+          guestCount: adults < 1 ? 0 : guestCount,
+          maxGuests,
+          notes,
+          rules,
+          nights: rangeNights,
+        })
+      : validateStayFields({
+          checkIn,
+          checkOut,
+          roomId,
+          roomActive: true,
+          ratePlanId: ratePlanId || 'kept',
+          guestCount,
+          maxGuests: null,
+          notes,
+          rules: null,
+          nights: null,
+        })
+    if (!commercial) {
+      delete stayErrors.ratePlanId
+      delete stayErrors.checkIn
+      delete stayErrors.checkOut
+      delete stayErrors.roomId
+      delete stayErrors.guestCount
+    }
+    return { ...guestErrors, ...stayErrors }
+  }, [
+    adults,
+    checkIn,
+    checkOut,
+    commercial,
+    email,
+    firstName,
+    guestCount,
+    lastName,
+    maxGuests,
+    notes,
+    rangeNights,
+    phone,
+    profile,
+    ratePlanId,
+    roomId,
+    rules,
+    selectedRoom,
+  ])
+
+  const visibleErrors = showErrors ? draftErrors : fieldErrors
+  const quoteBlocked = !isEdit && (!quoteQuery.data || quoteQuery.isFetching || quoteQuery.isError)
+  const policyBlocked = !isEdit && (policyQuery.isLoading || policyQuery.isError || !rules)
+  const rangeBlocked = Boolean(checkIn && checkOut && checkOut > checkIn && (rangeQuery.isFetching || rangeQuery.isError))
+  const submitDisabled = submitting || hasFieldErrors(draftErrors) || quoteBlocked || policyBlocked || rangeBlocked
+
+  function guestFields() {
+    return { firstName, lastName, phone, email }
+  }
+
+  function detachGuest() {
+    if (!guestId) return
+    setGuestId('')
+    setGuestMode('new')
+  }
+
+  async function searchByPhone() {
+    setPendingGuest(null)
+    const parsed = normalizePhone(phone)
+    if (!parsed.ok) {
+      setFieldErrors((current) => ({ ...current, phone: parsed.error }))
+      setSearchState('idle')
+      return
+    }
+    setPhone(parsed.e164)
+    detachGuest()
+    setFieldErrors((current) => ({ ...current, phone: undefined }))
+    setSearchState('loading')
+    setSearchError(null)
+    try {
+      const page = await listAdminBookingGuests({ search: parsed.searchKey, page: 1, limit: 20 })
+      const found = page.items
+        .filter((item) => phonesMatch(item.phone, parsed.e164))
+        .map((item) => ({
+          id: item.id,
+          firstName: item.firstName,
+          lastName: item.lastName,
+          phone: item.phone ?? '',
+          email: item.email ?? '',
+        }))
+      setMatches(found)
+      setSearchState('done')
+    } catch (error) {
+      setMatches([])
+      setSearchState('error')
+      setSearchError(errorMessage(error))
+    }
+  }
+
+  function chooseGuest(guest: GuestCard, replace = false) {
+    const proposal = proposeGuestFill(guestFields(), guest)
+    if (proposal.conflicts.length > 0 && !replace) {
+      setPendingGuest(guest)
+      return
+    }
+    const next = replace ? applyGuestFill(guestFields(), guest, true) : proposal.fields
+    const parsed = normalizePhone(next.phone)
+    setFirstName(next.firstName)
+    setLastName(next.lastName)
+    setEmail(next.email)
+    setPhone(parsed.ok ? parsed.e164 : next.phone)
+    setGuestId(guest.id)
+    setGuestMode('existing')
+    setPendingGuest(null)
+  }
+
+  function onCalendarSelect(date: string) {
+    if (!commercial) return
+    const next = selectStayDate({
+      currentCheckIn: checkIn,
+      currentCheckOut: checkOut,
+      clicked: date,
+      nights: nightKinds,
+      rules,
+    })
+    setSelectionError(next.error)
+    if (next.error) return
+    setCheckIn(next.checkIn)
+    setCheckOut(next.checkOut)
+    setFormError(null)
+  }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
-    if (submitting || submitLock.current) return
+    if (submitting || !submitLock.current.tryBegin()) return
+    setShowErrors(true)
     setFormError(null)
+    if (hasFieldErrors(draftErrors)) {
+      submitLock.current.end()
+      return
+    }
 
-    if (booking) {
-      const result = buildAdminBookingUpdateInput({
-        booking,
-        role: user?.role,
-        guestMode: guestMode === 'existing' ? 'existing' : 'keep',
+    const normalizedPhone = normalizePhone(phone)
+    try {
+      if (booking) {
+        const result = buildAdminBookingUpdateInput({
+          booking,
+          role: user?.role,
+          guestMode: guestMode === 'existing' ? 'existing' : 'keep',
+          guestId,
+          guest: {
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          phone: normalizedPhone.ok ? normalizedPhone.e164 : phone.trim(),
+          email: email.trim(),
+        },
+          checkIn,
+          checkOut,
+          adults,
+          children,
+          roomId,
+          ratePlanId,
+          notes,
+        })
+        if ('error' in result) {
+          setFormError(result.error)
+          return
+        }
+        await onSubmit(result)
+        return
+      }
+
+      if (!normalizedPhone.ok) {
+        setFormError(normalizedPhone.error)
+        return
+      }
+      const fresh = await getAdminCalendar({
+        from: checkIn,
+        to: checkOut,
+        roomTypeId: selectedRoom?.roomTypeId,
+        active: true,
+      })
+      const freshRoom = fresh.roomTypes.flatMap((type) => type.rooms).find((room) => room.roomId === roomId)
+      const freshNights = new Map<string, NightAvailability>()
+      for (const night of freshRoom?.nights ?? []) {
+        freshNights.set(
+          night.date,
+          night.state === 'AVAILABLE' ? 'free' : night.state === 'BOOKED' || night.state === 'CHECKED_IN' ? 'occupied' : 'blocked',
+        )
+      }
+      if (!freshRoom || !stayNightsAvailable(checkIn, checkOut, freshNights)) {
+        setFormError(bookingConflictMessage())
+        return
+      }
+      await quoteAdminBooking({ checkIn, checkOut, guestCount, rooms: [{ roomId, ratePlanId }] })
+      const result = buildAdminBookingCreateInput({
+        guestMode: guestId ? 'existing' : 'new',
         guestId,
-        guest: { firstName, lastName, phone, email },
+        guest: { firstName: firstName.trim(), lastName: lastName.trim(), phone: normalizedPhone.e164, email: email.trim() },
         checkIn,
         checkOut,
         adults,
         children,
         roomId,
         ratePlanId,
-        notes,
+        notes: notes.trim(),
       })
       if ('error' in result) {
         setFormError(result.error)
         return
       }
-      submitLock.current = true
-      try {
-        await onSubmit(result)
-      } catch (error) {
-        setFormError(errorMessage(error))
-      } finally {
-        submitLock.current = false
-      }
-      return
-    }
-
-    if (!quoteQuery.data || quoteQuery.isError || quoteQuery.isFetching) {
-      setFormError('Дочекайтесь успішного розрахунку вартості перед збереженням.')
-      return
-    }
-
-    const result = buildAdminBookingCreateInput({
-      guestMode,
-      guestId,
-      guest: { firstName, lastName, phone, email },
-      checkIn,
-      checkOut,
-      adults,
-      children,
-      roomId,
-      ratePlanId,
-      notes,
-    })
-    if ('error' in result) {
-      setFormError(result.error)
-      return
-    }
-    submitLock.current = true
-    try {
       await onSubmit(result)
     } catch (error) {
-      setFormError(errorMessage(error))
+      if (error instanceof ApiError && error.code === 'ROOM_UNAVAILABLE') setFormError(bookingConflictMessage())
+      else setFormError(errorMessage(error))
     } finally {
-      submitLock.current = false
+      submitLock.current.end()
     }
   }
 
@@ -168,107 +404,129 @@ export function AdminBookingForm({ booking, rooms, ratePlans, preset, submitting
     )
   }
 
-  const createBlocked = !isEdit && (!quoteQuery.data || quoteQuery.isFetching || quoteQuery.isError)
+  const accommodationName = selectedRoom
+    ? `${roomDisplayName(selectedRoom)}${roomType ? ` · ${roomType.name}` : ''}`
+    : ''
 
   return (
-    <form className="mx-auto max-w-3xl space-y-8 px-1 sm:px-0" onSubmit={(event) => void handleSubmit(event)}>
+    <form className="mx-auto max-w-3xl space-y-8 overflow-x-hidden px-1 sm:px-0" onSubmit={(event) => void handleSubmit(event)}>
       <section className="space-y-4 border-t border-border pt-5">
         <h3 className="font-serif text-2xl">Гість</h3>
         {profile ? (
           <>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant={guestMode === 'new' ? 'default' : 'outline'}
-                onClick={() => setGuestMode('new')}
-              >
-                {isEdit ? 'Поточний гість' : 'Новий гість'}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant={guestMode === 'existing' ? 'default' : 'outline'}
-                onClick={() => setGuestMode('existing')}
-              >
-                {isEdit ? 'Інший гість' : 'Існуючий гість'}
-              </Button>
-            </div>
-            {guestMode === 'existing' ? (
-              <div className="space-y-3">
-                <Field label="Пошук">
-                  <Input
-                    value={guestSearch}
-                    onChange={(event) => setGuestSearch(event.target.value)}
-                    placeholder="Прізвище, телефон або email"
-                  />
-                </Field>
-                <Field label="Гість">
-                  <Select value={guestId || undefined} onValueChange={setGuestId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Оберіть гостя" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(guestsQuery.data?.items ?? []).map((guest) => (
-                        <SelectItem key={guest.id} value={guest.id}>
+            <Field label="Телефон" error={visibleErrors.phone}>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Input
+                  value={phone}
+                  inputMode="tel"
+                  autoComplete="tel"
+                  placeholder="+380501112233"
+                  onChange={(event) => {
+                    setPhone(event.target.value)
+                    detachGuest()
+                    setSearchState('idle')
+                  }}
+                />
+                <Button type="button" variant="outline" disabled={searchState === 'loading'} onClick={() => void searchByPhone()}>
+                  {searchState === 'loading' ? 'Пошук…' : 'Знайти гостя'}
+                </Button>
+              </div>
+            </Field>
+            {searchState === 'error' && searchError ? <p className="text-sm text-destructive">{searchError}</p> : null}
+            {searchState === 'done' && matches.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Гостя з цим телефоном немає. Можна створити нового в цьому бронюванні.</p>
+            ) : null}
+            {matches.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  {matches.length === 1 ? 'Знайдено гостя. Оберіть, якщо це він.' : `Знайдено ${matches.length}. Оберіть потрібного гостя.`}
+                </p>
+                <ul className="divide-y divide-border border border-border">
+                  {matches.map((guest) => (
+                    <li key={guest.id} className="flex flex-col gap-2 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0 text-sm">
+                        <p className="font-medium">
                           {guest.lastName} {guest.firstName}
-                          {guest.phone ? ` · ${guest.phone}` : ''}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                {guestsQuery.isError ? (
-                  <p className="text-sm text-destructive">{errorMessage(guestsQuery.error)}</p>
-                ) : null}
+                        </p>
+                        <p className="text-muted-foreground">
+                          {guest.phone || '—'}
+                          {guest.email ? ` · ${guest.email}` : ''}
+                        </p>
+                      </div>
+                      <Button type="button" size="sm" variant={guestId === guest.id ? 'default' : 'outline'} onClick={() => chooseGuest(guest)}>
+                        {guestId === guest.id ? 'Обрано' : 'Обрати'}
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {pendingGuest ? (
+              <div className="space-y-2 border border-border px-3 py-3 text-sm">
+                <p>Деякі поля вже заповнені і відрізняються від картки гостя. Замінити їх?</p>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" size="sm" onClick={() => chooseGuest(pendingGuest, true)}>
+                    Замінити
+                  </Button>
+                  <Button type="button" size="sm" variant="outline" onClick={() => setPendingGuest(null)}>
+                    Залишити введене
+                  </Button>
+                </div>
               </div>
             ) : null}
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Імʼя">
-                <Input value={firstName} onChange={(event) => setFirstName(event.target.value)} disabled={guestMode === 'existing'} />
+              <Field label="Імʼя" error={visibleErrors.firstName}>
+                <Input
+                  value={firstName}
+                  onChange={(event) => {
+                    setFirstName(event.target.value)
+                    detachGuest()
+                  }}
+                />
               </Field>
-              <Field label="Прізвище">
-                <Input value={lastName} onChange={(event) => setLastName(event.target.value)} disabled={guestMode === 'existing'} />
+              <Field label="Прізвище" error={visibleErrors.lastName}>
+                <Input
+                  value={lastName}
+                  onChange={(event) => {
+                    setLastName(event.target.value)
+                    detachGuest()
+                  }}
+                />
               </Field>
-              <Field label="Телефон">
-                <Input value={phone} onChange={(event) => setPhone(event.target.value)} disabled={guestMode === 'existing'} />
-              </Field>
-              <Field label="Email">
+              <Field label="Email" error={visibleErrors.email} hint="Необовʼязково">
                 <Input
                   type="email"
                   value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  disabled={guestMode === 'existing'}
+                  onChange={(event) => {
+                    setEmail(event.target.value)
+                    detachGuest()
+                  }}
                 />
               </Field>
             </div>
+            {guestId ? <p className="text-[11px] text-muted-foreground">Буде використано наявну картку гостя. Історію проживання тут не показано.</p> : null}
           </>
         ) : (
-          <p className="text-sm text-muted-foreground">Дані гостя недоступні для редагування в цьому статусі.</p>
+          <GuestReadOnly guest={booking!.guest} />
         )}
       </section>
 
       <section className="space-y-4 border-t border-border pt-5">
         <h3 className="font-serif text-2xl">Проживання</h3>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Заїзд">
-            <Input
-              type="date"
-              value={checkIn}
-              disabled={!commercial}
-              onChange={(event) => setCheckIn(event.target.value)}
-            />
-          </Field>
-          <Field label="Виїзд">
-            <Input
-              type="date"
-              value={checkOut}
-              disabled={!commercial}
-              onChange={(event) => setCheckOut(event.target.value)}
-            />
-          </Field>
-          <Field label="Номер / будиночок">
-            <Select value={roomId || undefined} onValueChange={setRoomId} disabled={roomLocked}>
+          <Field label="Номер / будиночок" error={visibleErrors.roomId}>
+            <Select
+              value={roomId || undefined}
+              onValueChange={(value) => {
+                setRoomId(value)
+                if (!isEdit) {
+                  setCheckIn('')
+                  setCheckOut('')
+                }
+                setSelectionError(null)
+              }}
+              disabled={roomLocked}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Оберіть розміщення" />
               </SelectTrigger>
@@ -280,11 +538,8 @@ export function AdminBookingForm({ booking, rooms, ratePlans, preset, submitting
                 ))}
               </SelectContent>
             </Select>
-            {isEdit && !canReassign ? (
-              <p className="mt-1 text-[11px] text-muted-foreground">Ресепшен не може змінювати номер.</p>
-            ) : null}
           </Field>
-          <Field label="Тариф">
+          <Field label="Тариф" error={visibleErrors.ratePlanId}>
             <Select value={ratePlanId || undefined} onValueChange={setRatePlanId} disabled={!commercial}>
               <SelectTrigger>
                 <SelectValue placeholder="Оберіть тариф" />
@@ -298,13 +553,13 @@ export function AdminBookingForm({ booking, rooms, ratePlans, preset, submitting
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Дорослі">
+          <Field label="Дорослі" error={visibleErrors.guestCount}>
             <Input
               type="number"
               min={1}
               value={adults}
               disabled={!commercial}
-              onChange={(event) => setAdults(Number(event.target.value) || 0)}
+              onChange={(event) => setAdults(Number(event.target.value))}
             />
           </Field>
           <Field label="Діти">
@@ -313,76 +568,147 @@ export function AdminBookingForm({ booking, rooms, ratePlans, preset, submitting
               min={0}
               value={children}
               disabled={!commercial}
-              onChange={(event) => setChildren(Number(event.target.value) || 0)}
+              onChange={(event) => setChildren(Math.max(0, Number(event.target.value) || 0))}
             />
           </Field>
-          <Field label="Кількість гостей (guestCount)">
-            <Input type="number" value={guestCount} readOnly disabled className="bg-surface-muted" />
-          </Field>
         </div>
-        <p className="text-[11px] text-muted-foreground">
-          guestCount = дорослі + діти (мінімум 1). Це значення передається в quote і create.
-        </p>
+        {maxGuests !== null ? (
+          <p className="text-[11px] text-muted-foreground">Місткість цього розміщення — {maxGuests} гостей.</p>
+        ) : null}
+        {commercial ? (
+          <StayCalendar
+            month={calendarMonth}
+            accommodationName={accommodationName}
+            checkIn={checkIn}
+            checkOut={checkOut}
+            nights={nightKinds}
+            loading={calendarQuery.isFetching}
+            error={selectionError || (calendarQuery.isError ? 'Не вдалося завантажити доступність.' : null)}
+            disabled={!roomId}
+            onMonthChange={setCalendarMonth}
+            onSelect={onCalendarSelect}
+          />
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            {checkIn && checkOut ? `${checkIn} — ${checkOut}` : 'Дати цього бронювання зафіксовано.'}
+          </p>
+        )}
+        {visibleErrors.checkIn ? <p className="text-xs text-destructive">{visibleErrors.checkIn}</p> : null}
+        {visibleErrors.checkOut ? <p className="text-xs text-destructive">{visibleErrors.checkOut}</p> : null}
       </section>
 
       {profile ? (
         <section className="space-y-4 border-t border-border pt-5">
           <h3 className="font-serif text-2xl">Примітки</h3>
-          <Field label="Нотатки">
-            <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} />
+          <Field label="Нотатки" error={visibleErrors.notes} hint="Необовʼязково">
+            <Textarea value={notes} maxLength={2000} onChange={(event) => setNotes(event.target.value)} rows={3} />
           </Field>
         </section>
       ) : null}
 
       {commercial ? (
         <section className="space-y-3 border-t border-border pt-5">
-          <h3 className="font-serif text-2xl">Вартість (сервер)</h3>
+          <h3 className="font-serif text-2xl">Вартість</h3>
           {quoteQuery.isFetching ? <p className="text-sm text-muted-foreground">Розрахунок…</p> : null}
           {quoteQuery.isError ? (
-            <p className="text-sm text-destructive">{errorMessage(quoteQuery.error)}</p>
+            <p className="text-sm text-destructive">
+              {quoteQuery.error instanceof ApiError && quoteQuery.error.code === 'ROOM_UNAVAILABLE'
+                ? bookingConflictMessage()
+                : errorMessage(quoteQuery.error)}
+            </p>
           ) : null}
           {quoteQuery.data ? (
-            <div>
-              <p className="font-serif text-3xl">
-                {formatAdminBookingMoney(quoteQuery.data.price.totalAmount, quoteQuery.data.price.currency)}
-              </p>
-              <dl className="mt-3 max-w-sm space-y-1 text-sm">
-                <div className="flex justify-between gap-3">
-                  <dt className="text-muted-foreground">Проживання</dt>
-                  <dd className="tabular-nums">
-                    {formatAdminBookingMoney(quoteQuery.data.price.roomSubtotal, quoteQuery.data.price.currency)}
-                  </dd>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <dt className="text-muted-foreground">Знижка</dt>
-                  <dd className="tabular-nums">
-                    {formatAdminBookingMoney(quoteQuery.data.price.discountAmount, quoteQuery.data.price.currency)}
-                  </dd>
-                </div>
-              </dl>
-              <p className="mt-2 text-[11px] text-muted-foreground">
-                Остаточна сума підтверджується сервером під час збереження.
-              </p>
-            </div>
-          ) : !quoteQuery.isFetching && quoteInput ? null : (
-            <p className="text-sm text-muted-foreground">Оберіть дати, номер і тариф для розрахунку.</p>
+            <PriceBreakdown
+              currency={quoteQuery.data.price.currency}
+              roomSubtotal={quoteQuery.data.price.roomSubtotal}
+              servicesTotal={quoteQuery.data.price.servicesTotal}
+              discountAmount={quoteQuery.data.price.discountAmount}
+              taxAmount={quoteQuery.data.price.taxAmount}
+              totalAmount={quoteQuery.data.price.totalAmount}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">Оберіть розміщення, тариф і вільні дати для розрахунку.</p>
           )}
         </section>
       ) : null}
 
+      <section className="space-y-2 border-t border-border pt-5 text-sm">
+        <h3 className="font-serif text-2xl">Підсумок</h3>
+        <p>
+          {firstName.trim() || '—'} {lastName.trim()} · {phone.trim() || 'без телефону'}
+        </p>
+        <p>{accommodationName || 'Розміщення не обрано'}</p>
+        <p>
+          {checkIn && checkOut
+            ? `${checkIn} — ${checkOut} · ${nightsLabel(stayNightCount(checkIn, checkOut))} · ${guestCount} гостей`
+            : 'Дати не обрані'}
+        </p>
+        {quoteQuery.data ? (
+          <p className="font-medium">{formatAdminBookingMoney(quoteQuery.data.price.totalAmount, quoteQuery.data.price.currency)}</p>
+        ) : null}
+      </section>
+
+      {policyQuery.isError ? <p className="text-sm text-destructive">Не вдалося завантажити правила бронювання готелю.</p> : null}
       {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
 
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-        <Button type="submit" disabled={submitting || createBlocked} className="w-full sm:w-auto">
+        <Button type="submit" disabled={submitDisabled} className="w-full sm:w-auto">
           {submitting ? 'Збереження…' : isEdit ? 'Зберегти зміни' : 'Створити бронювання'}
         </Button>
         <Button type="button" variant="outline" asChild className="w-full sm:w-auto">
           <Link to={booking ? `/admin/bookings/${booking.id}` : '/admin/bookings'}>Скасувати</Link>
         </Button>
       </div>
-      {createBlocked && !isEdit ? (
-        <p className="text-sm text-muted-foreground">Кнопка створення активна лише після успішного quote.</p>
-      ) : null}
     </form>
+  )
+}
+
+function GuestReadOnly({ guest }: { guest: AdminBookingGuest }) {
+  return (
+    <div className="text-sm">
+      <p>
+        {guest.lastName} {guest.firstName}
+      </p>
+      <p className="text-muted-foreground">{guest.phone || '—'}</p>
+      <p className="text-muted-foreground">{guest.email || '—'}</p>
+    </div>
+  )
+}
+
+function PriceBreakdown({
+  currency,
+  roomSubtotal,
+  servicesTotal,
+  discountAmount,
+  taxAmount,
+  totalAmount,
+}: {
+  currency: string
+  roomSubtotal: string
+  servicesTotal: string
+  discountAmount: string
+  taxAmount: string
+  totalAmount: string
+}) {
+  return (
+    <div>
+      <p className="font-serif text-3xl">{formatAdminBookingMoney(totalAmount, currency)}</p>
+      <dl className="mt-3 max-w-sm space-y-1 text-sm">
+        <Row label="Проживання" value={formatAdminBookingMoney(roomSubtotal, currency)} />
+        <Row label="Послуги" value={formatAdminBookingMoney(servicesTotal, currency)} />
+        <Row label="Знижка" value={formatAdminBookingMoney(discountAmount, currency)} />
+        <Row label="Податок" value={formatAdminBookingMoney(taxAmount, currency)} />
+      </dl>
+      <p className="mt-2 text-[11px] text-muted-foreground">Сума перевіряється сервером ще раз під час збереження.</p>
+    </div>
+  )
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-3">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="tabular-nums">{value}</dd>
+    </div>
   )
 }
