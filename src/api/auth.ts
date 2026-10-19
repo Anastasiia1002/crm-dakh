@@ -123,7 +123,7 @@ function toLoginError(error: unknown) {
   if (!(error instanceof ApiError)) {
     return new ApiError('Сервер тимчасово недоступний. Спробуйте пізніше.', 0, 'NETWORK')
   }
-  if (error.status === 401) return new ApiError('Невірна електронна пошта або пароль', 401, error.code)
+  if (error.status === 401) return new ApiError('Неправильний email або пароль.', 401, 'INVALID_CREDENTIALS')
   if (error.status === 429) return new ApiError('Забагато спроб. Спробуйте пізніше.', 429, error.code)
   if (error.status === 400) return new ApiError('Перевірте електронну пошту та пароль', 400, error.code)
   if (error.status === 0 || error.status >= 500) {

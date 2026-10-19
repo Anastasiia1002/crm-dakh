@@ -2,7 +2,10 @@ import { ApiError } from '@/lib/api-error'
 
 export function errorMessage(error: unknown) {
   if (error instanceof ApiError) {
-    if (error.status === 401) return 'Сесія недійсна. Увійдіть знову.'
+    if (error.status === 401) {
+      if (error.code === 'INVALID_CREDENTIALS') return 'Неправильний email або пароль.'
+      return 'Сесія недійсна. Увійдіть знову.'
+    }
     if (error.status === 403) return error.message || 'Недостатньо прав.'
     if (error.status === 404) return error.message || 'Не знайдено.'
     if (error.status === 409) {
