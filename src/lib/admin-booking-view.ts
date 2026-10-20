@@ -335,12 +335,14 @@ export function sanitizeAdminBookingQuoteBody(input: {
   checkOut: string
   guestCount: number
   rooms: { roomId: string; ratePlanId: string }[]
+  excludeBookingId?: string
 }) {
   return {
     checkIn: input.checkIn,
     checkOut: input.checkOut,
     guestCount: input.guestCount,
     rooms: input.rooms.map((room) => ({ roomId: room.roomId, ratePlanId: room.ratePlanId })),
+    ...(input.excludeBookingId ? { excludeBookingId: input.excludeBookingId } : {}),
   }
 }
 

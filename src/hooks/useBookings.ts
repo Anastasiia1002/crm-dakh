@@ -23,6 +23,7 @@ import {
   updatePayment,
 } from '@/api/bookings'
 import { toAdminBookingListQuery } from '@/lib/admin-booking-view'
+import { OPERATIONAL_STALE_TIME } from '@/lib/queryClient'
 import type {
   AdminBookingCancelInput,
   AdminBookingCreateInput,
@@ -47,6 +48,8 @@ export function useAdminBookings(filters: AdminBookingListFilters, options?: { e
     queryKey: [...adminBookingsQueryKey, query],
     queryFn: ({ signal }) => listAdminBookings(query, signal),
     enabled: options?.enabled ?? true,
+    staleTime: OPERATIONAL_STALE_TIME,
+    placeholderData: (previous) => previous,
   })
 }
 
@@ -56,6 +59,7 @@ export function useAdminBooking(id: string) {
     queryKey: adminBookingQueryKey(id),
     queryFn: ({ signal }) => getAdminBooking(id, signal),
     enabled: Boolean(id),
+    staleTime: OPERATIONAL_STALE_TIME,
   })
 }
 

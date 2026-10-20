@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { BookingStatusBadge } from '@/components/bookings/BookingStatusBadge'
@@ -9,15 +9,20 @@ import { Field } from '@/components/ui/field'
 import { LoadingState } from '@/components/ui/states'
 import { Textarea } from '@/components/ui/textarea'
 import { useAdminBooking, useAdminBookingStatus } from '@/hooks/useBookings'
+import { useAuth } from '@/hooks/useAuth'
 import {
   adminBookingRef,
   adminBookingStatusActions,
   adminGuestName,
   adminRoomsLabel,
+  canEditAdminBookingCommercial,
   canEditAdminBookingProfile,
+  canReassignAdminBookingRoom,
   formatAdminBookingMoney,
   isAdminBookingTerminal,
 } from '@/lib/admin-booking-view'
+import { createSubmitLock } from '@/lib/booking-form'
+import { statusOccupancyImpact } from '@/lib/booking-manage'
 import { ApiError } from '@/lib/api-error'
 import { errorMessage } from '@/lib/errors'
 import { formatDate, formatDateTime, formatGuests } from '@/lib/format'
@@ -27,13 +32,15 @@ import type { AdminBookingStatusAction } from '@/types'
 export function BookingDetailPage() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const bookingQuery = useAdminBooking(id)
   const statusMutation = useAdminBookingStatus(id)
   const [cancelOpen, setCancelOpen] = useState(false)
   const [reason, setReason] = useState('')
   const [confirm, setConfirm] = useState<Exclude<AdminBookingStatusAction, 'cancel'> | null>(null)
+  const actionLock = useRef(createSubmitLock())
 
-  if (bookingQuery.isLoading) return <LoadingState />
+  if (bookingQuery.isLoading && !bookingQuery.data) return <LoadingState />
 
   if (bookingQuery.isError) {
     const notFound = bookingQuery.error instanceof ApiError && bookingQuery.error.status === 404
@@ -64,8 +71,11 @@ export function BookingDetailPage() {
   const actions = adminBookingStatusActions(booking.status)
   const closed = isAdminBookingTerminal(booking.status)
   const canEdit = canEditAdminBookingProfile(booking.status)
+  const canMove = canEditAdminBookingCommercial(booking.status) && canReassignAdminBookingRoom(user?.role)
+  const pending = statusMutation.isPending
 
   async function runAction(action: AdminBookingStatusAction, cancellationReason?: string) {
+    if (pending || !actionLock.current.tryBegin()) return
     try {
       await statusMutation.mutateAsync({
         action,
@@ -77,6 +87,8 @@ export function BookingDetailPage() {
       setReason('')
     } catch (error) {
       toast.error(errorMessage(error))
+    } finally {
+      actionLock.current.end()
     }
   }
 
@@ -98,22 +110,27 @@ export function BookingDetailPage() {
               <Link to={`/admin/bookings/${booking.id}/edit`}>Редагувати</Link>
             </Button>
           ) : null}
+          {canMove ? (
+            <Button variant="outline" asChild>
+              <Link to={`/admin/bookings/${booking.id}/edit`}>Змінити розміщення</Link>
+            </Button>
+          ) : null}
           {actions.includes('confirm') ? (
-            <Button onClick={() => setConfirm('confirm')}>Підтвердити</Button>
+            <Button disabled={pending} onClick={() => setConfirm('confirm')}>Підтвердити</Button>
           ) : null}
           {actions.includes('check-in') ? (
-            <Button onClick={() => setConfirm('check-in')}>Заселити</Button>
+            <Button disabled={pending} onClick={() => setConfirm('check-in')}>Заселити</Button>
           ) : null}
           {actions.includes('check-out') ? (
-            <Button onClick={() => setConfirm('check-out')}>Виселити</Button>
+            <Button disabled={pending} onClick={() => setConfirm('check-out')}>Виселити</Button>
           ) : null}
           {actions.includes('no-show') ? (
-            <Button variant="outline" onClick={() => setConfirm('no-show')}>
+            <Button variant="outline" disabled={pending} onClick={() => setConfirm('no-show')}>
               Не заїхав
             </Button>
           ) : null}
           {actions.includes('cancel') ? (
-            <Button variant="ghost" onClick={() => setCancelOpen(true)}>
+            <Button variant="ghost" disabled={pending} onClick={() => setCancelOpen(true)}>
               Скасувати бронювання
             </Button>
           ) : null}
@@ -205,6 +222,7 @@ export function BookingDetailPage() {
           <DialogHeader>
             <DialogTitle>Скасувати бронювання</DialogTitle>
           </DialogHeader>
+          <p className="text-sm text-muted-foreground">{statusOccupancyImpact('cancel')}</p>
           <Field label="Причина">
             <Textarea value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Необовʼязково" />
           </Field>
@@ -214,7 +232,7 @@ export function BookingDetailPage() {
             </Button>
             <Button
               variant="destructive"
-              disabled={statusMutation.isPending}
+              disabled={pending}
               onClick={() => void runAction('cancel', reason)}
             >
               Скасувати бронювання
@@ -226,37 +244,37 @@ export function BookingDetailPage() {
       <ConfirmDialog
         open={confirm === 'confirm'}
         title="Підтвердити бронювання"
-        description="Статус зміниться на «Підтверджено»."
+        description={statusOccupancyImpact('confirm')}
         confirmLabel="Підтвердити"
-        pending={statusMutation.isPending}
+        pending={pending}
         onOpenChange={(open) => !open && setConfirm(null)}
         onConfirm={() => void runAction('confirm')}
       />
       <ConfirmDialog
         open={confirm === 'check-in'}
         title="Заселити гостя"
-        description="Статус зміниться на «Заселено»."
+        description={statusOccupancyImpact('check-in')}
         confirmLabel="Заселити"
-        pending={statusMutation.isPending}
+        pending={pending}
         onOpenChange={(open) => !open && setConfirm(null)}
         onConfirm={() => void runAction('check-in')}
       />
       <ConfirmDialog
         open={confirm === 'check-out'}
         title="Виселити гостя"
-        description="Проживання буде завершене."
+        description={statusOccupancyImpact('check-out')}
         confirmLabel="Виселити"
-        pending={statusMutation.isPending}
+        pending={pending}
         onOpenChange={(open) => !open && setConfirm(null)}
         onConfirm={() => void runAction('check-out')}
       />
       <ConfirmDialog
         open={confirm === 'no-show'}
         title="Позначити як не заїхав"
-        description="Номер звільниться для інших бронювань."
+        description={statusOccupancyImpact('no-show')}
         confirmLabel="Не заїхав"
         destructive
-        pending={statusMutation.isPending}
+        pending={pending}
         onOpenChange={(open) => !open && setConfirm(null)}
         onConfirm={() => void runAction('no-show')}
       />

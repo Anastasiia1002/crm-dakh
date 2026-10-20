@@ -176,7 +176,10 @@ export function BookingsPage() {
         <p className="text-sm text-muted-foreground">{dateGuard.message}</p>
       ) : null}
 
-      {bookings.isLoading ? <LoadingState /> : null}
+      {bookings.isLoading && !bookings.data ? <LoadingState /> : null}
+      {bookings.isFetching && bookings.data ? (
+        <p className="text-xs text-muted-foreground">Оновлення списку…</p>
+      ) : null}
 
       {bookings.isError ? (
         <div className="space-y-3 border-t border-border py-10">
@@ -188,7 +191,7 @@ export function BookingsPage() {
         </div>
       ) : null}
 
-      {!bookings.isLoading && !bookings.isError && bookings.data ? (
+      {!bookings.isError && bookings.data ? (
         <>
           {bookings.data.items.length === 0 ? (
             <EmptyState>Бронювань за цими умовами немає.</EmptyState>

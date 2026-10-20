@@ -63,18 +63,50 @@ export function monthQueryRange(month: string) {
   return { from: dates[0], to: addCalendarDays(dates[dates.length - 1], 1) }
 }
 
-export function roomNightMap(
-  roomTypes: ReadonlyArray<{ rooms: ReadonlyArray<{ roomId: string; nights: ReadonlyArray<{ date: string; state: CalendarNightState }> }> }> | undefined,
-  roomId: string,
-) {
+type CalendarRoomGroup = {
+  rooms: ReadonlyArray<{
+    roomId: string
+    nights: ReadonlyArray<{ date: string; state: CalendarNightState; bookingId?: string | null }>
+  }>
+}
+
+/** A night held by this booking is free for its own edit. Blocks stay blocked. */
+export function nightAvailabilityForBooking(
+  night: { state: CalendarNightState; bookingId?: string | null },
+  ignoreBookingId?: string,
+): NightAvailability {
+  if (
+    ignoreBookingId &&
+    night.bookingId === ignoreBookingId &&
+    (night.state === 'BOOKED' || night.state === 'CHECKED_IN')
+  ) {
+    return 'free'
+  }
+  return nightAvailability(night.state)
+}
+
+export function roomNightMap(roomTypes: ReadonlyArray<CalendarRoomGroup> | undefined, roomId: string, ignoreBookingId?: string) {
   const map = new Map<string, NightAvailability>()
   if (!roomTypes) return map
   for (const group of roomTypes) {
     const room = group.rooms.find((item) => item.roomId === roomId)
     if (!room) continue
-    for (const night of room.nights) map.set(night.date, nightAvailability(night.state))
+    for (const night of room.nights) map.set(night.date, nightAvailabilityForBooking(night, ignoreBookingId))
   }
   return map
+}
+
+export function calendarNightMaps(roomTypes: ReadonlyArray<CalendarRoomGroup> | undefined, ignoreBookingId?: string) {
+  const maps = new Map<string, Map<string, NightAvailability>>()
+  if (!roomTypes) return maps
+  for (const group of roomTypes) {
+    for (const room of group.rooms) {
+      const nights = new Map<string, NightAvailability>()
+      for (const night of room.nights) nights.set(night.date, nightAvailabilityForBooking(night, ignoreBookingId))
+      maps.set(room.roomId, nights)
+    }
+  }
+  return maps
 }
 
 export function nightAvailability(state: CalendarNightState | undefined): NightAvailability {

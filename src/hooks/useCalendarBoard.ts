@@ -1,10 +1,11 @@
-import { useQueries, useQuery } from '@tanstack/react-query'
-import { getRoomType, listAllRoomTypes } from '@/api/accommodations'
+import { useQuery } from '@tanstack/react-query'
+import { listAllRoomTypes } from '@/api/accommodations'
 import { listAllOverlappingBookings } from '@/api/admin-bookings'
 import { getAdminCalendar } from '@/api/availability'
 import { buildChessboardModel } from '@/lib/calendar-adapter'
 import { addCalendarDays } from '@/lib/dates'
 import { activeFilterToQuery, type InventoryActiveFilter } from '@/lib/inventory-status'
+import { CATALOG_STALE_TIME, OPERATIONAL_STALE_TIME } from '@/lib/queryClient'
 import type { AdminCalendarQuery, RoomTypeKind } from '@/types'
 
 export const CALENDAR_WINDOW_DAYS = 14
@@ -37,30 +38,14 @@ export function useAdminCalendarBoard(input: {
   const calendarQuery = useQuery({
     queryKey: ['admin-calendar', query],
     queryFn: ({ signal }) => getAdminCalendar(query, signal),
+    staleTime: OPERATIONAL_STALE_TIME,
   })
 
-  const calendarTypeIds = calendarQuery.data?.roomTypes.map((type) => type.roomTypeId) ?? []
-
-  // Fetch kind/name only for RoomTypes present on the loaded calendar (no first-100 truncation).
-  const typeDetailQueries = useQueries({
-    queries: calendarTypeIds.map((id) => ({
-      queryKey: ['admin-room-type', id],
-      queryFn: ({ signal }: { signal?: AbortSignal }) => getRoomType(id, signal),
-      enabled: Boolean(calendarQuery.data),
-    })),
-  })
-
-  // Filter dropdown: paginate types for the kind + inventory visibility filter.
+  // One paged type list supplies kind for every category on the calendar.
   const pickerTypesQuery = useQuery({
-    queryKey: ['admin-room-types-all', { kind: input.kind, active }],
-    queryFn: ({ signal }) =>
-      listAllRoomTypes(
-        {
-          kind: input.kind === 'all' ? undefined : input.kind,
-          active,
-        },
-        signal,
-      ),
+    queryKey: ['admin-room-types-all', { active }],
+    queryFn: ({ signal }) => listAllRoomTypes({ active }, signal),
+    staleTime: CATALOG_STALE_TIME,
   })
 
   // Booking enrichment is independent of inventory visibility — historical stays stay accessible.
@@ -68,25 +53,23 @@ export function useAdminCalendarBoard(input: {
     queryKey: ['admin-calendar-bookings', { from: query.from, to: query.to }],
     queryFn: ({ signal }) => listAllOverlappingBookings(query.from, query.to, signal),
     placeholderData: (previous) => previous,
+    staleTime: OPERATIONAL_STALE_TIME,
   })
 
-  const typeMetaReady =
-    calendarTypeIds.length === 0 ||
-    typeDetailQueries.every((item) => item.isSuccess || item.isError)
+  const roomTypeMeta = (pickerTypesQuery.data ?? []).map((type) => ({
+    id: type.id,
+    kind: type.kind,
+    name: type.name,
+  }))
 
-  const roomTypeMeta = typeDetailQueries
-    .map((item) => item.data)
-    .filter((item): item is NonNullable<typeof item> => Boolean(item))
-
-  const model =
-    calendarQuery.data && typeMetaReady
-      ? buildChessboardModel({
-          calendar: calendarQuery.data,
-          roomTypeMeta,
-          bookings: bookingsQuery.data ?? [],
-          kindFilter: input.kind,
-        })
-      : undefined
+  const model = calendarQuery.data
+    ? buildChessboardModel({
+        calendar: calendarQuery.data,
+        roomTypeMeta,
+        bookings: bookingsQuery.data ?? [],
+        kindFilter: input.kind,
+      })
+    : undefined
 
   const enrichmentFailed = Boolean(calendarQuery.data && bookingsQuery.isError)
   const enrichmentIncomplete = Boolean(
@@ -94,11 +77,7 @@ export function useAdminCalendarBoard(input: {
   )
   const typesIncomplete = Boolean(model && model.unresolvedRoomTypeIds.length > 0)
 
-  const typesLoading =
-    (calendarQuery.data &&
-      calendarTypeIds.length > 0 &&
-      typeDetailQueries.some((item) => item.isLoading || item.isFetching)) ||
-    (pickerTypesQuery.isLoading && !pickerTypesQuery.data)
+  const kindPending = input.kind !== 'all' && pickerTypesQuery.isLoading && !pickerTypesQuery.data
 
   return {
     from: query.from,
@@ -108,7 +87,7 @@ export function useAdminCalendarBoard(input: {
     calendarQuery,
     bookingsQuery,
     pickerTypesQuery,
-    isLoading: (calendarQuery.isLoading && !calendarQuery.data) || typesLoading,
+    isLoading: (calendarQuery.isLoading && !calendarQuery.data) || kindPending,
     isError: calendarQuery.isError,
     enrichmentFailed,
     enrichmentIncomplete,
@@ -117,7 +96,6 @@ export function useAdminCalendarBoard(input: {
       void calendarQuery.refetch()
       void bookingsQuery.refetch()
       void pickerTypesQuery.refetch()
-      for (const item of typeDetailQueries) void item.refetch()
     },
   }
 }

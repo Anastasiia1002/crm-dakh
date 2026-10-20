@@ -877,6 +877,8 @@ export type AdminBookingQuoteInput = {
   checkOut: string
   guestCount: number
   rooms: AdminBookingRoomInput[]
+  /** Edit preview: the backend ignores this booking's own occupancy and keeps its service and promo snapshot. */
+  excludeBookingId?: string
 }
 
 export type AdminBookingQuoteNight = {

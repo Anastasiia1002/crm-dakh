@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { StayCalendar } from '@/components/bookings/StayCalendar'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -33,6 +34,7 @@ import {
   formatAdminBookingMoney,
   guestCountFromOccupancy,
 } from '@/lib/admin-booking-view'
+import { roomsOfferedForStay, stayPriceDifference } from '@/lib/booking-manage'
 import { ApiError } from '@/lib/api-error'
 import { roomDisplayName } from '@/lib/dates'
 import { errorMessage } from '@/lib/errors'
@@ -41,6 +43,7 @@ import {
   HOTEL_TIME_ZONE,
   kyivTodayIso,
   monthKey,
+  calendarNightMaps,
   monthQueryRange,
   nightsLabel,
   roomNightMap,
@@ -99,6 +102,8 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [showErrors, setShowErrors] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [reviewOpen, setReviewOpen] = useState(false)
+  const [pendingPatch, setPendingPatch] = useState<AdminBookingUpdateInput | null>(null)
   const submitLock = useRef(createSubmitLock())
 
   const selectedRoom = rooms.find((room) => room.id === roomId)
@@ -135,7 +140,11 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
       ),
   })
 
-  const nightKinds = useMemo(() => roomNightMap(calendarQuery.data?.roomTypes, roomId), [calendarQuery.data, roomId])
+  const ownBookingId = booking?.id
+  const nightKinds = useMemo(
+    () => roomNightMap(calendarQuery.data?.roomTypes, roomId, ownBookingId),
+    [calendarQuery.data, ownBookingId, roomId],
+  )
   const rangeQuery = useQuery({
     queryKey: ['admin-stay-range', roomId, checkIn, checkOut],
     enabled: Boolean(commercial && roomId && checkIn && checkOut && checkOut > checkIn),
@@ -151,14 +160,50 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
       ),
   })
   const rangeNights = useMemo(
-    () => (rangeQuery.data ? roomNightMap(rangeQuery.data.roomTypes, roomId) : null),
-    [rangeQuery.data, roomId],
+    () => (rangeQuery.data ? roomNightMap(rangeQuery.data.roomTypes, roomId, ownBookingId) : null),
+    [ownBookingId, rangeQuery.data, roomId],
   )
+  const currentRoom = booking?.rooms[0]
+  const stayChanged = Boolean(
+    booking &&
+      commercial &&
+      currentRoom &&
+      (checkIn !== booking.checkIn ||
+        checkOut !== booking.checkOut ||
+        roomId !== currentRoom.roomId ||
+        ratePlanId !== currentRoom.ratePlanId),
+  )
+  const offerQuery = useQuery({
+    queryKey: ['admin-stay-offers', checkIn, checkOut, ownBookingId],
+    enabled: Boolean(commercial && checkIn && checkOut && checkOut > checkIn),
+    queryFn: ({ signal }) => getAdminCalendar({ from: checkIn, to: checkOut, active: true }, signal),
+  })
+  const offeredRoomIds = useMemo(() => {
+    if (!offerQuery.data || !checkIn || !checkOut) return null
+    const capacityByRoom = new Map(rooms.map((room) => [room.id, roomTypes.find((type) => type.id === room.roomTypeId)?.maxGuests ?? Number.POSITIVE_INFINITY]))
+    return roomsOfferedForStay({
+      roomIds: rooms.map((room) => room.id),
+      nightsByRoom: calendarNightMaps(offerQuery.data.roomTypes, ownBookingId),
+      checkIn,
+      checkOut,
+      guestCount,
+      capacityByRoom,
+      selectedRoomId: roomId || undefined,
+    })
+  }, [checkIn, checkOut, guestCount, offerQuery.data, ownBookingId, roomId, roomTypes, rooms])
+  const roomChoices = offeredRoomIds ? rooms.filter((room) => offeredRoomIds.includes(room.id)) : rooms
 
   const quoteInput = useMemo(() => {
     if (!commercial || !checkIn || !checkOut || !roomId || !ratePlanId || checkOut <= checkIn) return null
-    return { checkIn, checkOut, guestCount, rooms: [{ roomId, ratePlanId }] }
-  }, [checkIn, checkOut, commercial, guestCount, ratePlanId, roomId])
+    if (isEdit && !stayChanged) return null
+    return {
+      checkIn,
+      checkOut,
+      guestCount,
+      rooms: [{ roomId, ratePlanId }],
+      ...(ownBookingId ? { excludeBookingId: ownBookingId } : {}),
+    }
+  }, [checkIn, checkOut, commercial, guestCount, isEdit, ownBookingId, ratePlanId, roomId, stayChanged])
   const quoteQuery = useAdminBookingQuote(quoteInput)
 
   const solePlanId = activePlans.length === 1 ? activePlans[0].id : ''
@@ -224,7 +269,7 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
   ])
 
   const visibleErrors = showErrors ? draftErrors : fieldErrors
-  const quoteBlocked = !isEdit && (!quoteQuery.data || quoteQuery.isFetching || quoteQuery.isError)
+  const quoteBlocked = Boolean(quoteInput) && (!quoteQuery.data || quoteQuery.isFetching || quoteQuery.isError)
   const policyBlocked = !isEdit && (policyQuery.isLoading || policyQuery.isError || !rules)
   const rangeBlocked = Boolean(checkIn && checkOut && checkOut > checkIn && (rangeQuery.isFetching || rangeQuery.isError))
   const submitDisabled = submitting || hasFieldErrors(draftErrors) || quoteBlocked || policyBlocked || rangeBlocked
@@ -305,6 +350,44 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
     setFormError(null)
   }
 
+  async function freshStayAvailable() {
+    const fresh = await getAdminCalendar({
+      from: checkIn,
+      to: checkOut,
+      roomTypeId: selectedRoom?.roomTypeId,
+      active: true,
+    })
+    return stayNightsAvailable(checkIn, checkOut, roomNightMap(fresh.roomTypes, roomId, ownBookingId))
+  }
+
+  async function applyReview() {
+    if (!booking || !pendingPatch || submitting || !submitLock.current.tryBegin()) return
+    setFormError(null)
+    try {
+      if (stayChanged) {
+        const available = await freshStayAvailable()
+        if (!available) {
+          setFormError(bookingConflictMessage())
+          return
+        }
+        await quoteAdminBooking({
+          checkIn,
+          checkOut,
+          guestCount,
+          rooms: [{ roomId, ratePlanId }],
+          excludeBookingId: booking.id,
+        })
+      }
+      await onSubmit(pendingPatch)
+      setReviewOpen(false)
+    } catch (error) {
+      if (error instanceof ApiError && error.code === 'ROOM_UNAVAILABLE') setFormError(bookingConflictMessage())
+      else setFormError(errorMessage(error))
+    } finally {
+      submitLock.current.end()
+    }
+  }
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     if (submitting || !submitLock.current.tryBegin()) return
@@ -324,11 +407,11 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
           guestMode: guestMode === 'existing' ? 'existing' : 'keep',
           guestId,
           guest: {
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-          phone: normalizedPhone.ok ? normalizedPhone.e164 : phone.trim(),
-          email: email.trim(),
-        },
+            firstName: firstName.trim(),
+            lastName: lastName.trim(),
+            phone: normalizedPhone.ok ? normalizedPhone.e164 : phone.trim(),
+            email: email.trim(),
+          },
           checkIn,
           checkOut,
           adults,
@@ -341,7 +424,22 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
           setFormError(result.error)
           return
         }
-        await onSubmit(result)
+        if (stayChanged) {
+          const available = await freshStayAvailable()
+          if (!available) {
+            setFormError(bookingConflictMessage())
+            return
+          }
+          await quoteAdminBooking({
+            checkIn,
+            checkOut,
+            guestCount,
+            rooms: [{ roomId, ratePlanId }],
+            excludeBookingId: booking.id,
+          })
+        }
+        setPendingPatch(result)
+        setReviewOpen(true)
         return
       }
 
@@ -531,7 +629,7 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
                 <SelectValue placeholder="Оберіть розміщення" />
               </SelectTrigger>
               <SelectContent>
-                {rooms.map((room) => (
+                {roomChoices.map((room) => (
                   <SelectItem key={room.id} value={room.id}>
                     {roomDisplayName(room)}
                   </SelectItem>
@@ -540,7 +638,7 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
             </Select>
           </Field>
           <Field label="Тариф" error={visibleErrors.ratePlanId}>
-            <Select value={ratePlanId || undefined} onValueChange={setRatePlanId} disabled={!commercial}>
+            <Select value={ratePlanId || undefined} onValueChange={setRatePlanId} disabled={!commercial || (isEdit && !canReassign)}>
               <SelectTrigger>
                 <SelectValue placeholder="Оберіть тариф" />
               </SelectTrigger>
@@ -574,6 +672,19 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
         </div>
         {maxGuests !== null ? (
           <p className="text-[11px] text-muted-foreground">Місткість цього розміщення — {maxGuests} гостей.</p>
+        ) : null}
+        {booking && commercial && currentRoom ? (
+          <div className="space-y-1 text-sm">
+            <p className="text-muted-foreground">
+              Зараз: {roomDisplayName(rooms.find((room) => room.id === currentRoom.roomId) ?? { name: null, number: currentRoom.number })} · {booking.checkIn} — {booking.checkOut}
+            </p>
+            <p>
+              Пропозиція: {accommodationName || '—'} · {checkIn || '—'} — {checkOut || '—'}
+            </p>
+          </div>
+        ) : null}
+        {offerQuery.isError ? (
+          <p className="text-sm text-destructive">Не вдалося перевірити доступність інших розміщень.</p>
         ) : null}
         {commercial ? (
           <StayCalendar
@@ -617,6 +728,11 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
                 : errorMessage(quoteQuery.error)}
             </p>
           ) : null}
+          {booking && !stayChanged ? (
+            <p className="text-sm">
+              Поточна сума {formatAdminBookingMoney(booking.price.totalAmount, booking.price.currency)} залишиться, доки не зміняться дати або розміщення.
+            </p>
+          ) : null}
           {quoteQuery.data ? (
             <PriceBreakdown
               currency={quoteQuery.data.price.currency}
@@ -625,10 +741,11 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
               discountAmount={quoteQuery.data.price.discountAmount}
               taxAmount={quoteQuery.data.price.taxAmount}
               totalAmount={quoteQuery.data.price.totalAmount}
+              previousTotal={booking && stayChanged ? booking.price.totalAmount : undefined}
             />
-          ) : (
+          ) : !booking || stayChanged ? (
             <p className="text-sm text-muted-foreground">Оберіть розміщення, тариф і вільні дати для розрахунку.</p>
-          )}
+          ) : null}
         </section>
       ) : null}
 
@@ -659,7 +776,59 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
           <Link to={booking ? `/admin/bookings/${booking.id}` : '/admin/bookings'}>Скасувати</Link>
         </Button>
       </div>
+
+      <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Застосувати зміни?</DialogTitle>
+          </DialogHeader>
+          {booking ? (
+            <div className="space-y-2 text-sm">
+              <p>
+                Дати: {booking.checkIn} — {booking.checkOut}
+                {checkIn !== booking.checkIn || checkOut !== booking.checkOut ? ` → ${checkIn} — ${checkOut}` : ' без змін'}
+              </p>
+              <p>
+                Розміщення: {currentRoom ? roomDisplayName(rooms.find((room) => room.id === currentRoom.roomId) ?? { name: null, number: currentRoom.number }) : '—'}
+                {currentRoom && roomId !== currentRoom.roomId ? ` → ${accommodationName || '—'}` : ' без змін'}
+              </p>
+              <p>Гості: {booking.guestCount}{guestCount !== booking.guestCount ? ` → ${guestCount}` : ' без змін'}</p>
+              {stayChanged && quoteQuery.data ? (
+                <PriceChange previous={booking.price.totalAmount} next={quoteQuery.data.price.totalAmount} currency={quoteQuery.data.price.currency} />
+              ) : (
+                <p>Сума {formatAdminBookingMoney(booking.price.totalAmount, booking.price.currency)} не зміниться.</p>
+              )}
+              {stayChanged ? (
+                <p className="text-muted-foreground">
+                  Попереднє розміщення звільниться лише якщо нове призначення збережеться. Окремої ручної ціни в системі немає: сума стане результатом серверного розрахунку.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button type="button" variant="outline" disabled={submitting} onClick={() => setReviewOpen(false)}>
+              Повернутися
+            </Button>
+            <Button type="button" disabled={submitting} onClick={() => void applyReview()}>
+              {submitting ? 'Збереження…' : 'Застосувати'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </form>
+  )
+}
+
+function PriceChange({ previous, next, currency }: { previous: string; next: string; currency: string }) {
+  const difference = stayPriceDifference(previous, next)
+  return (
+    <div className="space-y-1">
+      <p>Було: {formatAdminBookingMoney(previous, currency)}</p>
+      <p>Стане: {formatAdminBookingMoney(next, currency)}</p>
+      <p>
+        {difference ? (difference.same ? 'Різниця: 0,00 ₴' : `Різниця: ${signedMoney(difference.delta, difference.increased, currency)}`) : 'Різницю не вдалося порівняти.'}
+      </p>
+    </div>
   )
 }
 
@@ -682,6 +851,7 @@ function PriceBreakdown({
   discountAmount,
   taxAmount,
   totalAmount,
+  previousTotal,
 }: {
   currency: string
   roomSubtotal: string
@@ -689,10 +859,18 @@ function PriceBreakdown({
   discountAmount: string
   taxAmount: string
   totalAmount: string
+  previousTotal?: string
 }) {
+  const difference = previousTotal ? stayPriceDifference(previousTotal, totalAmount) : null
   return (
     <div>
+      {previousTotal ? <p className="text-sm text-muted-foreground">Було {formatAdminBookingMoney(previousTotal, currency)}</p> : null}
       <p className="font-serif text-3xl">{formatAdminBookingMoney(totalAmount, currency)}</p>
+      {difference ? (
+        <p className="mt-1 text-sm">
+          {difference.same ? 'Сума не зміниться.' : `Різниця ${signedMoney(difference.delta, difference.increased, currency)}.`}
+        </p>
+      ) : null}
       <dl className="mt-3 max-w-sm space-y-1 text-sm">
         <Row label="Проживання" value={formatAdminBookingMoney(roomSubtotal, currency)} />
         <Row label="Послуги" value={formatAdminBookingMoney(servicesTotal, currency)} />
@@ -702,6 +880,12 @@ function PriceBreakdown({
       <p className="mt-2 text-[11px] text-muted-foreground">Сума перевіряється сервером ще раз під час збереження.</p>
     </div>
   )
+}
+
+function signedMoney(delta: string, increased: boolean, currency: string) {
+  const amount = formatAdminBookingMoney(delta.replace(/^-/, ''), currency)
+  if (delta === '0.00') return amount
+  return `${increased ? '+' : '−'}${amount}`
 }
 
 function Row({ label, value }: { label: string; value: string }) {

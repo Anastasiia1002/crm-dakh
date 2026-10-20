@@ -130,16 +130,22 @@ export async function updateRoomType(id: string, input: RoomTypeUpdateInput): Pr
   })
 }
 
-export async function listRooms(query: RoomListQuery = {}): Promise<AccommodationPage<Accommodation>> {
-  return apiRequest(`/api/admin/accommodations/rooms${querySuffix({
-    page: query.page,
-    limit: query.limit,
-    search: query.search?.trim() || undefined,
-    active: query.active,
-    roomTypeId: query.roomTypeId,
-    status: query.status,
-    kind: query.kind,
-  })}`)
+export async function listRooms(
+  query: RoomListQuery = {},
+  signal?: AbortSignal,
+): Promise<AccommodationPage<Accommodation>> {
+  return apiRequest(
+    `/api/admin/accommodations/rooms${querySuffix({
+      page: query.page,
+      limit: query.limit,
+      search: query.search?.trim() || undefined,
+      active: query.active,
+      roomTypeId: query.roomTypeId,
+      status: query.status,
+      kind: query.kind,
+    })}`,
+    { signal },
+  )
 }
 
 export async function getRoom(id: string): Promise<Accommodation> {
@@ -174,8 +180,8 @@ export async function updateRoom(id: string, input: RoomUpdateInput): Promise<Ac
   })
 }
 
-export async function listRoomBlocks(roomId: string): Promise<Block[]> {
-  return apiRequest(`/api/admin/accommodations/rooms/${roomId}/blocks`)
+export async function listRoomBlocks(roomId: string, signal?: AbortSignal): Promise<Block[]> {
+  return apiRequest(`/api/admin/accommodations/rooms/${roomId}/blocks`, { signal })
 }
 
 export async function createRoomBlock(roomId: string, input: RoomBlockCreateInput): Promise<Block> {

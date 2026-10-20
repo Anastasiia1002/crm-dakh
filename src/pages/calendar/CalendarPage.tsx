@@ -41,8 +41,10 @@ export function CalendarPage() {
   })
 
   const typeOptions = useMemo(() => {
-    return board.pickerTypesQuery.data ?? []
-  }, [board.pickerTypesQuery.data])
+    const types = board.pickerTypesQuery.data ?? []
+    if (kind === 'all') return types
+    return types.filter((type) => type.kind === kind)
+  }, [board.pickerTypesQuery.data, kind])
 
   const rangeLabel =
     board.model && board.model.dates.length > 0

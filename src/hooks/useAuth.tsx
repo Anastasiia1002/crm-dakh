@@ -17,6 +17,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const session = useQuery({
     queryKey: ['session'],
     queryFn: restoreSession,
+    // A mounted page must not rotate the refresh token. API calls refresh on 401.
+    staleTime: Infinity,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   })
 
   const loginMutation = useMutation({

@@ -156,6 +156,8 @@ export function AccommodationsPage() {
           <UnitSection
             kind="ROOM"
             items={roomsQuery.data?.items ?? []}
+            catalogTypes={typesQuery.data?.items ?? []}
+            catalogSettled={typesQuery.isSuccess || typesQuery.isError}
             today={today}
             page={unitPage}
             pageSize={PAGE_SIZE}
@@ -177,6 +179,8 @@ export function AccommodationsPage() {
           <UnitSection
             kind="COTTAGE"
             items={roomsQuery.data?.items ?? []}
+            catalogTypes={typesQuery.data?.items ?? []}
+            catalogSettled={typesQuery.isSuccess || typesQuery.isError}
             today={today}
             page={unitPage}
             pageSize={PAGE_SIZE}
@@ -220,6 +224,8 @@ export function AccommodationsPage() {
 function UnitSection({
   kind,
   items,
+  catalogTypes,
+  catalogSettled,
   today,
   page,
   pageSize,
@@ -233,6 +239,8 @@ function UnitSection({
 }: {
   kind: RoomTypeKind
   items: Accommodation[]
+  catalogTypes: RoomType[]
+  catalogSettled: boolean
   today: string
   page: number
   pageSize: number
@@ -265,21 +273,27 @@ function UnitSection({
     () => [...new Set(items.map((item) => item.roomTypeId))],
     [items],
   )
+  const catalogById = useMemo(() => new Map(catalogTypes.map((type) => [type.id, type])), [catalogTypes])
+  const missingTypeIds = catalogSettled ? typeIds.filter((id) => !catalogById.has(id)) : []
   const typeQueries = useQueries({
-    queries: typeIds.map((id) => ({
+    queries: missingTypeIds.map((id) => ({
       queryKey: ['admin-room-type', id],
-      queryFn: () => getRoomType(id),
+      queryFn: ({ signal }: { signal?: AbortSignal }) => getRoomType(id, signal),
       enabled: Boolean(id),
+      staleTime: 5 * 60 * 1000,
     })),
   })
   const typeMetaById = useMemo(() => {
     const map = new Map<string, { name: string; kind: RoomTypeKind }>()
-    typeIds.forEach((id, index) => {
+    for (const type of catalogTypes) {
+      if (typeIds.includes(type.id)) map.set(type.id, { name: type.name, kind: type.kind })
+    }
+    missingTypeIds.forEach((id, index) => {
       const type = typeQueries[index]?.data
       if (type) map.set(id, { name: type.name, kind: type.kind })
     })
     return map
-  }, [typeIds, typeQueries])
+  }, [catalogTypes, missingTypeIds, typeIds, typeQueries])
 
   function openCreate() {
     if (!canWrite) {

@@ -133,14 +133,17 @@ export async function deletePricePeriod(id: string) {
 
 /* ─── Admin Rates API ─── */
 
-export async function listRatePlans(query: RatePlanListQuery = {}): Promise<RatesPage<RatePlan>> {
-  return apiRequest(`/api/admin/rates/plans${querySuffix({
-    page: query.page,
-    limit: query.limit,
-    search: query.search?.trim() || undefined,
-    type: query.type,
-    active: query.active,
-  })}`)
+export async function listRatePlans(query: RatePlanListQuery = {}, signal?: AbortSignal): Promise<RatesPage<RatePlan>> {
+  return apiRequest(
+    `/api/admin/rates/plans${querySuffix({
+      page: query.page,
+      limit: query.limit,
+      search: query.search?.trim() || undefined,
+      type: query.type,
+      active: query.active,
+    })}`,
+    { signal },
+  )
 }
 
 export async function getRatePlan(id: string): Promise<RatePlan> {

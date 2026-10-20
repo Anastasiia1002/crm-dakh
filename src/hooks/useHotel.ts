@@ -1,4 +1,5 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
+import { CATALOG_STALE_TIME } from '@/lib/queryClient'
 import {
   createRoom,
   createRoomBlock,
@@ -103,22 +104,25 @@ export function useAdminRoomTypes(query: RoomTypeListQuery = {}) {
   return useQuery({
     queryKey: ['admin-room-types', query],
     queryFn: () => listRoomTypes(query),
+    staleTime: CATALOG_STALE_TIME,
   })
 }
 
 export function useAdminRoomType(id: string | undefined) {
   return useQuery({
     queryKey: ['admin-room-type', id],
-    queryFn: () => getRoomType(id!),
+    queryFn: ({ signal }) => getRoomType(id!, signal),
     enabled: Boolean(id),
+    staleTime: CATALOG_STALE_TIME,
   })
 }
 
 export function useAdminRooms(query: RoomListQuery = {}, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['admin-rooms', query],
-    queryFn: () => listRooms(query),
+    queryFn: ({ signal }) => listRooms(query, signal),
     enabled: options?.enabled ?? true,
+    staleTime: CATALOG_STALE_TIME,
   })
 }
 
@@ -126,8 +130,9 @@ export function useAdminRoomBlocks(roomIds: string[]) {
   return useQueries({
     queries: roomIds.map((roomId) => ({
       queryKey: ['admin-room-blocks', roomId],
-      queryFn: () => listRoomBlocks(roomId),
+      queryFn: ({ signal }) => listRoomBlocks(roomId, signal),
       enabled: Boolean(roomId),
+      staleTime: CATALOG_STALE_TIME,
     })),
   })
 }
@@ -292,7 +297,8 @@ export function useDeletePricePeriod() {
 export function useAdminRatePlans(query: RatePlanListQuery = {}) {
   return useQuery({
     queryKey: ['admin-rate-plans', query],
-    queryFn: () => listRatePlans(query),
+    queryFn: ({ signal }) => listRatePlans(query, signal),
+    staleTime: CATALOG_STALE_TIME,
   })
 }
 
@@ -428,7 +434,7 @@ export function useTogglePromo() {
 }
 
 export function useHotelSettings() {
-  return useQuery({ queryKey: ['hotel-settings'], queryFn: getHotelSettings })
+  return useQuery({ queryKey: ['hotel-settings'], queryFn: getHotelSettings, staleTime: CATALOG_STALE_TIME })
 }
 
 export function useUpdateHotelSettings() {
@@ -442,7 +448,11 @@ export function useUpdateHotelSettings() {
 }
 
 export function useHotelBookingSettings() {
-  return useQuery({ queryKey: ['hotel-booking-settings'], queryFn: getHotelBookingSettings })
+  return useQuery({
+    queryKey: ['hotel-booking-settings'],
+    queryFn: getHotelBookingSettings,
+    staleTime: CATALOG_STALE_TIME,
+  })
 }
 
 export function useUpdateHotelBookingSettings() {
