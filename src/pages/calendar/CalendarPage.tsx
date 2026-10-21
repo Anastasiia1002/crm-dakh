@@ -12,6 +12,8 @@ import { useAuth } from '@/hooks/useAuth'
 import { CALENDAR_WINDOW_DAYS, useAdminCalendarBoard } from '@/hooks/useCalendarBoard'
 import { useAdminRooms } from '@/hooks/useHotel'
 import {
+  blockDialogPrefill,
+  bookingQueryFromSelection,
   emptyNightIntent,
   nextNightSelection,
   showCalendarBlockButton,
@@ -48,7 +50,8 @@ export function CalendarPage() {
   const [roomTypeId, setRoomTypeId] = useState<string>('all')
   const [inventoryFilter, setInventoryFilter] = useState<InventoryActiveFilter>('active')
   const [blocking, setBlocking] = useState(false)
-  const [blockPrefill, setBlockPrefill] = useState<NightSelection | null>(null)
+  const [dialogSession, setDialogSession] = useState(0)
+  const [blockPrefill, setBlockPrefill] = useState<{ roomId: string; startDate: string; endDate: string } | null>(null)
   const [draft, setDraft] = useState<{ roomId: string; startDate: string; endDate: string } | null>(null)
   const [selection, setSelection] = useState<NightSelection | null>(null)
   const [selectionNote, setSelectionNote] = useState<string | null>(null)
@@ -102,22 +105,18 @@ export function CalendarPage() {
     return new Set(nights.filter((night) => night.state === 'AVAILABLE').map((night) => night.date))
   }
 
-  function openBlankBlock() {
-    setBlockPrefill(null)
-    setBlocking(true)
-  }
-
-  function openBlockFromSelection() {
-    if (!selection) return
-    setBlockPrefill(selection)
+  function openBlockDialog() {
+    setBlockPrefill(blockDialogPrefill({ selection, today: todayIso() }))
+    setDialogSession((value) => value + 1)
     setBlocking(true)
   }
 
   function createBooking(range: NightSelection) {
+    const query = bookingQueryFromSelection(range)
     const params = new URLSearchParams({
-      roomId: range.roomId,
-      checkIn: range.startDate,
-      checkOut: range.endDate,
+      roomId: query.roomId,
+      checkIn: query.checkIn,
+      checkOut: query.checkOut,
     })
     navigate(`/admin/bookings/new?${params.toString()}`)
   }
@@ -191,7 +190,7 @@ export function CalendarPage() {
           </Button>
           <p className="px-2 text-sm text-muted-foreground">{rangeLabel}</p>
           {canWrite ? (
-            <Button size="sm" className="w-full shrink-0 sm:ml-auto sm:w-auto" onClick={openBlankBlock}>
+            <Button size="sm" className="w-full shrink-0 sm:ml-auto sm:w-auto" onClick={openBlockDialog}>
               Заблокувати дати
             </Button>
           ) : null}
@@ -264,7 +263,7 @@ export function CalendarPage() {
             <Button size="sm" variant="outline" onClick={() => createBooking(selection)}>
               Створити бронювання
             </Button>
-            <Button size="sm" onClick={openBlockFromSelection}>
+            <Button size="sm" onClick={openBlockDialog}>
               Заблокувати дати
             </Button>
             <Button
@@ -332,9 +331,10 @@ export function CalendarPage() {
       ) : null}
 
       <BlockDatesDialog
+        key={dialogSession}
         open={blocking}
         rooms={dialogRooms}
-        selectedRoomId={blockPrefill?.roomId}
+        selectedRoomId={blockPrefill?.roomId || undefined}
         initialStartDate={blockPrefill?.startDate ?? ''}
         initialEndDate={blockPrefill?.endDate ?? ''}
         onOpenChange={(open) => {

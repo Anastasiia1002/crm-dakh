@@ -19,6 +19,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/hooks/useAuth'
 import { useCreateAdminRoomBlock } from '@/hooks/useHotel'
 import { createSubmitLock } from '@/lib/booking-form'
+import { repairBlockEndDate } from '@/lib/calendar-selection'
 import { roomDisplayName } from '@/lib/dates'
 import { nightsLabel } from '@/lib/format'
 import {
@@ -95,10 +96,11 @@ export function BlockDatesDialog({
 
   useEffect(() => {
     if (open && !wasOpen.current) {
+      const startDate = initialStartDate
       form.reset({
-        roomId: selectedRoomId ?? rooms[0]?.id ?? '',
-        startDate: initialStartDate,
-        endDate: initialEndDate,
+        roomId: selectedRoomId || (rooms.length === 1 ? rooms[0].id : ''),
+        startDate,
+        endDate: repairBlockEndDate(startDate, initialEndDate),
         reasonId: 'repair',
         note: '',
       })
@@ -106,11 +108,6 @@ export function BlockDatesDialog({
     }
     wasOpen.current = open
   }, [form, initialEndDate, initialStartDate, open, rooms, selectedRoomId])
-
-  useEffect(() => {
-    if (!open || values.roomId || !(selectedRoomId ?? rooms[0]?.id)) return
-    form.setValue('roomId', selectedRoomId ?? rooms[0]!.id)
-  }, [form, open, rooms, selectedRoomId, values.roomId])
 
   useEffect(() => {
     if (!open) {
@@ -212,7 +209,19 @@ export function BlockDatesDialog({
             )}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field label="Початок" error={form.formState.errors.startDate?.message}>
-                <Input type="date" disabled={!canWrite} {...form.register('startDate')} />
+                <Input
+                  type="date"
+                  disabled={!canWrite}
+                  {...form.register('startDate', {
+                    onChange: (event) => {
+                      const startDate = event.target.value
+                      const endDate = repairBlockEndDate(startDate, form.getValues('endDate'))
+                      if (endDate !== form.getValues('endDate')) {
+                        form.setValue('endDate', endDate, { shouldValidate: true })
+                      }
+                    },
+                  })}
+                />
               </Field>
               <Field label="Кінець (не включно)" error={form.formState.errors.endDate?.message}>
                 <Input type="date" disabled={!canWrite} {...form.register('endDate')} />

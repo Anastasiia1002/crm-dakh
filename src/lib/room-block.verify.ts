@@ -4,7 +4,15 @@
  */
 import { readFileSync } from 'node:fs'
 import { ApiError } from './api-error'
-import { emptyNightIntent, nextNightSelection, showCalendarBlockButton } from './calendar-selection'
+import { addCalendarDays } from './dates'
+import {
+  blockDialogPrefill,
+  bookingQueryFromSelection,
+  emptyNightIntent,
+  nextNightSelection,
+  repairBlockEndDate,
+  showCalendarBlockButton,
+} from './calendar-selection'
 import {
   BLOCK_REASON_OPTIONS,
   blockConfirmMessage,
@@ -118,6 +126,62 @@ const occupiedClick = nextNightSelection({
 })
 assert(occupiedClick.selection?.endDate === '2027-01-06', 'an unavailable night is not selected')
 console.log('PASS: chessboard range selection')
+
+const room14 = 'dakh-room-14-3'
+const oneNight = nextNightSelection({
+  current: null,
+  roomId: room14,
+  date: '2026-10-24',
+  availableDates: new Set(['2026-10-24']),
+})
+assert(oneNight.selection?.startDate === '2026-10-24' && oneNight.selection.endDate === '2026-10-25', '1. one selected night')
+const onePrefill = blockDialogPrefill({ selection: oneNight.selection, today: '2026-10-21' })
+assert(onePrefill.roomId === room14 && onePrefill.startDate === '2026-10-24' && onePrefill.endDate === '2026-10-25', '1. dialog copies the single night')
+
+const october = new Set(['2026-10-24', '2026-10-25', '2026-10-26', '2026-10-27', '2026-10-28', '2026-10-29'])
+let range = nextNightSelection({ current: null, roomId: room14, date: '2026-10-24', availableDates: october }).selection
+range = nextNightSelection({ current: range, roomId: room14, date: '2026-10-29', availableDates: october }).selection
+assert(range?.startDate === '2026-10-24' && range.endDate === '2026-10-30', '2. multi-night range keeps an exclusive end')
+const rangePrefill = blockDialogPrefill({ selection: range, today: '2026-10-21' })
+assert(
+  rangePrefill.roomId === room14 && rangePrefill.startDate === '2026-10-24' && rangePrefill.endDate === '2026-10-30',
+  '2. dialog receives 24 Oct through exclusive 30 Oct',
+)
+assert(rangePrefill.startDate !== '2026-10-25' && rangePrefill.endDate !== '2026-10-25', '2. dialog does not collapse to 25 Oct')
+assert(blockedNights(rangePrefill.startDate, rangePrefill.endDate).length === 6, '3. exclusive end covers six nights, not the 30th')
+assert(
+  blockConfirmMessage({ name: null, number: room14 }, rangePrefill.startDate, rangePrefill.endDate).includes('6 ночей'),
+  '10. confirmation counts six nights',
+)
+
+const monthSpan = {
+  roomId: room14,
+  startDate: '2026-10-30',
+  endDate: '2026-11-02',
+}
+const monthPrefill = blockDialogPrefill({ selection: monthSpan, today: '2026-10-21' })
+assert(monthPrefill.startDate === '2026-10-30' && monthPrefill.endDate === '2026-11-02', '4. month boundary is not shifted')
+assert(blockedNights(monthPrefill.startDate, monthPrefill.endDate).join(',') === '2026-10-30,2026-10-31,2026-11-01', '4. nights cross into November')
+
+assert(rangePrefill.roomId === room14, '5. room id is the selected physical room')
+const blank = blockDialogPrefill({ selection: null, today: '2026-10-21' })
+assert(blank.roomId === '' && blank.startDate === '2026-10-21' && blank.endDate === '2026-10-22', '6. toolbar without a selection is one valid night')
+assert(blank.endDate > blank.startDate, '6. default end is later than the start')
+const other = blockDialogPrefill({
+  selection: { roomId: 'cottage-9', startDate: '2026-11-03', endDate: '2026-11-05' },
+  today: '2026-10-21',
+})
+assert(other.roomId === 'cottage-9' && other.startDate === '2026-11-03' && other.roomId !== rangePrefill.roomId, '7. a later open uses the new room')
+
+assert(addCalendarDays('2026-10-24', 1) === '2026-10-25', '8. 24 Oct plus one calendar day is 25 Oct')
+assert(addCalendarDays('2026-10-25', 1) === '2026-10-26', '8. the 25 Oct boundary does not shift a day')
+assert(addCalendarDays('2026-10-24', 6) === '2026-10-30', '8. six calendar days reach the exclusive end')
+assert(repairBlockEndDate('2026-10-25', '2026-10-25') === '2026-10-26', 'start change cannot leave an equal end')
+assert(repairBlockEndDate('2026-10-24', '2026-10-30') === '2026-10-30', 'a valid exclusive end is not moved')
+
+const booking = bookingQueryFromSelection(range!)
+assert(booking.roomId === room14 && booking.checkIn === '2026-10-24' && booking.checkOut === '2026-10-30', '9. booking uses the same exclusive end')
+console.log('PASS: block dialog prefill')
 
 const hotelHooks = readFileSync(new URL('../hooks/useHotel.ts', import.meta.url), 'utf8')
 assert(hotelHooks.includes('useCreateAdminRoomBlock'), 'create block hook exists')

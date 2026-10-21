@@ -18,6 +18,60 @@ export function emptyNightIntent(role: UserRole | undefined): 'select' | 'book' 
   return canManageAccommodations(role) ? 'select' : 'book'
 }
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
+
+export function isIsoDate(value: string) {
+  return ISO_DATE.test(value)
+}
+
+/** Booking form query. checkOut is the selection's exclusive end, unchanged. */
+export function bookingQueryFromSelection(selection: NightSelection) {
+  return {
+    roomId: selection.roomId,
+    checkIn: selection.startDate,
+    checkOut: selection.endDate,
+  }
+}
+
+/**
+ * Values for BlockDatesDialog.
+ * A chessboard selection is copied as stored: start night and exclusive end, same room.
+ * With no selection, the range is one night from `today` and the room is left unset.
+ */
+export function blockDialogPrefill(input: { selection: NightSelection | null; today: string }): {
+  roomId: string
+  startDate: string
+  endDate: string
+} {
+  const selection = input.selection
+  if (
+    selection &&
+    selection.roomId &&
+    isIsoDate(selection.startDate) &&
+    isIsoDate(selection.endDate) &&
+    selection.endDate > selection.startDate
+  ) {
+    return {
+      roomId: selection.roomId,
+      startDate: selection.startDate,
+      endDate: selection.endDate,
+    }
+  }
+  const startDate = isIsoDate(input.today) ? input.today : '2026-01-01'
+  return {
+    roomId: '',
+    startDate,
+    endDate: addCalendarDays(startDate, 1),
+  }
+}
+
+/** Keep the end exclusive and strictly after the start. Does not shift a valid end. */
+export function repairBlockEndDate(startDate: string, endDate: string) {
+  if (!isIsoDate(startDate)) return endDate
+  if (!isIsoDate(endDate) || endDate <= startDate) return addCalendarDays(startDate, 1)
+  return endDate
+}
+
 export function nextNightSelection(input: {
   current: NightSelection | null
   roomId: string
