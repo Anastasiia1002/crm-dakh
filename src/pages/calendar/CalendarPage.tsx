@@ -1,10 +1,16 @@
+import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { listRoomBlocks } from '@/api/accommodations'
+import { BlockDatesDialog } from '@/components/accommodations/BlockDatesDialog'
+import { BlockDetailsDialog } from '@/components/accommodations/BlockDetailsDialog'
 import { Chessboard } from '@/components/calendar/Chessboard'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { EmptyState, LoadingState } from '@/components/ui/states'
+import { useAuth } from '@/hooks/useAuth'
 import { CALENDAR_WINDOW_DAYS, useAdminCalendarBoard } from '@/hooks/useCalendarBoard'
+import { useAdminRooms } from '@/hooks/useHotel'
 import { addCalendarDays, todayIso } from '@/lib/dates'
 import { formatDateShort } from '@/lib/format'
 import {
@@ -12,11 +18,13 @@ import {
   type InventoryActiveFilter,
 } from '@/lib/inventory-status'
 import { roomTypeKindLabel } from '@/lib/labels'
-import type { RoomTypeKind } from '@/types'
+import { canManageAccommodations } from '@/lib/roles'
+import type { ChessboardAdminBar, RoomTypeKind } from '@/types'
 
 /**
  * Empty-cell → /admin/bookings/new?roomId&checkIn&checkOut
  * Prefill is validated in the booking form; URL params never reserve inventory.
+ * Block bars with a blockId open details; "Заблокувати дати" creates a RoomBlock.
  */
 
 const kindOptions: { id: RoomTypeKind | 'all'; label: string }[] = [
@@ -27,10 +35,15 @@ const kindOptions: { id: RoomTypeKind | 'all'; label: string }[] = [
 
 export function CalendarPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const canWrite = canManageAccommodations(user?.role)
   const [start, setStart] = useState(todayIso())
   const [kind, setKind] = useState<RoomTypeKind | 'all'>('all')
   const [roomTypeId, setRoomTypeId] = useState<string>('all')
   const [inventoryFilter, setInventoryFilter] = useState<InventoryActiveFilter>('active')
+  const [blocking, setBlocking] = useState(false)
+  const [draft, setDraft] = useState<{ roomId: string; startDate: string; endDate: string } | null>(null)
+  const [inspecting, setInspecting] = useState<{ roomId: string; blockId: string; number: string } | null>(null)
 
   const board = useAdminCalendarBoard({
     from: start,
@@ -39,6 +52,21 @@ export function CalendarPage() {
     roomTypeId: roomTypeId === 'all' ? undefined : roomTypeId,
     inventoryFilter,
   })
+  const roomsQuery = useAdminRooms({ page: 1, limit: 100, active: true })
+  const rooms = roomsQuery.data?.items ?? []
+  const inspectingBlocks = useQuery({
+    queryKey: ['admin-room-blocks', inspecting?.roomId],
+    queryFn: ({ signal }) => listRoomBlocks(inspecting!.roomId, signal),
+    enabled: Boolean(inspecting?.roomId),
+  })
+  const inspectingBlock = inspectingBlocks.data?.find((block) => block.id === inspecting?.blockId) ?? null
+  const inspectingRoom = inspecting
+    ? rooms.find((room) => room.id === inspecting.roomId) ?? {
+        id: inspecting.roomId,
+        name: null,
+        number: inspecting.number,
+      }
+    : null
 
   const typeOptions = useMemo(() => {
     const types = board.pickerTypesQuery.data ?? []
@@ -50,6 +78,14 @@ export function CalendarPage() {
     board.model && board.model.dates.length > 0
       ? `${formatDateShort(board.model.dates[0])} — ${formatDateShort(board.model.dates.at(-1) ?? board.model.dates[0])}`
       : ''
+
+  function openBlockDetails(bar: ChessboardAdminBar) {
+    if (!bar.blockId) return
+    const number =
+      board.model?.groups.flatMap((group) => group.rooms).find((room) => room.roomId === bar.roomId)?.number ??
+      bar.roomId
+    setInspecting({ roomId: bar.roomId, blockId: bar.blockId, number })
+  }
 
   return (
     <div className="space-y-5">
@@ -75,6 +111,11 @@ export function CalendarPage() {
           <p className="px-2 text-sm text-muted-foreground">{rangeLabel}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {canWrite ? (
+            <Button size="sm" onClick={() => setBlocking(true)}>
+              Заблокувати дати
+            </Button>
+          ) : null}
           <div className="flex gap-2">
             {kindOptions.map((item) => (
               <button
@@ -129,10 +170,12 @@ export function CalendarPage() {
       </div>
 
       <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+        <Legend className="bg-background" label="Вільно" />
+        <Legend className="bg-status-confirmed" label="Заброньовано" />
+        <Legend className="bg-[#f3e6df]" label="Заблоковано" />
+        <Legend className="bg-[#d9e4d4]" label="Вибрано" />
         <Legend className="bg-status-pending" label="Очікує підтвердження" />
-        <Legend className="bg-status-confirmed" label="Підтверджено" />
         <Legend className="bg-status-checked-in" label="Заселено" />
-        <Legend className="bg-[#f3e6df]" label="Блок / обслуговування" />
       </div>
 
       {board.enrichmentFailed || board.enrichmentIncomplete || board.typesIncomplete ? (
@@ -168,6 +211,8 @@ export function CalendarPage() {
       {!board.isLoading && !board.isError && board.model && board.model.groups.length > 0 ? (
         <Chessboard
           model={board.model}
+          selected={draft}
+          onAdminBar={openBlockDetails}
           onBooking={(bookingId) => navigate(`/admin/bookings/${bookingId}`)}
           onEmpty={(roomId, date) => {
             const checkOut = addCalendarDays(date, 1)
@@ -180,6 +225,19 @@ export function CalendarPage() {
           }}
         />
       ) : null}
+
+      <BlockDatesDialog
+        open={blocking}
+        rooms={rooms}
+        onOpenChange={setBlocking}
+        onDraftChange={setDraft}
+      />
+      <BlockDetailsDialog
+        open={inspecting !== null}
+        room={inspectingRoom}
+        block={inspectingBlock}
+        onOpenChange={(open) => !open && setInspecting(null)}
+      />
     </div>
   )
 }

@@ -213,5 +213,5 @@ function adminLabel(kind: ChessboardAdminBar['kind']) {
   if (kind === 'MAINTENANCE') return 'Обслуговування'
   if (kind === 'OUT_OF_ORDER') return 'Не працює'
   if (kind === 'INACTIVE') return 'Неактивний'
-  return 'Блок'
+  return 'Заблоковано'
 }

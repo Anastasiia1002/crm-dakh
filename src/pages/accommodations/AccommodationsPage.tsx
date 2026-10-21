@@ -5,6 +5,8 @@ import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { getRoomType } from '@/api/accommodations'
+import { BlockDatesDialog } from '@/components/accommodations/BlockDatesDialog'
+import { BlockDetailsDialog } from '@/components/accommodations/BlockDetailsDialog'
 import { RoomTypePicker } from '@/components/accommodations/RoomTypePicker'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -26,7 +28,6 @@ import {
   useAdminRoomTypeImages,
   useAdminRoomTypes,
   useCreateAdminRoom,
-  useCreateAdminRoomBlock,
   useCreateAdminRoomType,
   useCreateAdminRoomTypeImage,
   useDeleteAdminRoomBlock,
@@ -40,7 +41,8 @@ import { ApiError } from '@/lib/api-error'
 import { isDateInHalfOpenRange, roomDisplayName, todayIso } from '@/lib/dates'
 import { errorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
-import { roomBlockTypeLabel, roomStatusLabel, roomTypeKindLabel } from '@/lib/labels'
+import { roomStatusLabel, roomTypeKindLabel } from '@/lib/labels'
+import { blockConflictMessage, blockReasonLabel, unblockConfirmMessage } from '@/lib/room-block'
 import {
   INVENTORY_ACTIVE_FILTER_LABEL,
   activeFilterToQuery,
@@ -50,7 +52,6 @@ import { canManageAccommodations } from '@/lib/roles'
 import type {
   Accommodation,
   Block,
-  RoomBlockType,
   RoomStatus,
   RoomType,
   RoomTypeImage,
@@ -59,9 +60,7 @@ import type {
 
 const PAGE_SIZE = 20
 const ROOM_STATUSES = ['AVAILABLE', 'MAINTENANCE', 'OUT_OF_ORDER', 'INACTIVE'] as const
-const BLOCK_TYPES = ['MAINTENANCE', 'OWNER_USE', 'OTHER'] as const
 const ROOM_TYPE_KINDS = ['ROOM', 'COTTAGE'] as const
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
 export function AccommodationsPage() {
   const [tab, setTab] = useState<'rooms' | 'cottages' | 'categories'>('rooms')
@@ -256,7 +255,8 @@ function UnitSection({
   const canWrite = canManageAccommodations(user?.role)
   const [editing, setEditing] = useState<Accommodation | null | 'new'>(null)
   const [blocking, setBlocking] = useState<Accommodation | null>(null)
-  const [pendingDelete, setPendingDelete] = useState<{ roomId: string; block: Block } | null>(null)
+  const [inspecting, setInspecting] = useState<{ room: Accommodation; block: Block } | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<{ room: Accommodation; block: Block } | null>(null)
   const removeBlock = useDeleteAdminRoomBlock()
 
   const roomIds = items.map((item) => item.id)
@@ -414,20 +414,22 @@ function UnitSection({
                       <div className="mt-1 space-y-1 text-xs text-muted-foreground">
                         {ownBlocks.map((block) => (
                           <div key={block.id} className="flex flex-wrap items-center gap-2">
-                            <span>
-                              {formatDate(block.startDate)} — {formatDate(block.endDate)} ·{' '}
-                              {roomBlockTypeLabel[block.type]}
-                              {block.reason ? ` · ${block.reason}` : ''}
+                            <button
+                              type="button"
+                              className="text-left underline-offset-2 hover:underline"
+                              onClick={() => setInspecting({ room: item, block })}
+                            >
+                              {formatDate(block.startDate)} — {formatDate(block.endDate)} · {blockReasonLabel(block)}
                               <span className="text-muted-foreground/80"> [початок, кінець)</span>
-                            </span>
+                            </button>
                             {canWrite ? (
                               <button
                                 type="button"
                                 className="underline-offset-2 hover:underline"
                                 disabled={removeBlock.isPending}
-                                onClick={() => setPendingDelete({ roomId: item.id, block })}
+                                onClick={() => setPendingDelete({ room: item, block })}
                               >
-                                Зняти
+                                Зняти блокування
                               </button>
                             ) : null}
                           </div>
@@ -442,7 +444,7 @@ function UnitSection({
                           Редагувати
                         </Button>
                         <Button size="sm" variant="outline" onClick={() => openBlock(item)}>
-                          Заблокувати
+                          Заблокувати дати
                         </Button>
                       </div>
                     ) : (
@@ -462,16 +464,27 @@ function UnitSection({
         item={editing && editing !== 'new' ? editing : undefined}
         onOpenChange={(open) => !open && setEditing(null)}
       />
-      <BlockDialog item={blocking} onOpenChange={(open) => !open && setBlocking(null)} />
+      <BlockDatesDialog
+        open={Boolean(blocking)}
+        rooms={blocking ? [blocking] : []}
+        selectedRoomId={blocking?.id}
+        onOpenChange={(open) => !open && setBlocking(null)}
+      />
+      <BlockDetailsDialog
+        open={inspecting !== null}
+        room={inspecting?.room ?? null}
+        block={inspecting?.block ?? null}
+        onOpenChange={(open) => !open && setInspecting(null)}
+      />
       <ConfirmDialog
         open={pendingDelete !== null}
-        title="Зняти блокування?"
+        title="Зняти блокування"
         description={
           pendingDelete
-            ? `${formatDate(pendingDelete.block.startDate)} — ${formatDate(pendingDelete.block.endDate)}`
+            ? unblockConfirmMessage(pendingDelete.room, pendingDelete.block.startDate, pendingDelete.block.endDate)
             : ''
         }
-        confirmLabel="Зняти"
+        confirmLabel="Зняти блокування"
         destructive
         pending={removeBlock.isPending}
         onOpenChange={(open) => {
@@ -485,12 +498,12 @@ function UnitSection({
             return
           }
           void removeBlock
-            .mutateAsync({ roomId: pendingDelete.roomId, blockId: pendingDelete.block.id })
+            .mutateAsync({ roomId: pendingDelete.room.id, blockId: pendingDelete.block.id })
             .then(() => {
               setPendingDelete(null)
               toast.success('Блокування знято')
             })
-            .catch((error) => toast.error(accommodationErrorMessage(error)))
+            .catch((error) => toast.error(blockConflictMessage(error)))
         }}
       />
     </div>
@@ -684,117 +697,6 @@ function UnitDialog({
             </Button>
             <Button type="submit" disabled={!canWrite || pending || !canSubmitCategory}>
               Зберегти
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-const blockSchema = z
-  .object({
-    startDate: z.string().regex(DATE_RE, 'Формат YYYY-MM-DD'),
-    endDate: z.string().regex(DATE_RE, 'Формат YYYY-MM-DD'),
-    type: z.enum(BLOCK_TYPES),
-    reason: z.string().max(500, 'Причина задовга'),
-  })
-  .superRefine((value, ctx) => {
-    if (value.endDate <= value.startDate) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['endDate'],
-        message: 'Дата завершення має бути пізніше за дату початку',
-      })
-    }
-  })
-
-function BlockDialog({ item, onOpenChange }: { item: Accommodation | null; onOpenChange: (open: boolean) => void }) {
-  const { user } = useAuth()
-  const canWrite = canManageAccommodations(user?.role)
-  const save = useCreateAdminRoomBlock()
-  const form = useForm<z.infer<typeof blockSchema>>({
-    resolver: zodResolver(blockSchema),
-    defaultValues: { startDate: '', endDate: '', type: 'MAINTENANCE', reason: '' },
-  })
-
-  return (
-    <Dialog
-      open={Boolean(item)}
-      onOpenChange={(open) => {
-        if (!open) form.reset({ startDate: '', endDate: '', type: 'MAINTENANCE', reason: '' })
-        onOpenChange(open)
-      }}
-    >
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Заблокувати {item ? roomDisplayName(item) : ''}</DialogTitle>
-        </DialogHeader>
-        <form
-          className="space-y-4"
-          onSubmit={form.handleSubmit(async (values) => {
-            if (!item) return
-            if (!canWrite) {
-              toast.error('Недостатньо прав для цієї дії')
-              return
-            }
-            try {
-              await save.mutateAsync({
-                roomId: item.id,
-                input: {
-                  startDate: values.startDate,
-                  endDate: values.endDate,
-                  type: values.type,
-                  reason: values.reason.trim() ? values.reason.trim() : null,
-                },
-              })
-              toast.success('Заблоковано')
-              form.reset({ startDate: '', endDate: '', type: 'MAINTENANCE', reason: '' })
-              onOpenChange(false)
-            } catch (error) {
-              toast.error(accommodationErrorMessage(error))
-            }
-          })}
-        >
-          <p className="text-sm text-muted-foreground">
-            Період напіввідкритий: [початок, кінець). Дата закінчення вільна. Значення передаються як YYYY-MM-DD без
-            локального зсуву часового поясу.
-          </p>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Від" error={form.formState.errors.startDate?.message}>
-              <Input type="date" disabled={!canWrite} {...form.register('startDate')} />
-            </Field>
-            <Field label="До (не включно)" error={form.formState.errors.endDate?.message}>
-              <Input type="date" disabled={!canWrite} {...form.register('endDate')} />
-            </Field>
-          </div>
-          <Field label="Тип">
-            <Select
-              value={form.watch('type')}
-              onValueChange={(value: RoomBlockType) => form.setValue('type', value)}
-              disabled={!canWrite}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {BLOCK_TYPES.map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {roomBlockTypeLabel[type]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field label="Причина" error={form.formState.errors.reason?.message}>
-            <Textarea disabled={!canWrite} {...form.register('reason')} />
-          </Field>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Скасувати
-            </Button>
-            <Button type="submit" disabled={!canWrite || save.isPending}>
-              Заблокувати
             </Button>
           </DialogFooter>
         </form>
@@ -1347,7 +1249,9 @@ function accommodationErrorMessage(error: unknown) {
   if (error.status === 409) {
     if (error.code === 'ROOM_TYPE_SLUG_EXISTS') return 'Категорія з таким slug уже існує'
     if (error.code === 'ROOM_NUMBER_EXISTS') return 'Такий номер уже існує в цій категорії'
-    if (error.code === 'ROOM_BLOCK_OVERLAP') return 'Блокування перетинається з існуючим'
+    if (error.code === 'ROOM_BLOCK_OVERLAP' || error.code === 'ACTIVE_BOOKING_OVERLAP') {
+      return blockConflictMessage(error)
+    }
     return error.message
   }
   if (error.details?.length) return error.details.join('. ')

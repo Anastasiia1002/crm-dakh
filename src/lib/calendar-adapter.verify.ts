@@ -277,6 +277,10 @@ export function runCalendarAdapterChecks(): string[] {
   assert(states.has('OUT_OF_ORDER'), 'status: OUT_OF_ORDER')
   assert(states.has('INACTIVE'), 'status: INACTIVE')
   assert(states.has('BLOCKED'), 'status: BLOCKED')
+  assert(
+    modelB.adminBars.some((bar) => bar.kind === 'BLOCKED' && bar.label === 'Заблоковано' && bar.blockId),
+    'status: blocked bars keep blockId and Заблоковано label',
+  )
   results.push('Status PASS: BLOCKED/MAINTENANCE/OUT_OF_ORDER/INACTIVE from calendar states')
 
   // Archived inventory (room.active=false): API night state is INACTIVE; bookingId still attached.

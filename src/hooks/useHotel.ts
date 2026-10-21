@@ -83,6 +83,7 @@ function useRefresh() {
     })
     void queryClient.invalidateQueries({ queryKey: ['audit'] })
     void queryClient.invalidateQueries({ queryKey: ['calendar'] })
+    void queryClient.invalidateQueries({ queryKey: ['admin-calendar'] })
     void queryClient.invalidateQueries({ queryKey: ['dashboard'] })
   }
 }

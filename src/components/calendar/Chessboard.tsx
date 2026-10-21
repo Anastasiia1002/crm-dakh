@@ -2,7 +2,7 @@ import { format } from 'date-fns'
 import { uk } from 'date-fns/locale'
 import { calendarDayOfMonth, calendarWeekday, todayIso } from '@/lib/dates'
 import { cn } from '@/lib/utils'
-import type { ChessboardModel } from '@/types'
+import type { ChessboardAdminBar, ChessboardModel } from '@/types'
 
 const CELL = 52
 
@@ -29,10 +29,14 @@ export function Chessboard({
   model,
   onBooking,
   onEmpty,
+  onAdminBar,
+  selected,
 }: {
   model: ChessboardModel
   onBooking: (bookingId: string) => void
   onEmpty: (roomId: string, date: string) => void
+  onAdminBar?: (bar: ChessboardAdminBar) => void
+  selected?: { roomId: string; startDate: string; endDate: string } | null
 }) {
   const today = todayIso()
   const { dates, groups } = model
@@ -107,6 +111,11 @@ export function Chessboard({
                         const day = calendarWeekday(night.date)
                         const weekend = day === 0 || day === 6
                         const available = night.state === 'AVAILABLE'
+                        const highlighted =
+                          selected &&
+                          selected.roomId === room.roomId &&
+                          night.date >= selected.startDate &&
+                          night.date < selected.endDate
                         return (
                           <button
                             key={night.date}
@@ -119,6 +128,7 @@ export function Chessboard({
                               !available && 'cursor-default',
                               night.state === 'OUT_OF_ORDER' && 'bg-[#f0e4e4]',
                               night.state === 'INACTIVE' && 'bg-surface-muted/50',
+                              highlighted && 'bg-[#d9e4d4]',
                             )}
                             style={{ width: CELL }}
                             onClick={() => {
@@ -134,33 +144,49 @@ export function Chessboard({
                       })}
                     </div>
 
-                    {adminBars.map(({ start, span, bar }) => (
-                      <div
-                        key={bar.key}
-                        title={bar.blockId ? `${bar.label} · ${bar.blockId}` : bar.label}
-                        className={cn(
-                          'absolute top-1.5 flex h-9 items-center overflow-hidden rounded-sm border px-2 text-[11px]',
-                          bar.kind === 'MAINTENANCE' &&
-                            'border-[#d7c3b4] bg-[#f3e6df] text-status-cancelled-foreground',
-                          bar.kind === 'BLOCKED' &&
-                            'border-[#d7c3b4] bg-[#f3e6df] text-status-cancelled-foreground',
-                          bar.kind === 'OUT_OF_ORDER' &&
-                            'border-border bg-[#efe0e0] text-muted-foreground',
-                          bar.kind === 'INACTIVE' &&
-                            'border-border bg-surface-muted text-muted-foreground',
-                        )}
-                        style={{
-                          left: start * CELL + 3,
-                          width: Math.max(span * CELL - 6, 28),
-                          backgroundImage:
-                            bar.kind === 'BLOCKED' || bar.kind === 'MAINTENANCE'
-                              ? 'repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(138,74,60,0.08) 4px, rgba(138,74,60,0.08) 8px)'
-                              : undefined,
-                        }}
-                      >
-                        {bar.label}
-                      </div>
-                    ))}
+                    {adminBars.map(({ start, span, bar }) => {
+                      const clickable = Boolean(bar.blockId && onAdminBar)
+                      const className = cn(
+                        'absolute top-1.5 flex h-9 items-center overflow-hidden rounded-sm border px-2 text-left text-[11px]',
+                        bar.kind === 'MAINTENANCE' &&
+                          'border-[#d7c3b4] bg-[#f3e6df] text-status-cancelled-foreground',
+                        bar.kind === 'BLOCKED' &&
+                          'border-[#d7c3b4] bg-[#f3e6df] text-status-cancelled-foreground',
+                        bar.kind === 'OUT_OF_ORDER' &&
+                          'border-border bg-[#efe0e0] text-muted-foreground',
+                        bar.kind === 'INACTIVE' &&
+                          'border-border bg-surface-muted text-muted-foreground',
+                        clickable && 'cursor-pointer',
+                      )
+                      const style = {
+                        left: start * CELL + 3,
+                        width: Math.max(span * CELL - 6, 28),
+                        backgroundImage:
+                          bar.kind === 'BLOCKED' || bar.kind === 'MAINTENANCE'
+                            ? 'repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(138,74,60,0.08) 4px, rgba(138,74,60,0.08) 8px)'
+                            : undefined,
+                      } as const
+                      const title = bar.blockId ? `${bar.label} · ${bar.blockId}` : bar.label
+                      if (clickable) {
+                        return (
+                          <button
+                            key={bar.key}
+                            type="button"
+                            title={title}
+                            className={className}
+                            style={style}
+                            onClick={() => onAdminBar?.(bar)}
+                          >
+                            {bar.label}
+                          </button>
+                        )
+                      }
+                      return (
+                        <div key={bar.key} title={title} className={className} style={style}>
+                          {bar.label}
+                        </div>
+                      )
+                    })}
 
                     {stayBars.map(({ start, span, bar }) => (
                       <button
