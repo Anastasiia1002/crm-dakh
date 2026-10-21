@@ -31,12 +31,15 @@ export function Chessboard({
   onEmpty,
   onAdminBar,
   selected,
+  emptyMode = 'book',
 }: {
   model: ChessboardModel
   onBooking: (bookingId: string) => void
   onEmpty: (roomId: string, date: string) => void
   onAdminBar?: (bar: ChessboardAdminBar) => void
   selected?: { roomId: string; startDate: string; endDate: string } | null
+  /** Writers choose a range. Other staff open a booking from one night. */
+  emptyMode?: 'book' | 'select'
 }) {
   const today = todayIso()
   const { dates, groups } = model
@@ -136,7 +139,9 @@ export function Chessboard({
                             }}
                             aria-label={
                               available
-                                ? `Нове бронювання, ${room.number}, ${night.date}`
+                                ? emptyMode === 'select'
+                                  ? `Вибрати ніч, ${room.number}, ${night.date}`
+                                  : `Нове бронювання, ${room.number}, ${night.date}`
                                 : `${room.number}, ${night.date}, ${night.state}`
                             }
                           />

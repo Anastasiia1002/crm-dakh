@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { listRoomBlocks } from '@/api/accommodations'
 import { BlockDatesDialog } from '@/components/accommodations/BlockDatesDialog'
@@ -11,6 +11,12 @@ import { EmptyState, LoadingState } from '@/components/ui/states'
 import { useAuth } from '@/hooks/useAuth'
 import { CALENDAR_WINDOW_DAYS, useAdminCalendarBoard } from '@/hooks/useCalendarBoard'
 import { useAdminRooms } from '@/hooks/useHotel'
+import {
+  emptyNightIntent,
+  nextNightSelection,
+  showCalendarBlockButton,
+  type NightSelection,
+} from '@/lib/calendar-selection'
 import { addCalendarDays, todayIso } from '@/lib/dates'
 import { formatDateShort } from '@/lib/format'
 import {
@@ -18,13 +24,12 @@ import {
   type InventoryActiveFilter,
 } from '@/lib/inventory-status'
 import { roomTypeKindLabel } from '@/lib/labels'
-import { canManageAccommodations } from '@/lib/roles'
-import type { ChessboardAdminBar, RoomTypeKind } from '@/types'
+import type { Accommodation, ChessboardAdminBar, RoomTypeKind } from '@/types'
 
 /**
- * Empty-cell → /admin/bookings/new?roomId&checkIn&checkOut
+ * Writers select empty nights, then choose a booking or a block. Other staff still open a one-night booking.
  * Prefill is validated in the booking form; URL params never reserve inventory.
- * Block bars with a blockId open details; "Заблокувати дати" creates a RoomBlock.
+ * Block bars with a blockId open details. "Заблокувати дати" creates a RoomBlock after confirmation.
  */
 
 const kindOptions: { id: RoomTypeKind | 'all'; label: string }[] = [
@@ -36,13 +41,17 @@ const kindOptions: { id: RoomTypeKind | 'all'; label: string }[] = [
 export function CalendarPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const canWrite = canManageAccommodations(user?.role)
+  const canWrite = showCalendarBlockButton(user?.role)
+  const nightIntent = emptyNightIntent(user?.role)
   const [start, setStart] = useState(todayIso())
   const [kind, setKind] = useState<RoomTypeKind | 'all'>('all')
   const [roomTypeId, setRoomTypeId] = useState<string>('all')
   const [inventoryFilter, setInventoryFilter] = useState<InventoryActiveFilter>('active')
   const [blocking, setBlocking] = useState(false)
+  const [blockPrefill, setBlockPrefill] = useState<NightSelection | null>(null)
   const [draft, setDraft] = useState<{ roomId: string; startDate: string; endDate: string } | null>(null)
+  const [selection, setSelection] = useState<NightSelection | null>(null)
+  const [selectionNote, setSelectionNote] = useState<string | null>(null)
   const [inspecting, setInspecting] = useState<{ roomId: string; blockId: string; number: string } | null>(null)
 
   const board = useAdminCalendarBoard({
@@ -68,6 +77,11 @@ export function CalendarPage() {
       }
     : null
 
+  useEffect(() => {
+    setSelection(null)
+    setSelectionNote(null)
+  }, [start, kind, roomTypeId, inventoryFilter])
+
   const typeOptions = useMemo(() => {
     const types = board.pickerTypesQuery.data ?? []
     if (kind === 'all') return types
@@ -79,6 +93,73 @@ export function CalendarPage() {
       ? `${formatDateShort(board.model.dates[0])} — ${formatDateShort(board.model.dates.at(-1) ?? board.model.dates[0])}`
       : ''
 
+  function roomRow(roomId: string) {
+    return board.model?.groups.flatMap((group) => group.rooms).find((room) => room.roomId === roomId)
+  }
+
+  function availableDates(roomId: string) {
+    const nights = roomRow(roomId)?.nights ?? []
+    return new Set(nights.filter((night) => night.state === 'AVAILABLE').map((night) => night.date))
+  }
+
+  function openBlankBlock() {
+    setBlockPrefill(null)
+    setBlocking(true)
+  }
+
+  function openBlockFromSelection() {
+    if (!selection) return
+    setBlockPrefill(selection)
+    setBlocking(true)
+  }
+
+  function createBooking(range: NightSelection) {
+    const params = new URLSearchParams({
+      roomId: range.roomId,
+      checkIn: range.startDate,
+      checkOut: range.endDate,
+    })
+    navigate(`/admin/bookings/new?${params.toString()}`)
+  }
+
+  function selectEmptyNight(roomId: string, date: string) {
+    if (nightIntent === 'book') {
+      createBooking({ roomId, startDate: date, endDate: addCalendarDays(date, 1) })
+      return
+    }
+    const next = nextNightSelection({
+      current: selection,
+      roomId,
+      date,
+      availableDates: availableDates(roomId),
+    })
+    setSelection(next.selection)
+    setSelectionNote(next.crossedOccupied ? 'Не можна включити зайняті або заблоковані ночі.' : null)
+  }
+
+  const dialogRooms = useMemo(() => {
+    const list = [...rooms]
+    const roomId = blockPrefill?.roomId
+    if (roomId && !list.some((room) => room.id === roomId)) {
+      const row = roomRow(roomId)
+      if (row) {
+        const stub: Accommodation = {
+          id: row.roomId,
+          roomTypeId: row.roomTypeId,
+          number: row.number,
+          name: null,
+          floor: null,
+          status: row.status,
+          active: row.active,
+          createdAt: '',
+          updatedAt: '',
+        }
+        list.unshift(stub)
+      }
+    }
+    return list
+  }, [blockPrefill?.roomId, board.model, rooms])
+
   function openBlockDetails(bar: ChessboardAdminBar) {
     if (!bar.blockId) return
     const number =
@@ -89,7 +170,7 @@ export function CalendarPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
@@ -109,14 +190,14 @@ export function CalendarPage() {
             Далі
           </Button>
           <p className="px-2 text-sm text-muted-foreground">{rangeLabel}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
           {canWrite ? (
-            <Button size="sm" onClick={() => setBlocking(true)}>
+            <Button size="sm" className="w-full shrink-0 sm:ml-auto sm:w-auto" onClick={openBlankBlock}>
               Заблокувати дати
             </Button>
           ) : null}
-          <div className="flex gap-2">
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap gap-2">
             {kindOptions.map((item) => (
               <button
                 key={item.id}
@@ -136,7 +217,7 @@ export function CalendarPage() {
             ))}
           </div>
           <Select value={roomTypeId} onValueChange={(value) => setRoomTypeId(value)}>
-            <SelectTrigger className="w-52">
+            <SelectTrigger className="w-full sm:w-52">
               <SelectValue placeholder="Категорія" />
             </SelectTrigger>
             <SelectContent>
@@ -155,7 +236,7 @@ export function CalendarPage() {
               setRoomTypeId('all')
             }}
           >
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-full sm:w-40">
               <SelectValue placeholder="Статус" />
             </SelectTrigger>
             <SelectContent>
@@ -168,6 +249,37 @@ export function CalendarPage() {
           </Select>
         </div>
       </div>
+
+      {canWrite && selection ? (
+        <div className="flex flex-col gap-3 rounded-md border border-border bg-surface px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-sm">
+            <p>
+              {roomRow(selection.roomId)?.number ?? 'Номер'} · {formatDateShort(selection.startDate)} —{' '}
+              {formatDateShort(selection.endDate)}
+            </p>
+            <p className="text-xs text-muted-foreground">Кінець не входить у період. Оберіть дію.</p>
+            {selectionNote ? <p className="text-xs text-muted-foreground">{selectionNote}</p> : null}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" onClick={() => createBooking(selection)}>
+              Створити бронювання
+            </Button>
+            <Button size="sm" onClick={openBlockFromSelection}>
+              Заблокувати дати
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setSelection(null)
+                setSelectionNote(null)
+              }}
+            >
+              Скасувати
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
         <Legend className="bg-background" label="Вільно" />
@@ -211,25 +323,24 @@ export function CalendarPage() {
       {!board.isLoading && !board.isError && board.model && board.model.groups.length > 0 ? (
         <Chessboard
           model={board.model}
-          selected={draft}
+          selected={blocking ? draft : selection}
+          emptyMode={nightIntent}
           onAdminBar={openBlockDetails}
           onBooking={(bookingId) => navigate(`/admin/bookings/${bookingId}`)}
-          onEmpty={(roomId, date) => {
-            const checkOut = addCalendarDays(date, 1)
-            const params = new URLSearchParams({
-              roomId,
-              checkIn: date,
-              checkOut,
-            })
-            navigate(`/admin/bookings/new?${params.toString()}`)
-          }}
+          onEmpty={selectEmptyNight}
         />
       ) : null}
 
       <BlockDatesDialog
         open={blocking}
-        rooms={rooms}
-        onOpenChange={setBlocking}
+        rooms={dialogRooms}
+        selectedRoomId={blockPrefill?.roomId}
+        initialStartDate={blockPrefill?.startDate ?? ''}
+        initialEndDate={blockPrefill?.endDate ?? ''}
+        onOpenChange={(open) => {
+          setBlocking(open)
+          if (!open) setBlockPrefill(null)
+        }}
         onDraftChange={setDraft}
       />
       <BlockDetailsDialog
