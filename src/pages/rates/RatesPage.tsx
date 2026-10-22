@@ -36,6 +36,7 @@ import { formatDate, formatMoneyAmount, normalizeMoneyString, parseStayNights } 
 import { ratePlanTypeLabel } from '@/lib/labels'
 import { canManageRates } from '@/lib/roles'
 import type { RatePlan, RatePlanType, RoomPrice } from '@/types'
+import { StayPricingSections } from './StayPricingSections'
 
 const PAGE_SIZE = 20
 const RATE_TYPES = ['STANDARD', 'NON_REFUNDABLE', 'SPECIAL'] as const
@@ -333,6 +334,8 @@ export function RatesPage() {
           onPageChange={setPricePage}
         />
       </section>
+
+      <StayPricingSections />
 
       <PlanDialog
         open={editingPlan !== null}

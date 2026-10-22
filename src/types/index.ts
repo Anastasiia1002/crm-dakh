@@ -431,6 +431,103 @@ export type RoomPriceUpdateInput = {
   active?: boolean
 }
 
+/** Type-level weekday/weekend overlay. Applies to every physical room of the category. */
+export type DayPriceRule = {
+  id: string
+  hotelId: string
+  ratePlanId: string
+  roomTypeId: string
+  name: string
+  weekdayPrice: string
+  weekendPrice: string
+  weekendDays: number[]
+  startDate: string
+  endDate: string
+  active: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export type DayPriceRuleListQuery = {
+  page?: number
+  limit?: number
+  ratePlanId?: string
+  roomTypeId?: string
+  active?: boolean
+}
+
+export type DayPriceRuleCreateInput = {
+  name: string
+  ratePlanId: string
+  roomTypeId: string
+  weekdayPrice: string
+  weekendPrice: string
+  weekendDays?: number[]
+  startDate: string
+  endDate: string
+  active?: boolean
+}
+
+export type DayPriceRuleUpdateInput = {
+  name?: string
+  ratePlanId?: string
+  roomTypeId?: string
+  weekdayPrice?: string
+  weekendPrice?: string
+  weekendDays?: number[]
+  startDate?: string
+  endDate?: string
+  active?: boolean
+}
+
+export type DayPricePreview = {
+  nights: { date: string; weekday: number; weekend: boolean; basePrice: string; price: string }[]
+  roomSubtotal: string
+}
+
+export type LengthStayDiscount = {
+  id: string
+  name: string
+  minNights: number
+  discountType: 'PERCENTAGE'
+  discountValue: string
+  active: boolean
+  roomTypeIds: string[]
+  createdAt: string
+  updatedAt: string
+}
+
+export type LengthStayDiscountListQuery = {
+  page?: number
+  limit?: number
+  active?: boolean
+}
+
+export type LengthStayDiscountCreateInput = {
+  name: string
+  minNights: number
+  discountValue: string
+  roomTypeIds?: string[]
+  active?: boolean
+}
+
+export type LengthStayDiscountUpdateInput = {
+  name?: string
+  minNights?: number
+  discountValue?: string
+  roomTypeIds?: string[]
+  active?: boolean
+}
+
+export type LengthStayPreview = {
+  nights: number
+  roomSubtotal: string
+  discountAmount: string
+  payable: string
+  ruleId: string | null
+  ruleName: string | null
+}
+
 export type Service = {
   id: string
   name: string
@@ -846,6 +943,8 @@ export type AdminBookingCreateInput = {
   source?: AdminBookingSource
   status?: 'PENDING' | 'CONFIRMED'
   rooms: AdminBookingRoomInput[]
+  /** Server id from a successful quote. The client does not send a discount amount. */
+  promoCodeId?: string
 }
 
 /** PATCH /api/admin/bookings/:id */
@@ -866,6 +965,8 @@ export type AdminBookingUpdateInput = {
   guestCount?: number
   notes?: string | null
   rooms?: AdminBookingRoomInput[]
+  /** Null clears a stored promo. Omitted leaves it unchanged. */
+  promoCodeId?: string | null
 }
 
 export type AdminBookingCancelInput = {
@@ -879,6 +980,8 @@ export type AdminBookingQuoteInput = {
   rooms: AdminBookingRoomInput[]
   /** Edit preview: the backend ignores this booking's own occupancy and keeps its service and promo snapshot. */
   excludeBookingId?: string
+  /** Empty string on an edit asks the quote to drop the stored promo. */
+  promoCode?: string
 }
 
 export type AdminBookingQuoteNight = {
@@ -903,6 +1006,13 @@ export type AdminBookingQuote = {
   services: { serviceId: string; quantity: number; unitPrice: string; totalPrice: string }[]
   promoCodeId: string | null
   price: AdminBookingPrice
+  pricing?: {
+    accommodationSubtotal: string
+    automaticDiscount: string
+    promoDiscount: string
+    appliedDiscount: string
+    appliedSource: 'NONE' | 'AUTOMATIC' | 'PROMO'
+  }
 }
 
 export type AdminBookingGuestSelection = {

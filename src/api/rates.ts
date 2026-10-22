@@ -7,6 +7,16 @@ import type {
   CancellationPolicyCreateInput,
   CancellationPolicyListQuery,
   CancellationPolicyUpdateInput,
+  DayPricePreview,
+  DayPriceRule,
+  DayPriceRuleCreateInput,
+  DayPriceRuleListQuery,
+  DayPriceRuleUpdateInput,
+  LengthStayDiscount,
+  LengthStayDiscountCreateInput,
+  LengthStayDiscountListQuery,
+  LengthStayDiscountUpdateInput,
+  LengthStayPreview,
   PricePeriod,
   RatePlan,
   RatePlanCreateInput,
@@ -282,4 +292,77 @@ export async function updateRoomPrice(id: string, input: RoomPriceUpdateInput): 
 
 export async function deleteRoomPrice(id: string): Promise<{ ok: true }> {
   return apiRequest(`/api/admin/rates/prices/${id}`, { method: 'DELETE' })
+}
+
+export async function listDayPriceRules(query: DayPriceRuleListQuery = {}): Promise<RatesPage<DayPriceRule>> {
+  return apiRequest(
+    `/api/admin/rates/day-price-rules${querySuffix({
+      page: query.page,
+      limit: query.limit,
+      ratePlanId: query.ratePlanId,
+      roomTypeId: query.roomTypeId,
+      active: query.active,
+    })}`,
+  )
+}
+
+export async function createDayPriceRule(input: DayPriceRuleCreateInput): Promise<DayPriceRule> {
+  return apiRequest('/api/admin/rates/day-price-rules', { method: 'POST', body: input })
+}
+
+export async function updateDayPriceRule(id: string, input: DayPriceRuleUpdateInput): Promise<DayPriceRule> {
+  return apiRequest(`/api/admin/rates/day-price-rules/${id}`, { method: 'PATCH', body: input })
+}
+
+export async function deleteDayPriceRule(id: string): Promise<{ ok: true }> {
+  return apiRequest(`/api/admin/rates/day-price-rules/${id}`, { method: 'DELETE' })
+}
+
+export async function previewDayPrice(input: {
+  ratePlanId: string
+  roomTypeId: string
+  startDate: string
+  endDate: string
+  weekdayPrice?: string
+  weekendPrice?: string
+  weekendDays?: number[]
+  excludeRuleId?: string
+}): Promise<DayPricePreview> {
+  return apiRequest('/api/admin/rates/day-price-rules/preview', { method: 'POST', body: input })
+}
+
+export async function listLengthStayDiscounts(
+  query: LengthStayDiscountListQuery = {},
+): Promise<RatesPage<LengthStayDiscount>> {
+  return apiRequest(
+    `/api/admin/rates/length-stay-discounts${querySuffix({
+      page: query.page,
+      limit: query.limit,
+      active: query.active,
+    })}`,
+  )
+}
+
+export async function createLengthStayDiscount(input: LengthStayDiscountCreateInput): Promise<LengthStayDiscount> {
+  return apiRequest('/api/admin/rates/length-stay-discounts', { method: 'POST', body: input })
+}
+
+export async function updateLengthStayDiscount(
+  id: string,
+  input: LengthStayDiscountUpdateInput,
+): Promise<LengthStayDiscount> {
+  return apiRequest(`/api/admin/rates/length-stay-discounts/${id}`, { method: 'PATCH', body: input })
+}
+
+export async function deleteLengthStayDiscount(id: string): Promise<{ ok: true }> {
+  return apiRequest(`/api/admin/rates/length-stay-discounts/${id}`, { method: 'DELETE' })
+}
+
+export async function previewLengthStay(input: {
+  checkIn: string
+  checkOut: string
+  roomTypeIds: string[]
+  roomSubtotal: string
+}): Promise<LengthStayPreview> {
+  return apiRequest('/api/admin/rates/length-stay-discounts/preview', { method: 'POST', body: input })
 }

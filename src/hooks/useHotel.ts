@@ -24,8 +24,12 @@ import {
 import { getCalendar } from '@/api/availability'
 import {
   createCancellationPolicy,
+  createDayPriceRule,
+  createLengthStayDiscount,
   createRatePlan,
   createRoomPrice,
+  deleteDayPriceRule,
+  deleteLengthStayDiscount,
   deletePricePeriod,
   deleteRoomPrice,
   getCancellationPolicy,
@@ -34,16 +38,28 @@ import {
   getRatePlans,
   getRoomPrice,
   listCancellationPolicies,
+  listDayPriceRules,
+  listLengthStayDiscounts,
   listRatePlans,
   listRoomPrices,
+  previewDayPrice,
+  previewLengthStay,
   savePricePeriod,
   saveRatePlan,
   updateCancellationPolicy,
+  updateDayPriceRule,
+  updateLengthStayDiscount,
   updateRatePlan,
   updateRoomPrice,
 } from '@/api/rates'
 import { getServices, saveService, setServiceActive } from '@/api/services'
-import { getPromoCodes, savePromoCode, setPromoActive } from '@/api/promoCodes'
+import {
+  createAdminPromoCode,
+  deleteAdminPromoCode,
+  listAdminPromoCodes,
+  updateAdminPromoCode,
+  type AdminPromoWrite,
+} from '@/api/promoCodes'
 import {
   deletePolicy,
   getHotelBookingSettings,
@@ -400,6 +416,78 @@ export function useDeleteAdminRoomPrice() {
   })
 }
 
+export function useAdminDayPriceRules(query: import('@/types').DayPriceRuleListQuery = {}) {
+  return useQuery({
+    queryKey: ['admin-day-price-rules', query],
+    queryFn: () => listDayPriceRules(query),
+  })
+}
+
+export function useCreateAdminDayPriceRule() {
+  const refresh = useRefresh()
+  return useMutation({
+    mutationFn: createDayPriceRule,
+    onSuccess: () => refresh(['admin-day-price-rules']),
+  })
+}
+
+export function useUpdateAdminDayPriceRule() {
+  const refresh = useRefresh()
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: Parameters<typeof updateDayPriceRule>[1] }) =>
+      updateDayPriceRule(id, input),
+    onSuccess: () => refresh(['admin-day-price-rules']),
+  })
+}
+
+export function useDeleteAdminDayPriceRule() {
+  const refresh = useRefresh()
+  return useMutation({
+    mutationFn: deleteDayPriceRule,
+    onSuccess: () => refresh(['admin-day-price-rules']),
+  })
+}
+
+export function usePreviewAdminDayPrice() {
+  return useMutation({ mutationFn: previewDayPrice })
+}
+
+export function useAdminLengthStayDiscounts(query: import('@/types').LengthStayDiscountListQuery = {}) {
+  return useQuery({
+    queryKey: ['admin-length-stay-discounts', query],
+    queryFn: () => listLengthStayDiscounts(query),
+  })
+}
+
+export function useCreateAdminLengthStayDiscount() {
+  const refresh = useRefresh()
+  return useMutation({
+    mutationFn: createLengthStayDiscount,
+    onSuccess: () => refresh(['admin-length-stay-discounts']),
+  })
+}
+
+export function useUpdateAdminLengthStayDiscount() {
+  const refresh = useRefresh()
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: Parameters<typeof updateLengthStayDiscount>[1] }) =>
+      updateLengthStayDiscount(id, input),
+    onSuccess: () => refresh(['admin-length-stay-discounts']),
+  })
+}
+
+export function useDeleteAdminLengthStayDiscount() {
+  const refresh = useRefresh()
+  return useMutation({
+    mutationFn: deleteLengthStayDiscount,
+    onSuccess: () => refresh(['admin-length-stay-discounts']),
+  })
+}
+
+export function usePreviewAdminLengthStay() {
+  return useMutation({ mutationFn: previewLengthStay })
+}
+
 export function useServices() {
   return useQuery({ queryKey: ['services'], queryFn: getServices })
 }
@@ -418,18 +506,30 @@ export function useToggleService() {
 }
 
 export function usePromoCodes() {
-  return useQuery({ queryKey: ['promo-codes'], queryFn: getPromoCodes })
+  return useQuery({ queryKey: ['promo-codes'], queryFn: () => listAdminPromoCodes() })
 }
 
 export function useSavePromo() {
   const refresh = useRefresh()
-  return useMutation({ mutationFn: savePromoCode, onSuccess: () => refresh(['promo-codes']) })
+  return useMutation({
+    mutationFn: ({ id, input }: { id?: string; input: AdminPromoWrite }) =>
+      id ? updateAdminPromoCode(id, input) : createAdminPromoCode(input),
+    onSuccess: () => refresh(['promo-codes']),
+  })
 }
 
 export function useTogglePromo() {
   const refresh = useRefresh()
   return useMutation({
-    mutationFn: ({ id, active }: { id: string; active: boolean }) => setPromoActive(id, active),
+    mutationFn: ({ id, active }: { id: string; active: boolean }) => updateAdminPromoCode(id, { active }),
+    onSuccess: () => refresh(['promo-codes']),
+  })
+}
+
+export function useDeletePromo() {
+  const refresh = useRefresh()
+  return useMutation({
+    mutationFn: (id: string) => deleteAdminPromoCode(id),
     onSuccess: () => refresh(['promo-codes']),
   })
 }

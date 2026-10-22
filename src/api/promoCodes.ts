@@ -1,72 +1,49 @@
-import { ApiError, delay } from '@/mocks/delay'
-import * as db from '@/mocks/db'
-import { getActorId } from '@/mocks/session'
-import type { PromoCode } from '@/types'
+import { apiRequest } from '@/lib/api-client'
 
-function clone<T>(value: T): T {
-  return structuredClone(value)
+export type AdminPromoCode = {
+  id: string
+  code: string
+  description: string | null
+  discountType: 'PERCENTAGE' | 'FIXED'
+  discountValue: string
+  validFrom: string | null
+  validTo: string | null
+  usageLimit: number | null
+  usageCount: number
+  active: boolean
+  createdAt: string
+  updatedAt: string
 }
 
-export async function getPromoCodes() {
-  await delay()
-  return clone(db.promoCodes)
+export type AdminPromoPage = {
+  items: AdminPromoCode[]
+  pagination: { page: number; limit: number; total: number; totalPages: number }
 }
 
-export async function savePromoCode(input: Omit<PromoCode, 'id' | 'usedCount'> & { id?: string }) {
-  await delay()
-  const code = input.code.trim().toUpperCase()
-  if (!code) throw new ApiError('Вкажіть код')
-  if (input.discountValue <= 0) throw new ApiError('Знижка має бути більшою за нуль')
-  if (input.discountType === 'percent' && input.discountValue > 100) {
-    throw new ApiError('Відсоток не може перевищувати 100')
-  }
-  if (!input.validFrom || !input.validTo || input.validTo < input.validFrom) {
-    throw new ApiError('Вкажіть коректний період дії')
-  }
-  const duplicate = db.promoCodes.find((item) => item.code.toUpperCase() === code && item.id !== input.id)
-  if (duplicate) throw new ApiError('Такий промокод уже існує')
-  if (input.id) {
-    const current = db.promoCodes.find((item) => item.id === input.id)
-    if (!current) throw new ApiError('Промокод не знайдено')
-    Object.assign(current, { ...input, code, description: input.description.trim() })
-    db.addAudit({
-      actorId: getActorId(),
-      action: 'Оновлено промокод',
-      entity: 'promo',
-      entityId: current.id,
-      details: current.code,
-    })
-    return clone(current)
-  }
-  const created: PromoCode = {
-    ...input,
-    id: db.uid('prm'),
-    code,
-    description: input.description.trim(),
-    usedCount: 0,
-  }
-  db.promoCodes.unshift(created)
-  db.addAudit({
-    actorId: getActorId(),
-    action: 'Створено промокод',
-    entity: 'promo',
-    entityId: created.id,
-    details: created.code,
-  })
-  return clone(created)
+export type AdminPromoWrite = {
+  code: string
+  description?: string | null
+  discountType: 'PERCENTAGE' | 'FIXED'
+  discountValue: string
+  validFrom?: string | null
+  validTo?: string | null
+  usageLimit?: number | null
+  active?: boolean
 }
 
-export async function setPromoActive(id: string, active: boolean) {
-  await delay()
-  const promo = db.promoCodes.find((item) => item.id === id)
-  if (!promo) throw new ApiError('Промокод не знайдено')
-  promo.active = active
-  db.addAudit({
-    actorId: getActorId(),
-    action: active ? 'Увімкнено промокод' : 'Вимкнено промокод',
-    entity: 'promo',
-    entityId: id,
-    details: promo.code,
-  })
-  return clone(promo)
+export async function listAdminPromoCodes(page = 1, limit = 100): Promise<AdminPromoPage> {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit) })
+  return apiRequest(`/api/admin/promo-codes?${params}`)
+}
+
+export async function createAdminPromoCode(input: AdminPromoWrite): Promise<AdminPromoCode> {
+  return apiRequest('/api/admin/promo-codes', { method: 'POST', body: input })
+}
+
+export async function updateAdminPromoCode(id: string, input: Partial<AdminPromoWrite>): Promise<AdminPromoCode> {
+  return apiRequest(`/api/admin/promo-codes/${id}`, { method: 'PATCH', body: input })
+}
+
+export async function deleteAdminPromoCode(id: string): Promise<{ ok: true }> {
+  return apiRequest(`/api/admin/promo-codes/${id}`, { method: 'DELETE' })
 }

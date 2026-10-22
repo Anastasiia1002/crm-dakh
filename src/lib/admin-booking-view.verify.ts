@@ -207,6 +207,16 @@ export function runAdminBookingViewChecks(): string[] {
     JSON.stringify(Object.keys(quoteBody).sort()) === JSON.stringify(['checkIn', 'checkOut', 'guestCount', 'rooms'].sort()),
     'quote keys',
   )
+  const quotedWithPromo = sanitizeAdminBookingQuoteBody({
+    checkIn: '2026-10-10',
+    checkOut: '2026-10-12',
+    guestCount: 2,
+    rooms: [{ roomId: 'r1', ratePlanId: 'p1' }],
+    promoCode: 'WINTER10',
+  })
+  assert(quotedWithPromo.promoCode === 'WINTER10', 'quote keeps a typed promo code')
+  assert(!('totalAmount' in quotedWithPromo), 'quote does not carry a client total')
+  assert(!('promoCode' in quoteBody), 'omitted promo stays off the quote body')
   assert(
     errorMessage(new ApiError('x', 409, 'INVALID_STATUS_TRANSITION')).includes('Неможлива зміна статусу'),
     '409 status transition',

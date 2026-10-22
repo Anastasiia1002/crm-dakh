@@ -102,6 +102,9 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [showErrors, setShowErrors] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [promoDraft, setPromoDraft] = useState('')
+  const [appliedPromo, setAppliedPromo] = useState<string | null>(null)
+  const [promoCleared, setPromoCleared] = useState(false)
   const [reviewOpen, setReviewOpen] = useState(false)
   const [pendingPatch, setPendingPatch] = useState<AdminBookingUpdateInput | null>(null)
   const submitLock = useRef(createSubmitLock())
@@ -193,17 +196,19 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
   }, [checkIn, checkOut, guestCount, offerQuery.data, ownBookingId, roomId, roomTypes, rooms])
   const roomChoices = offeredRoomIds ? rooms.filter((room) => offeredRoomIds.includes(room.id)) : rooms
 
+  const promoTouched = appliedPromo !== null || promoCleared
   const quoteInput = useMemo(() => {
     if (!commercial || !checkIn || !checkOut || !roomId || !ratePlanId || checkOut <= checkIn) return null
-    if (isEdit && !stayChanged) return null
+    if (isEdit && !stayChanged && !promoTouched) return null
     return {
       checkIn,
       checkOut,
       guestCount,
       rooms: [{ roomId, ratePlanId }],
       ...(ownBookingId ? { excludeBookingId: ownBookingId } : {}),
+      ...(appliedPromo !== null ? { promoCode: appliedPromo } : promoCleared ? { promoCode: '' } : {}),
     }
-  }, [checkIn, checkOut, commercial, guestCount, isEdit, ownBookingId, ratePlanId, roomId, stayChanged])
+  }, [appliedPromo, checkIn, checkOut, commercial, guestCount, isEdit, ownBookingId, promoCleared, promoTouched, ratePlanId, roomId, stayChanged])
   const quoteQuery = useAdminBookingQuote(quoteInput)
 
   const solePlanId = activePlans.length === 1 ? activePlans[0].id : ''
@@ -376,6 +381,7 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
           guestCount,
           rooms: [{ roomId, ratePlanId }],
           excludeBookingId: booking.id,
+          ...(appliedPromo !== null ? { promoCode: appliedPromo } : promoCleared ? { promoCode: '' } : {}),
         })
       }
       await onSubmit(pendingPatch)
@@ -419,12 +425,13 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
           roomId,
           ratePlanId,
           notes,
+          promoCodeId: promoTouched ? (quoteQuery.data?.promoCodeId ?? null) : undefined,
         })
         if ('error' in result) {
           setFormError(result.error)
           return
         }
-        if (stayChanged) {
+        if (stayChanged || promoTouched) {
           const available = await freshStayAvailable()
           if (!available) {
             setFormError(bookingConflictMessage())
@@ -436,6 +443,7 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
             guestCount,
             rooms: [{ roomId, ratePlanId }],
             excludeBookingId: booking.id,
+            ...(appliedPromo !== null ? { promoCode: appliedPromo } : promoCleared ? { promoCode: '' } : {}),
           })
         }
         setPendingPatch(result)
@@ -465,7 +473,13 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
         setFormError(bookingConflictMessage())
         return
       }
-      await quoteAdminBooking({ checkIn, checkOut, guestCount, rooms: [{ roomId, ratePlanId }] })
+      const quoted = await quoteAdminBooking({
+        checkIn,
+        checkOut,
+        guestCount,
+        rooms: [{ roomId, ratePlanId }],
+        ...(appliedPromo !== null ? { promoCode: appliedPromo } : {}),
+      })
       const result = buildAdminBookingCreateInput({
         guestMode: guestId ? 'existing' : 'new',
         guestId,
@@ -477,6 +491,7 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
         roomId,
         ratePlanId,
         notes: notes.trim(),
+        promoCodeId: quoted.promoCodeId,
       })
       if ('error' in result) {
         setFormError(result.error)
@@ -720,6 +735,43 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
       {commercial ? (
         <section className="space-y-3 border-t border-border pt-5">
           <h3 className="font-serif text-2xl">Вартість</h3>
+          <Field
+            label="Промокод"
+            hint="Більша зі знижок перемагає: автоматична за 6 ночей або промокод. Суми не складаються. Якщо вони однакові, лишається промокод. Суму рахує сервер."
+          >
+            <div className="flex gap-2">
+              <Input value={promoDraft} onChange={(event) => setPromoDraft(event.target.value)} placeholder="Код" />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  const code = promoDraft.trim()
+                  if (!code) return
+                  setAppliedPromo(code)
+                  setPromoCleared(false)
+                }}
+              >
+                Застосувати
+              </Button>
+            </div>
+          </Field>
+          {booking?.promoCodeId && !promoTouched ? (
+            <p className="text-sm text-muted-foreground">Промокод уже збережено в цьому бронюванні.</p>
+          ) : null}
+          {appliedPromo ? <p className="text-sm">Застосовано код {appliedPromo}. Сума нижче — з сервера.</p> : null}
+          {promoTouched ? (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                setAppliedPromo(null)
+                setPromoDraft('')
+                setPromoCleared(true)
+              }}
+            >
+              Прибрати промокод
+            </Button>
+          ) : null}
           {quoteQuery.isFetching ? <p className="text-sm text-muted-foreground">Розрахунок…</p> : null}
           {quoteQuery.isError ? (
             <p className="text-sm text-destructive">
@@ -728,9 +780,9 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
                 : errorMessage(quoteQuery.error)}
             </p>
           ) : null}
-          {booking && !stayChanged ? (
+          {booking && !stayChanged && !promoTouched ? (
             <p className="text-sm">
-              Поточна сума {formatAdminBookingMoney(booking.price.totalAmount, booking.price.currency)} залишиться, доки не зміняться дати або розміщення.
+              Поточна сума {formatAdminBookingMoney(booking.price.totalAmount, booking.price.currency)} залишиться, доки не зміняться дати, розміщення або промокод.
             </p>
           ) : null}
           {quoteQuery.data ? (
@@ -742,6 +794,7 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
               taxAmount={quoteQuery.data.price.taxAmount}
               totalAmount={quoteQuery.data.price.totalAmount}
               previousTotal={booking && stayChanged ? booking.price.totalAmount : undefined}
+              pricing={quoteQuery.data.pricing}
             />
           ) : !booking || stayChanged ? (
             <p className="text-sm text-muted-foreground">Оберіть розміщення, тариф і вільні дати для розрахунку.</p>
@@ -852,6 +905,7 @@ function PriceBreakdown({
   taxAmount,
   totalAmount,
   previousTotal,
+  pricing,
 }: {
   currency: string
   roomSubtotal: string
@@ -860,6 +914,11 @@ function PriceBreakdown({
   taxAmount: string
   totalAmount: string
   previousTotal?: string
+  pricing?: {
+    automaticDiscount: string
+    promoDiscount: string
+    appliedSource: 'NONE' | 'AUTOMATIC' | 'PROMO'
+  }
 }) {
   const difference = previousTotal ? stayPriceDifference(previousTotal, totalAmount) : null
   return (
@@ -874,7 +933,13 @@ function PriceBreakdown({
       <dl className="mt-3 max-w-sm space-y-1 text-sm">
         <Row label="Проживання" value={formatAdminBookingMoney(roomSubtotal, currency)} />
         <Row label="Послуги" value={formatAdminBookingMoney(servicesTotal, currency)} />
-        <Row label="Знижка" value={formatAdminBookingMoney(discountAmount, currency)} />
+        {pricing?.appliedSource === 'AUTOMATIC' ? (
+          <Row label="Знижка за тривалість" value={formatAdminBookingMoney(pricing.automaticDiscount, currency)} />
+        ) : pricing?.appliedSource === 'PROMO' ? (
+          <Row label="Промокод" value={formatAdminBookingMoney(pricing.promoDiscount, currency)} />
+        ) : (
+          <Row label="Знижка" value={formatAdminBookingMoney(discountAmount, currency)} />
+        )}
         <Row label="Податок" value={formatAdminBookingMoney(taxAmount, currency)} />
       </dl>
       <p className="mt-2 text-[11px] text-muted-foreground">Сума перевіряється сервером ще раз під час збереження.</p>

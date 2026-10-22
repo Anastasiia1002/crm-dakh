@@ -160,6 +160,7 @@ export function buildAdminBookingCreateInput(input: {
   roomId: string
   ratePlanId: string
   notes?: string
+  promoCodeId?: string | null
 }): AdminBookingCreateInput | { error: string } {
   const dateError = validateStayDates(input.checkIn, input.checkOut)
   if (dateError) return { error: dateError }
@@ -179,6 +180,7 @@ export function buildAdminBookingCreateInput(input: {
   }
   const notes = input.notes?.trim()
   if (notes) body.notes = notes
+  if (input.promoCodeId) body.promoCodeId = input.promoCodeId
 
   if (input.guestMode === 'existing') {
     if (!input.guestId) return { error: 'Оберіть гостя.' }
@@ -217,6 +219,7 @@ export function buildAdminBookingUpdateInput(input: {
   roomId: string
   ratePlanId: string
   notes: string
+  promoCodeId?: string | null
 }): AdminBookingUpdateInput | { error: string } {
   const { booking, role } = input
   if (isAdminBookingTerminal(booking.status)) {
@@ -236,6 +239,9 @@ export function buildAdminBookingUpdateInput(input: {
     if (input.children !== booking.children) patch.children = input.children
     const guestCount = guestCountFromOccupancy(input.adults, input.children)
     if (guestCount !== booking.guestCount) patch.guestCount = guestCount
+    if (input.promoCodeId !== undefined && input.promoCodeId !== booking.promoCodeId) {
+      patch.promoCodeId = input.promoCodeId
+    }
 
     const currentRoom = booking.rooms[0]
     const roomsChanged =
@@ -314,6 +320,7 @@ export function sanitizeAdminBookingCreateBody(input: AdminBookingCreateInput): 
   if (input.adults !== undefined) body.adults = input.adults
   if (input.children !== undefined) body.children = input.children
   if (input.notes?.trim()) body.notes = input.notes.trim()
+  if (input.promoCodeId) body.promoCodeId = input.promoCodeId
   if (input.guestId) {
     body.guestId = input.guestId
   } else if (input.guest) {
@@ -336,6 +343,7 @@ export function sanitizeAdminBookingQuoteBody(input: {
   guestCount: number
   rooms: { roomId: string; ratePlanId: string }[]
   excludeBookingId?: string
+  promoCode?: string
 }) {
   return {
     checkIn: input.checkIn,
@@ -343,6 +351,7 @@ export function sanitizeAdminBookingQuoteBody(input: {
     guestCount: input.guestCount,
     rooms: input.rooms.map((room) => ({ roomId: room.roomId, ratePlanId: room.ratePlanId })),
     ...(input.excludeBookingId ? { excludeBookingId: input.excludeBookingId } : {}),
+    ...(input.promoCode !== undefined ? { promoCode: input.promoCode } : {}),
   }
 }
 
@@ -355,7 +364,6 @@ export function createBodyHasForbiddenFields(body: Record<string, unknown>) {
     'discountAmount',
     'paymentStatus',
     'paymentMethod',
-    'promoCodeId',
     'services',
     'promoCode',
   ]
