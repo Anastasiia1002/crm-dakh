@@ -6,7 +6,8 @@ import { z } from 'zod'
 import type { AdminPromoCode } from '@/api/promoCodes'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { ScrollableFormDialog, formDialogGridClass, formDialogSelectContentClass } from '@/components/pricing/ScrollableFormDialog'
+import { Dialog } from '@/components/ui/dialog'
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -186,13 +187,9 @@ function PromoDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{item ? 'Редагувати промокод' : 'Новий промокод'}</DialogTitle>
-        </DialogHeader>
-        <form
-          className="space-y-4"
-          onSubmit={form.handleSubmit(async (values) => {
+      <ScrollableFormDialog
+        title={item ? 'Редагувати промокод' : 'Новий промокод'}
+        onSubmit={form.handleSubmit(async (values) => {
             if (!canWrite) {
               toast.error('Недостатньо прав для цієї дії')
               return
@@ -217,6 +214,16 @@ function PromoDialog({
               toast.error(errorMessage(error))
             }
           })}
+          footer={
+            <>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                Скасувати
+              </Button>
+              <Button type="submit" disabled={!canWrite || save.isPending}>
+                Зберегти
+              </Button>
+            </>
+          }
         >
           <Field label="Код" hint="Зберігається як введено. WINTER10 і winter10 — різні коди." error={form.formState.errors.code?.message}>
             <Input disabled={!canWrite} {...form.register('code')} />
@@ -224,7 +231,7 @@ function PromoDialog({
           <Field label="Назва / опис" error={form.formState.errors.description?.message}>
             <Textarea disabled={!canWrite} {...form.register('description')} />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className={formDialogGridClass}>
             <Field label="Тип знижки">
               <Select
                 value={form.watch('discountType')}
@@ -234,7 +241,7 @@ function PromoDialog({
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className={formDialogSelectContentClass} collisionPadding={16}>
                   <SelectItem value="PERCENTAGE">Відсоток</SelectItem>
                   <SelectItem value="FIXED">Фіксована сума, ₴</SelectItem>
                 </SelectContent>
@@ -244,12 +251,12 @@ function PromoDialog({
               <Input inputMode="decimal" disabled={!canWrite} {...form.register('discountValue')} />
             </Field>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className={formDialogGridClass}>
             <Field label="Діє з" hint="Порожнє поле — без дати початку" error={form.formState.errors.validFrom?.message}>
-              <Input type="date" disabled={!canWrite} {...form.register('validFrom')} />
+              <Input type="date" className="min-w-0" disabled={!canWrite} {...form.register('validFrom')} />
             </Field>
             <Field label="Діє до" hint="Останній день включно. Порожнє поле — без кінця" error={form.formState.errors.validTo?.message}>
-              <Input type="date" disabled={!canWrite} {...form.register('validTo')} />
+              <Input type="date" className="min-w-0" disabled={!canWrite} {...form.register('validTo')} />
             </Field>
           </div>
           <Field label="Ліміт використань" hint="Порожнє поле — без ліміту. Уже використані рази змінити не можна." error={form.formState.errors.usageLimit?.message}>
@@ -261,22 +268,13 @@ function PromoDialog({
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className={formDialogSelectContentClass} collisionPadding={16}>
                 <SelectItem value="yes">Активний</SelectItem>
                 <SelectItem value="no">Вимкнений</SelectItem>
               </SelectContent>
             </Select>
           </Field>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Скасувати
-            </Button>
-            <Button type="submit" disabled={!canWrite || save.isPending}>
-              Зберегти
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
+      </ScrollableFormDialog>
     </Dialog>
   )
 }

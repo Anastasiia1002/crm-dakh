@@ -49,5 +49,6 @@ assert(!page.includes('ціна лише для цього номера'), 'no p
 assert(page.includes('Зимовий сезон'), 'winter season is the example')
 assert(page.includes('Перша ніч'), 'inclusive start is labeled')
 assert(page.includes('Цю ціну також отримають'), 'shared type warning names the other units')
+assert(page.includes('ScrollableFormDialog'), 'season and length-stay dialogs pin the footer')
 
 console.log('PASS: pricing rules stay category-scoped; unit count is visible')

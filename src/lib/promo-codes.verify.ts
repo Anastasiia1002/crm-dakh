@@ -17,5 +17,6 @@ assert(page.includes('Ліміт використань'), 'usage limit column')
 assert(page.includes('Використано'), 'usage count column')
 assert(page.includes('на окремий тип номера'), 'explains hotel-wide accommodation discount')
 assert(page.includes('Застосувати') === false, 'apply action stays on the booking form')
+assert(page.includes('ScrollableFormDialog'), 'promo dialog pins the footer')
 
 console.log('PASS: promo codes are managed through the hotel API')

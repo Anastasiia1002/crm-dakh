@@ -3,7 +3,7 @@ import { Logo } from '@/components/brand/Logo'
 
 export function AuthLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen bg-background pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
       <aside className="hidden w-[42%] flex-col justify-between bg-sidebar px-12 py-12 text-sidebar-foreground lg:flex">
         <div>
           <Logo className="w-64" />

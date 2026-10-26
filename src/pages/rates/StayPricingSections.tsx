@@ -11,7 +11,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { ScrollableFormDialog, formDialogGridClass, formDialogSelectContentClass } from '@/components/pricing/ScrollableFormDialog'
+import { Dialog } from '@/components/ui/dialog'
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Pagination } from '@/components/ui/pagination'
@@ -339,13 +340,9 @@ function DayPriceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{item ? 'Редагувати сезон' : 'Новий сезон'}</DialogTitle>
-        </DialogHeader>
-        <form
-          className="space-y-4"
-          onSubmit={form.handleSubmit(async (values) => {
+      <ScrollableFormDialog
+        title={item ? 'Редагувати сезон' : 'Новий сезон'}
+        onSubmit={form.handleSubmit(async (values) => {
             if (!canWrite) {
               toast.error('Недостатньо прав для цієї дії')
               return
@@ -388,6 +385,16 @@ function DayPriceDialog({
               toast.error(pricingError(error))
             }
           })}
+          footer={
+            <>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                Скасувати
+              </Button>
+              <Button type="submit" disabled={!canWrite || pending}>
+                Зберегти
+              </Button>
+            </>
+          }
         >
           <Field label="Назва сезону" hint="Зберігається і показується в списку. Наприклад, «Зимовий сезон 2026–2027»." error={form.formState.errors.seasonName?.message}>
             <Input disabled={!canWrite} {...form.register('seasonName')} />
@@ -430,7 +437,7 @@ function DayPriceDialog({
           {typeIds.length > 1 ? (
             <p className="text-sm text-muted-foreground">Буде збережено {typeIds.length} правила з однаковими цінами, по одному на тип.</p>
           ) : null}
-          <div className="grid grid-cols-2 gap-3">
+          <div className={formDialogGridClass}>
             <Field label="Звичайна ціна за ніч, ₴" hint="Неділя–четвер, якщо вихідні — пʼятниця і субота" error={form.formState.errors.weekdayPrice?.message}>
               <Input inputMode="decimal" disabled={!canWrite} {...form.register('weekdayPrice')} />
             </Field>
@@ -455,16 +462,16 @@ function DayPriceDialog({
               ))}
             </div>
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className={formDialogGridClass}>
             <Field label="Перша ніч" hint="Ця дата входить у сезон" error={form.formState.errors.startDate?.message}>
-              <Input type="date" disabled={!canWrite} {...form.register('startDate')} />
+              <Input type="date" className="min-w-0" disabled={!canWrite} {...form.register('startDate')} />
             </Field>
             <Field
               label="Дата після останньої ночі"
               hint="Остання ніч сезону — попередній день. Сама ця дата не має нічної ціни, як ранок виїзду."
               error={form.formState.errors.endDate?.message}
             >
-              <Input type="date" disabled={!canWrite} {...form.register('endDate')} />
+              <Input type="date" className="min-w-0" disabled={!canWrite} {...form.register('endDate')} />
             </Field>
           </div>
           <Field label="Стан">
@@ -472,7 +479,7 @@ function DayPriceDialog({
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className={formDialogSelectContentClass} collisionPadding={16}>
                 <SelectItem value="yes">Активне</SelectItem>
                 <SelectItem value="no">Вимкнене</SelectItem>
               </SelectContent>
@@ -527,16 +534,7 @@ function DayPriceDialog({
               {previewNights.length > 21 ? <p className="text-xs text-muted-foreground">Показано перші 21 ніч.</p> : null}
             </div>
           ) : null}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Скасувати
-            </Button>
-            <Button type="submit" disabled={!canWrite || pending}>
-              Зберегти
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
+      </ScrollableFormDialog>
     </Dialog>
   )
 }
@@ -589,13 +587,9 @@ function LengthStayDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{item ? 'Редагувати знижку' : 'Нова знижка за тривалість'}</DialogTitle>
-        </DialogHeader>
-        <form
-          className="space-y-4"
-          onSubmit={form.handleSubmit(async (values) => {
+      <ScrollableFormDialog
+        title={item ? 'Редагувати знижку' : 'Нова знижка за тривалість'}
+        onSubmit={form.handleSubmit(async (values) => {
             if (!canWrite) {
               toast.error('Недостатньо прав для цієї дії')
               return
@@ -622,11 +616,21 @@ function LengthStayDialog({
               toast.error(pricingError(error))
             }
           })}
+          footer={
+            <>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                Скасувати
+              </Button>
+              <Button type="submit" disabled={!canWrite || pending}>
+                Зберегти
+              </Button>
+            </>
+          }
         >
           <Field label="Назва" error={form.formState.errors.name?.message}>
             <Input disabled={!canWrite} {...form.register('name')} />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className={formDialogGridClass}>
             <Field label="Мінімум ночей" error={form.formState.errors.minNights?.message}>
               <Input inputMode="numeric" disabled={!canWrite} {...form.register('minNights')} />
             </Field>
@@ -668,18 +672,18 @@ function LengthStayDialog({
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className={formDialogSelectContentClass} collisionPadding={16}>
                 <SelectItem value="yes">Активна</SelectItem>
                 <SelectItem value="no">Вимкнена</SelectItem>
               </SelectContent>
             </Select>
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className={formDialogGridClass}>
             <Field label="Перегляд: заїзд">
-              <Input type="date" {...form.register('previewCheckIn')} />
+              <Input type="date" className="min-w-0" {...form.register('previewCheckIn')} />
             </Field>
             <Field label="Перегляд: виїзд">
-              <Input type="date" {...form.register('previewCheckOut')} />
+              <Input type="date" className="min-w-0" {...form.register('previewCheckOut')} />
             </Field>
           </div>
           <Field label="Субсума проживання для перегляду, ₴">
@@ -715,16 +719,7 @@ function LengthStayDialog({
           >
             Переглянути розрахунок
           </Button>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Скасувати
-            </Button>
-            <Button type="submit" disabled={!canWrite || pending}>
-              Зберегти
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
+      </ScrollableFormDialog>
     </Dialog>
   )
 }
