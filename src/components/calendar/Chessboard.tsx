@@ -78,7 +78,7 @@ export function Chessboard({
         {groups.map((group) => (
           <div key={group.roomTypeId}>
             <div className="sticky left-0 border-b border-border bg-surface-muted/60 px-3 py-2 text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
-              {group.name}
+              {group.displayName}
               {group.kind === 'UNKNOWN' ? ' · тип невідомий' : ''}
             </div>
             {group.rooms.map((room) => {
@@ -102,10 +102,14 @@ export function Chessboard({
 
               return (
                 <div key={room.roomId} className="flex border-b border-border">
-                  <div className="sticky left-0 z-10 flex w-52 shrink-0 items-center border-r border-border bg-background px-3">
-                    <div>
-                      <div className="text-sm">{room.number}</div>
-                      <div className="text-[11px] text-muted-foreground">{group.name}</div>
+                  <div className="sticky left-0 z-10 flex w-52 shrink-0 items-center overflow-hidden border-r border-border bg-background px-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm" title={room.displayTitle}>
+                        {room.displayTitle}
+                      </div>
+                      {room.displayCode ? (
+                        <div className="truncate text-[11px] text-muted-foreground">{room.displayCode}</div>
+                      ) : null}
                     </div>
                   </div>
                   <div className="relative h-12" style={{ width }}>
@@ -140,9 +144,9 @@ export function Chessboard({
                             aria-label={
                               available
                                 ? emptyMode === 'select'
-                                  ? `Вибрати ніч, ${room.number}, ${night.date}`
-                                  : `Нове бронювання, ${room.number}, ${night.date}`
-                                : `${room.number}, ${night.date}, ${night.state}`
+                                  ? `Вибрати ніч, ${room.displayTitle}, ${night.date}`
+                                  : `Нове бронювання, ${room.displayTitle}, ${night.date}`
+                                : `${room.displayTitle}, ${night.date}, ${night.state}`
                             }
                           />
                         )

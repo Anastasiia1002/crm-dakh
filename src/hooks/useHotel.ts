@@ -12,6 +12,7 @@ import {
   getRoomType,
   getRoomTypes,
   listRoomBlocks,
+  listAllRooms,
   listRooms,
   listRoomTypeImages,
   listRoomTypes,
@@ -139,6 +140,15 @@ export function useAdminRooms(query: RoomListQuery = {}, options?: { enabled?: b
     queryKey: ['admin-rooms', query],
     queryFn: ({ signal }) => listRooms(query, signal),
     enabled: options?.enabled ?? true,
+    staleTime: CATALOG_STALE_TIME,
+  })
+}
+
+/** Every room page for the hotel. Failure means the list is incomplete and must not be saved as complete. */
+export function useAllAdminRooms(query: Omit<RoomListQuery, 'page' | 'limit'> = {}) {
+  return useQuery({
+    queryKey: ['admin-rooms-all', query],
+    queryFn: ({ signal }) => listAllRooms(query, signal),
     staleTime: CATALOG_STALE_TIME,
   })
 }

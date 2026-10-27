@@ -1,10 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useQueries } from '@tanstack/react-query'
+import { useQueries, useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
-import { getRoomType } from '@/api/accommodations'
+import { getRoomType, listAllRoomTypes } from '@/api/accommodations'
 import { getRatePlan } from '@/api/rates'
 import { RatePlanPicker } from '@/components/rates/RatePlanPicker'
 import { Badge } from '@/components/ui/badge'
@@ -23,7 +23,7 @@ import { useAuth } from '@/hooks/useAuth'
 import {
   useAdminDayPriceRules,
   useAdminLengthStayDiscounts,
-  useAdminRooms,
+  useAllAdminRooms,
   useCreateAdminDayPriceRule,
   useCreateAdminLengthStayDiscount,
   useDeleteAdminDayPriceRule,
@@ -33,6 +33,7 @@ import {
   useUpdateAdminDayPriceRule,
   useUpdateAdminLengthStayDiscount,
 } from '@/hooks/useHotel'
+import { unitDisplayTitle } from '@/lib/accommodation-labels'
 import { ApiError } from '@/lib/api-error'
 import { errorMessage } from '@/lib/errors'
 import { formatDate, formatMoneyAmount, normalizeMoneyString, parseStayNights } from '@/lib/format'
@@ -40,17 +41,30 @@ import {
   allCategoriesScopeCopy,
   categoryScopeCopy,
   categoryUnitCount,
+  dayPriceSaveAllowed,
+  lengthStayRoomTypeIdsForSave,
   roomTypeIdsForUnits,
   selectedCategoriesScopeCopy,
   unselectedUnitsSharingType,
 } from '@/lib/pricing-scope'
+import { CATALOG_STALE_TIME } from '@/lib/queryClient'
 import { canManageRates } from '@/lib/roles'
 import type { DayPricePreview, DayPriceRule, LengthStayDiscount } from '@/types'
 
-function unitDisplayTitle(unit: { name: string | null; number: string }) {
-  const name = unit.name?.trim()
-  if (name) return name
-  return unit.number.trim() || 'Розміщення'
+function useUnitCatalog(units: { id: string; roomTypeId: string; name: string | null; number: string }[] | undefined) {
+  const typesQuery = useQuery({
+    queryKey: ['admin-room-types-all', { active: undefined }],
+    queryFn: ({ signal }) => listAllRoomTypes({}, signal),
+    staleTime: CATALOG_STALE_TIME,
+  })
+  return useMemo(() => {
+    const names = new Map((typesQuery.data ?? []).map((type) => [type.id, type.name]))
+    return (units ?? []).map((unit) => ({
+      id: unit.id,
+      roomTypeId: unit.roomTypeId,
+      title: unitDisplayTitle(unit, names.get(unit.roomTypeId)),
+    }))
+  }, [typesQuery.data, units])
 }
 
 const PAGE_SIZE = 20
@@ -82,10 +96,10 @@ function DayPriceSection({ canWrite }: { canWrite: boolean }) {
   const [editing, setEditing] = useState<DayPriceRule | 'new' | null>(null)
   const [pendingDelete, setPendingDelete] = useState<DayPriceRule | null>(null)
   const query = useAdminDayPriceRules({ page, limit: PAGE_SIZE })
-  const unitsQuery = useAdminRooms({ page: 1, limit: 100 })
+  const unitsQuery = useAllAdminRooms()
   const remove = useDeleteAdminDayPriceRule()
   const items = query.data?.items ?? []
-  const units = unitsQuery.data?.items ?? []
+  const units = unitsQuery.data ?? []
   const names = useNames(
     items.map((item) => item.ratePlanId),
     items.map((item) => item.roomTypeId),
@@ -129,7 +143,13 @@ function DayPriceSection({ canWrite }: { canWrite: boolean }) {
                 <TableCell>{names.plan(rule.ratePlanId)}</TableCell>
                 <TableCell>
                   <p>{names.type(rule.roomTypeId)}</p>
-                  <p className="text-xs text-muted-foreground">{categoryScopeCopy(categoryUnitCount(units, rule.roomTypeId))}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {unitsQuery.isSuccess
+                      ? categoryScopeCopy(categoryUnitCount(units, rule.roomTypeId))
+                      : unitsQuery.isError
+                        ? 'Не вдалося порахувати розміщення.'
+                        : 'Завантаження розміщень…'}
+                  </p>
                 </TableCell>
                 <TableCell className="tabular-nums">{formatMoneyAmount(rule.weekdayPrice)}</TableCell>
                 <TableCell className="tabular-nums">{formatMoneyAmount(rule.weekendPrice)}</TableCell>
@@ -305,19 +325,12 @@ function DayPriceDialog({
   const create = useCreateAdminDayPriceRule()
   const update = useUpdateAdminDayPriceRule()
   const preview = usePreviewAdminDayPrice()
-  const unitsQuery = useAdminRooms({ page: 1, limit: 100, active: true })
+  const unitsQuery = useAllAdminRooms({ active: true })
+  const catalogReady = unitsQuery.isSuccess
   const pending = create.isPending || update.isPending
   const [previewNights, setPreviewNights] = useState<DayPricePreview['nights']>([])
   const [previewTotal, setPreviewTotal] = useState<string | null>(null)
-  const catalog = useMemo(
-    () =>
-      (unitsQuery.data?.items ?? []).map((unit) => ({
-        id: unit.id,
-        roomTypeId: unit.roomTypeId,
-        title: unitDisplayTitle(unit),
-      })),
-    [unitsQuery.data?.items],
-  )
+  const catalog = useUnitCatalog(catalogReady ? unitsQuery.data : undefined)
   const initialUnits = item ? catalog.filter((unit) => unit.roomTypeId === item.roomTypeId).map((unit) => unit.id) : []
   const form = useForm<z.infer<typeof daySchema>>({
     resolver: zodResolver(daySchema),
@@ -345,6 +358,10 @@ function DayPriceDialog({
         onSubmit={form.handleSubmit(async (values) => {
             if (!canWrite) {
               toast.error('Недостатньо прав для цієї дії')
+              return
+            }
+            if (!dayPriceSaveAllowed(catalogReady)) {
+              toast.error('Список розміщень завантажено не повністю. Збереження скасовано.')
               return
             }
             const weekdayPrice = normalizeMoneyString(values.weekdayPrice)
@@ -390,12 +407,15 @@ function DayPriceDialog({
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Скасувати
               </Button>
-              <Button type="submit" disabled={!canWrite || pending}>
+              <Button type="submit" disabled={!canWrite || pending || !catalogReady}>
                 Зберегти
               </Button>
             </>
           }
         >
+          {unitsQuery.isError ? (
+            <p className="text-sm text-destructive">Не вдалося завантажити повний список розміщень. Збереження вимкнено.</p>
+          ) : null}
           <Field label="Назва сезону" hint="Зберігається і показується в списку. Наприклад, «Зимовий сезон 2026–2027»." error={form.formState.errors.seasonName?.message}>
             <Input disabled={!canWrite} {...form.register('seasonName')} />
           </Field>
@@ -564,11 +584,9 @@ function LengthStayDialog({
   const create = useCreateAdminLengthStayDiscount()
   const update = useUpdateAdminLengthStayDiscount()
   const preview = usePreviewAdminLengthStay()
-  const unitsQuery = useAdminRooms({ page: 1, limit: 100, active: true })
-  const catalog = useMemo(
-    () => (unitsQuery.data?.items ?? []).map((unit) => ({ id: unit.id, roomTypeId: unit.roomTypeId, title: unitDisplayTitle(unit) })),
-    [unitsQuery.data?.items],
-  )
+  const unitsQuery = useAllAdminRooms({ active: true })
+  const catalogReady = unitsQuery.isSuccess
+  const catalog = useUnitCatalog(catalogReady ? unitsQuery.data : undefined)
   const pending = create.isPending || update.isPending
   const form = useForm<z.infer<typeof staySchema>>({
     resolver: zodResolver(staySchema),
@@ -600,12 +618,20 @@ function LengthStayDialog({
               toast.error('Перевірте мінімум ночей і відсоток')
               return
             }
+            const roomTypeIds = lengthStayRoomTypeIdsForSave({
+              catalogComplete: catalogReady,
+              roomTypeIds: values.roomTypeIds,
+            })
+            if (roomTypeIds === null) {
+              toast.error('Список розміщень завантажено не повністю. Збереження скасовано.')
+              return
+            }
             try {
               const input = {
                 name: values.name.trim(),
                 minNights,
                 discountValue,
-                roomTypeIds: values.roomTypeIds,
+                roomTypeIds,
                 active: values.active === 'yes',
               }
               if (item) await update.mutateAsync({ id: item.id, input })
@@ -621,12 +647,15 @@ function LengthStayDialog({
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Скасувати
               </Button>
-              <Button type="submit" disabled={!canWrite || pending}>
+              <Button type="submit" disabled={!canWrite || pending || !catalogReady}>
                 Зберегти
               </Button>
             </>
           }
         >
+          {unitsQuery.isError ? (
+            <p className="text-sm text-destructive">Не вдалося завантажити повний список розміщень. Збереження вимкнено.</p>
+          ) : null}
           <Field label="Назва" error={form.formState.errors.name?.message}>
             <Input disabled={!canWrite} {...form.register('name')} />
           </Field>
@@ -700,11 +729,19 @@ function LengthStayDialog({
                 toast.error('Вкажіть дати і субсуму для перегляду')
                 return
               }
+              const roomTypeIds = lengthStayRoomTypeIdsForSave({
+                catalogComplete: catalogReady,
+                roomTypeIds: form.getValues('roomTypeIds'),
+              })
+              if (roomTypeIds === null) {
+                toast.error('Список розміщень завантажено не повністю.')
+                return
+              }
               try {
                 const result = await preview.mutateAsync({
                   checkIn,
                   checkOut,
-                  roomTypeIds: form.getValues('roomTypeIds'),
+                  roomTypeIds,
                   roomSubtotal,
                 })
                 toast.message(

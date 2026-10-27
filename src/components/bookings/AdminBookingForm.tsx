@@ -36,7 +36,7 @@ import {
 } from '@/lib/admin-booking-view'
 import { roomsOfferedForStay, stayPriceDifference } from '@/lib/booking-manage'
 import { ApiError } from '@/lib/api-error'
-import { roomDisplayName } from '@/lib/dates'
+import { bookingRoomFilterLabel } from '@/lib/accommodation-labels'
 import { errorMessage } from '@/lib/errors'
 import { normalizePhone, phonesMatch } from '@/lib/phone'
 import {
@@ -517,9 +517,7 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
     )
   }
 
-  const accommodationName = selectedRoom
-    ? `${roomDisplayName(selectedRoom)}${roomType ? ` · ${roomType.name}` : ''}`
-    : ''
+  const accommodationName = selectedRoom ? bookingRoomFilterLabel(selectedRoom, roomType?.name) : ''
 
   return (
     <form className="mx-auto max-w-3xl space-y-8 overflow-x-hidden px-1 sm:px-0" onSubmit={(event) => void handleSubmit(event)}>
@@ -646,7 +644,7 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
               <SelectContent>
                 {roomChoices.map((room) => (
                   <SelectItem key={room.id} value={room.id}>
-                    {roomDisplayName(room)}
+                    {bookingRoomFilterLabel(room, roomTypes.find((type) => type.id === room.roomTypeId)?.name)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -691,7 +689,12 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
         {booking && commercial && currentRoom ? (
           <div className="space-y-1 text-sm">
             <p className="text-muted-foreground">
-              Зараз: {roomDisplayName(rooms.find((room) => room.id === currentRoom.roomId) ?? { name: null, number: currentRoom.number })} · {booking.checkIn} — {booking.checkOut}
+              Зараз: {bookingRoomFilterLabel(
+                rooms.find((room) => room.id === currentRoom.roomId) ?? { name: null, number: currentRoom.number, active: false },
+                rooms.find((room) => room.id === currentRoom.roomId)
+                  ? roomTypes.find((type) => type.id === currentRoom.roomTypeId)?.name
+                  : currentRoom.roomTypeName,
+              )} · {booking.checkIn} — {booking.checkOut}
             </p>
             <p>
               Пропозиція: {accommodationName || '—'} · {checkIn || '—'} — {checkOut || '—'}
@@ -842,7 +845,12 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
                 {checkIn !== booking.checkIn || checkOut !== booking.checkOut ? ` → ${checkIn} — ${checkOut}` : ' без змін'}
               </p>
               <p>
-                Розміщення: {currentRoom ? roomDisplayName(rooms.find((room) => room.id === currentRoom.roomId) ?? { name: null, number: currentRoom.number }) : '—'}
+                Розміщення: {currentRoom ? bookingRoomFilterLabel(
+                  rooms.find((room) => room.id === currentRoom.roomId) ?? { name: null, number: currentRoom.number, active: false },
+                  rooms.find((room) => room.id === currentRoom.roomId)
+                    ? roomTypes.find((type) => type.id === currentRoom.roomTypeId)?.name
+                    : currentRoom.roomTypeName,
+                ) : '—'}
                 {currentRoom && roomId !== currentRoom.roomId ? ` → ${accommodationName || '—'}` : ' без змін'}
               </p>
               <p>Гості: {booking.guestCount}{guestCount !== booking.guestCount ? ` → ${guestCount}` : ' без змін'}</p>

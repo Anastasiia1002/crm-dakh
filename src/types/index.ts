@@ -1049,7 +1049,10 @@ export type ChessboardAdminBar = {
 
 export type ChessboardRoomRow = {
   roomId: string
+  /** Backend Room.number. Never replace this with a display title. */
   number: string
+  displayTitle: string
+  displayCode: string | null
   roomTypeId: string
   roomTypeName: string
   kind: RoomTypeKind | 'UNKNOWN'
@@ -1060,7 +1063,9 @@ export type ChessboardRoomRow = {
 
 export type ChessboardGroup = {
   roomTypeId: string
+  /** Backend RoomType.name. */
   name: string
+  displayName: string
   kind: RoomTypeKind | 'UNKNOWN'
   rooms: ChessboardRoomRow[]
 }

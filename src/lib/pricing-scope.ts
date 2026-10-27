@@ -35,6 +35,23 @@ export function roomTypeIdsForUnits(
   return [...new Set(units.filter((unit) => selected.has(unit.id)).map((unit) => unit.roomTypeId))]
 }
 
+/**
+ * Length-stay save payload. An empty roomTypeIds list means every category.
+ * That payload is returned only after the room catalog loaded completely.
+ */
+export function lengthStayRoomTypeIdsForSave(input: {
+  catalogComplete: boolean
+  roomTypeIds: readonly string[]
+}): string[] | null {
+  if (!input.catalogComplete) return null
+  return [...input.roomTypeIds]
+}
+
+/** A day-price rule is created only from a complete active-room catalog. */
+export function dayPriceSaveAllowed(catalogComplete: boolean) {
+  return catalogComplete
+}
+
 /** Units of a selected type that were not ticked. The price still applies to them. */
 export function unselectedUnitsSharingType(
   units: readonly { id: string; roomTypeId: string; title: string }[],

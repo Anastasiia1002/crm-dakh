@@ -1,6 +1,8 @@
+import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
+import { listAllRooms, listAllRoomTypes } from '@/api/accommodations'
 import { AdminBookingForm } from '@/components/bookings/AdminBookingForm'
 import { Button } from '@/components/ui/button'
 import { LoadingState } from '@/components/ui/states'
@@ -9,10 +11,12 @@ import {
   useCreateAdminBooking,
   useUpdateAdminBooking,
 } from '@/hooks/useBookings'
-import { useAdminRatePlans, useAdminRoomTypes, useAdminRooms } from '@/hooks/useHotel'
+import { useAdminRatePlans } from '@/hooks/useHotel'
+import { withReferencedRoom } from '@/lib/accommodation-labels'
 import { adminBookingRef, formatAdminBookingMoney, parseCalendarPrefill } from '@/lib/admin-booking-view'
 import { errorMessage } from '@/lib/errors'
-import type { AdminBookingCreateInput, AdminBookingDetail, AdminBookingUpdateInput } from '@/types'
+import { CATALOG_STALE_TIME } from '@/lib/queryClient'
+import type { Accommodation, AdminBookingCreateInput, AdminBookingDetail, AdminBookingUpdateInput } from '@/types'
 
 export function BookingFormPage() {
   const { id } = useParams()
@@ -21,8 +25,16 @@ export function BookingFormPage() {
   const isEdit = Boolean(id)
 
   const bookingQuery = useAdminBooking(id ?? '')
-  const roomsQuery = useAdminRooms({ page: 1, limit: 100, active: true })
-  const typesQuery = useAdminRoomTypes({ page: 1, limit: 100, active: true })
+  const roomsQuery = useQuery({
+    queryKey: ['admin-rooms-all', { active: true }],
+    queryFn: ({ signal }) => listAllRooms({ active: true }, signal),
+    staleTime: CATALOG_STALE_TIME,
+  })
+  const typesQuery = useQuery({
+    queryKey: ['admin-room-types-all', { active: undefined }],
+    queryFn: ({ signal }) => listAllRoomTypes({}, signal),
+    staleTime: CATALOG_STALE_TIME,
+  })
   const plansQuery = useAdminRatePlans({ page: 1, limit: 100, active: true })
   const createMutation = useCreateAdminBooking()
   const updateMutation = useUpdateAdminBooking(id ?? '')
@@ -96,8 +108,22 @@ export function BookingFormPage() {
     return <p className="text-sm text-destructive">Бронювання не знайдено.</p>
   }
 
-  const rooms = roomsQuery.data?.items ?? []
-  const roomTypes = typesQuery.data?.items ?? []
+  const currentRoom = bookingQuery.data?.rooms[0]
+  const referencedRoom: Accommodation | null = currentRoom
+    ? {
+        id: currentRoom.roomId,
+        roomTypeId: currentRoom.roomTypeId,
+        number: currentRoom.number,
+        name: null,
+        floor: null,
+        status: 'INACTIVE',
+        active: false,
+        createdAt: '',
+        updatedAt: '',
+      }
+    : null
+  const rooms = withReferencedRoom(roomsQuery.data ?? [], referencedRoom)
+  const roomTypes = typesQuery.data ?? []
   const ratePlans = plansQuery.data?.items ?? []
   const submitting = createMutation.isPending || updateMutation.isPending
 

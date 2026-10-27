@@ -6,6 +6,8 @@ import {
   allCategoriesScopeCopy,
   categoryScopeCopy,
   categoryUnitCount,
+  dayPriceSaveAllowed,
+  lengthStayRoomTypeIdsForSave,
   roomTypeIdsForUnits,
   selectedCategoriesScopeCopy,
   unselectedUnitsSharingType,
@@ -50,5 +52,15 @@ assert(page.includes('Зимовий сезон'), 'winter season is the example
 assert(page.includes('Перша ніч'), 'inclusive start is labeled')
 assert(page.includes('Цю ціну також отримають'), 'shared type warning names the other units')
 assert(page.includes('ScrollableFormDialog'), 'season and length-stay dialogs pin the footer')
+assert(page.includes('useAllAdminRooms'), 'pricing loads every room page')
+assert(!page.includes('limit: 100, active: true'), 'pricing selectors are not capped at the first page')
+const blocked = lengthStayRoomTypeIdsForSave({ catalogComplete: false, roomTypeIds: [] })
+assert(blocked === null, 'incomplete catalog does not become an all-room rule')
+const hotelWide = lengthStayRoomTypeIdsForSave({ catalogComplete: true, roomTypeIds: [] })
+assert(JSON.stringify(hotelWide) === '[]', 'a complete empty selection stays the all-category payload')
+const chosen = lengthStayRoomTypeIdsForSave({ catalogComplete: true, roomTypeIds: ['type-a'] })
+assert(JSON.stringify(chosen) === JSON.stringify(['type-a']), 'selected categories are unchanged')
+assert(dayPriceSaveAllowed(false) === false, 'day price is not saved from a partial room list')
+assert(dayPriceSaveAllowed(true) === true, 'day price can be saved from a complete room list')
 
 console.log('PASS: pricing rules stay category-scoped; unit count is visible')

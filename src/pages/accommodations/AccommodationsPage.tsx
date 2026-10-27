@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueries } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
@@ -28,7 +28,6 @@ import {
   useAdminRoomTypeImages,
   useAdminRoomTypes,
   useCreateAdminRoom,
-  useCreateAdminRoomType,
   useCreateAdminRoomTypeImage,
   useDeleteAdminRoomBlock,
   useDeleteAdminRoomTypeImage,
@@ -38,7 +37,8 @@ import {
   useUpdateAdminRoomTypeImage,
 } from '@/hooks/useHotel'
 import { ApiError } from '@/lib/api-error'
-import { isDateInHalfOpenRange, roomDisplayName, todayIso } from '@/lib/dates'
+import { roomTypeColumnLabel, sharedRoomTypeNotice, unitDisplayCode, unitDisplayTitle } from '@/lib/accommodation-labels'
+import { isDateInHalfOpenRange, todayIso } from '@/lib/dates'
 import { errorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
 import { roomStatusLabel, roomTypeKindLabel } from '@/lib/labels'
@@ -60,67 +60,44 @@ import type {
 
 const PAGE_SIZE = 20
 const ROOM_STATUSES = ['AVAILABLE', 'MAINTENANCE', 'OUT_OF_ORDER', 'INACTIVE'] as const
-const ROOM_TYPE_KINDS = ['ROOM', 'COTTAGE'] as const
 
 export function AccommodationsPage() {
-  const [tab, setTab] = useState<'rooms' | 'cottages' | 'categories'>('rooms')
+  const [tab, setTab] = useState<'rooms' | 'cottages'>('rooms')
   const [unitPage, setUnitPage] = useState(1)
-  const [typePage, setTypePage] = useState(1)
   const [unitSearch, setUnitSearch] = useState('')
-  const [typeSearch, setTypeSearch] = useState('')
   const [unitSearchApplied, setUnitSearchApplied] = useState('')
-  const [typeSearchApplied, setTypeSearchApplied] = useState('')
-  const [categoryKindFilter, setCategoryKindFilter] = useState<RoomTypeKind | 'all'>('all')
   const [inventoryFilter, setInventoryFilter] = useState<InventoryActiveFilter>('active')
   const active = activeFilterToQuery(inventoryFilter)
 
   const inventoryKind: RoomTypeKind = tab === 'cottages' ? 'COTTAGE' : 'ROOM'
 
-  const inventoryTab = tab === 'rooms' || tab === 'cottages'
-  const roomsQuery = useAdminRooms(
-    {
-      page: unitPage,
-      limit: PAGE_SIZE,
-      search: unitSearchApplied || undefined,
-      kind: inventoryKind,
-      active,
-    },
-    { enabled: inventoryTab },
-  )
-  const typesQuery = useAdminRoomTypes({
-    page: typePage,
+  const roomsQuery = useAdminRooms({
+    page: unitPage,
     limit: PAGE_SIZE,
-    search: typeSearchApplied || undefined,
-    kind: categoryKindFilter === 'all' ? undefined : categoryKindFilter,
+    search: unitSearchApplied || undefined,
+    kind: inventoryKind,
+    active,
+  })
+  const typesQuery = useAdminRoomTypes({
+    page: 1,
+    limit: 100,
+    kind: inventoryKind,
     active,
   })
 
   function onInventoryFilterChange(value: InventoryActiveFilter) {
     setInventoryFilter(value)
     setUnitPage(1)
-    setTypePage(1)
   }
 
-  const unitsLoading = inventoryTab && roomsQuery.isLoading && !roomsQuery.data
-  const typesLoading = tab === 'categories' && typesQuery.isLoading && !typesQuery.data
-  if (unitsLoading || typesLoading) return <LoadingState />
+  const unitsLoading = roomsQuery.isLoading && !roomsQuery.data
+  if (unitsLoading) return <LoadingState />
 
-  if (inventoryTab && roomsQuery.isError) {
+  if (roomsQuery.isError) {
     return (
       <div className="space-y-3 border-t border-border py-10">
         <p className="text-sm">Не вдалося завантажити розміщення</p>
         <Button size="sm" variant="outline" onClick={() => void roomsQuery.refetch()}>
-          Спробувати ще раз
-        </Button>
-      </div>
-    )
-  }
-
-  if (tab === 'categories' && typesQuery.isError) {
-    return (
-      <div className="space-y-3 border-t border-border py-10">
-        <p className="text-sm">Не вдалося завантажити категорії</p>
-        <Button size="sm" variant="outline" onClick={() => void typesQuery.refetch()}>
           Спробувати ще раз
         </Button>
       </div>
@@ -133,22 +110,16 @@ export function AccommodationsPage() {
     <Tabs
       value={tab}
       onValueChange={(value) => {
-        const next = value as 'rooms' | 'cottages' | 'categories'
+        const next = value as 'rooms' | 'cottages'
         setTab(next)
-        if (next === 'rooms' || next === 'cottages') {
-          setUnitPage(1)
-          setUnitSearch('')
-          setUnitSearchApplied('')
-        }
-        if (next === 'categories') {
-          setTypePage(1)
-        }
+        setUnitPage(1)
+        setUnitSearch('')
+        setUnitSearchApplied('')
       }}
     >
       <TabsList>
         <TabsTrigger value="rooms">Номери</TabsTrigger>
         <TabsTrigger value="cottages">Будиночки</TabsTrigger>
-        <TabsTrigger value="categories">Категорії</TabsTrigger>
       </TabsList>
       <TabsContent value="rooms">
         {tab === 'rooms' ? (
@@ -195,26 +166,6 @@ export function AccommodationsPage() {
             onPageChange={setUnitPage}
           />
         ) : null}
-      </TabsContent>
-      <TabsContent value="categories">
-        <CategorySection
-          page={typesQuery.data}
-          currentPage={typePage}
-          search={typeSearch}
-          kindFilter={categoryKindFilter}
-          inventoryFilter={inventoryFilter}
-          onInventoryFilterChange={onInventoryFilterChange}
-          onKindFilterChange={(value) => {
-            setCategoryKindFilter(value)
-            setTypePage(1)
-          }}
-          onSearchChange={setTypeSearch}
-          onSearchSubmit={() => {
-            setTypeSearchApplied(typeSearch.trim())
-            setTypePage(1)
-          }}
-          onPageChange={setTypePage}
-        />
       </TabsContent>
     </Tabs>
   )
@@ -284,13 +235,15 @@ function UnitSection({
     })),
   })
   const typeMetaById = useMemo(() => {
-    const map = new Map<string, { name: string; kind: RoomTypeKind }>()
+    const map = new Map<string, { name: string; kind: RoomTypeKind; maxGuests: number }>()
     for (const type of catalogTypes) {
-      if (typeIds.includes(type.id)) map.set(type.id, { name: type.name, kind: type.kind })
+      if (typeIds.includes(type.id)) {
+        map.set(type.id, { name: type.name, kind: type.kind, maxGuests: type.maxGuests })
+      }
     }
     missingTypeIds.forEach((id, index) => {
       const type = typeQueries[index]?.data
-      if (type) map.set(id, { name: type.name, kind: type.kind })
+      if (type) map.set(id, { name: type.name, kind: type.kind, maxGuests: type.maxGuests })
     })
     return map
   }, [catalogTypes, missingTypeIds, typeIds, typeQueries])
@@ -332,8 +285,8 @@ function UnitSection({
         }
       />
       <p className="mb-4 max-w-2xl text-sm text-muted-foreground">
-        Фізичні одиниці (Room) успадковують тип розміщення від категорії ({roomTypeKindLabel[kind]}). За
-        замовчуванням показано лише активні одиниці; вимкнені доступні через фільтр статусу.
+        Кожен {kind === 'ROOM' ? 'номер' : 'будиночок'} має свою назву, стан і блокування дат. За замовчуванням
+        показано лише активні.
       </p>
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end">
         <form
@@ -381,8 +334,8 @@ function UnitSection({
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead>Назва</TableHead>
-              <TableHead>Категорія</TableHead>
-              <TableHead>Поверх</TableHead>
+              <TableHead>Тип</TableHead>
+              <TableHead>Місткість</TableHead>
               <TableHead>Стан</TableHead>
               <TableHead />
             </TableRow>
@@ -392,19 +345,16 @@ function UnitSection({
               const ownBlocks = blocksByRoom.get(item.id) ?? []
               const state = presence(item, ownBlocks, today)
               const typeMeta = typeMetaById.get(item.roomTypeId)
+              const title = unitDisplayTitle(item, typeMeta?.name)
+              const code = unitDisplayCode(item, title)
               return (
                 <TableRow key={item.id}>
                   <TableCell>
-                    <div>{roomDisplayName(item)}</div>
-                    <div className="text-xs text-muted-foreground">{item.number}</div>
+                    <div>{title}</div>
+                    {code ? <div className="text-xs text-muted-foreground">{code}</div> : null}
                   </TableCell>
-                  <TableCell>
-                    <div>{typeMeta?.name ?? '—'}</div>
-                    {typeMeta ? (
-                      <div className="text-xs text-muted-foreground">{roomTypeKindLabel[typeMeta.kind]}</div>
-                    ) : null}
-                  </TableCell>
-                  <TableCell>{item.floor ?? '—'}</TableCell>
+                  <TableCell>{roomTypeColumnLabel(typeMeta?.name, kind)}</TableCell>
+                  <TableCell>{typeMeta ? `до ${typeMeta.maxGuests}` : '—'}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge tone={state.tone}>{state.label}</Badge>
@@ -420,7 +370,6 @@ function UnitSection({
                               onClick={() => setInspecting({ room: item, block })}
                             >
                               {formatDate(block.startDate)} — {formatDate(block.endDate)} · {blockReasonLabel(block)}
-                              <span className="text-muted-foreground/80"> [початок, кінець)</span>
                             </button>
                             {canWrite ? (
                               <button
@@ -468,11 +417,16 @@ function UnitSection({
         open={Boolean(blocking)}
         rooms={blocking ? [blocking] : []}
         selectedRoomId={blocking?.id}
+        typeNamesByRoomTypeId={new Map([...typeMetaById].map(([id, meta]) => [id, meta.name]))}
         onOpenChange={(open) => !open && setBlocking(null)}
       />
       <BlockDetailsDialog
         open={inspecting !== null}
-        room={inspecting?.room ?? null}
+        room={
+          inspecting
+            ? { ...inspecting.room, typeName: typeMetaById.get(inspecting.room.roomTypeId)?.name ?? null }
+            : null
+        }
         block={inspecting?.block ?? null}
         onOpenChange={(open) => !open && setInspecting(null)}
       />
@@ -481,7 +435,15 @@ function UnitSection({
         title="Зняти блокування"
         description={
           pendingDelete
-            ? unblockConfirmMessage(pendingDelete.room, pendingDelete.block.startDate, pendingDelete.block.endDate)
+            ? unblockConfirmMessage(
+                {
+                  name: pendingDelete.room.name,
+                  number: pendingDelete.room.number,
+                  typeName: typeMetaById.get(pendingDelete.room.roomTypeId)?.name,
+                },
+                pendingDelete.block.startDate,
+                pendingDelete.block.endDate,
+              )
             : ''
         }
         confirmLabel="Зняти блокування"
@@ -533,7 +495,7 @@ function presence(item: Accommodation, blocks: Block[], today: string) {
 const unitSchema = z.object({
   name: z.string().max(200, 'Назва задовга'),
   number: z.string().trim().min(1, 'Вкажіть номер').max(50, 'Номер задовгий'),
-  roomTypeId: z.string().min(1, 'Оберіть категорію'),
+  roomTypeId: z.string().min(1, 'Оберіть тип розміщення'),
   floor: z.string(),
   status: z.enum(ROOM_STATUSES),
   active: z.enum(['yes', 'no']),
@@ -554,8 +516,18 @@ function UnitDialog({
   const canWrite = canManageAccommodations(user?.role)
   const create = useCreateAdminRoom()
   const update = useUpdateAdminRoom()
-  const pending = create.isPending || update.isPending
+  const updateType = useUpdateAdminRoomType()
+  const pending = create.isPending || update.isPending || updateType.isPending
   const assignedType = useAdminRoomType(item?.roomTypeId)
+  const sharedUnits = useAdminRooms(
+    { page: 1, limit: 1, roomTypeId: item?.roomTypeId },
+    { enabled: Boolean(item?.roomTypeId) },
+  )
+  const sharedUnitCount = sharedUnits.isSuccess ? sharedUnits.data.pagination.total : null
+  const [guestName, setGuestName] = useState('')
+  const [description, setDescription] = useState('')
+  const [maxGuests, setMaxGuests] = useState('2')
+  const [typeError, setTypeError] = useState<string | null>(null)
   const form = useForm<z.infer<typeof unitSchema>>({
     resolver: zodResolver(unitSchema),
     values: {
@@ -568,15 +540,28 @@ function UnitDialog({
     },
   })
   const selectedTypeId = form.watch('roomTypeId')
-  const selectedType = useAdminRoomType(selectedTypeId || undefined)
-  const categoryPending = Boolean(selectedTypeId) && (selectedType.isLoading || selectedType.isFetching)
-  const kindMismatch = Boolean(selectedType.data && selectedType.data.kind !== kind)
-  const categoryMissing = Boolean(selectedTypeId && !categoryPending && !selectedType.data)
-  const canSubmitCategory = Boolean(selectedTypeId) && !categoryPending && !kindMismatch && !categoryMissing
+  const selectedType = useAdminRoomType(!item ? selectedTypeId || undefined : undefined)
+  const categoryPending = !item && Boolean(selectedTypeId) && (selectedType.isLoading || selectedType.isFetching)
+  const kindMismatch = Boolean(!item && selectedType.data && selectedType.data.kind !== kind)
+  const categoryMissing = Boolean(!item && selectedTypeId && !categoryPending && !selectedType.data)
+  const createTypeReady =
+    Boolean(selectedTypeId) && !categoryPending && !kindMismatch && !categoryMissing
+
+  const loadedTypeId = assignedType.data?.id
+  useEffect(() => {
+    if (!open || !item || !assignedType.data || assignedType.data.id !== item.roomTypeId) return
+    setGuestName(assignedType.data.name)
+    setDescription(assignedType.data.description ?? '')
+    setMaxGuests(String(assignedType.data.maxGuests))
+    setTypeError(null)
+    // Reload guest fields when this unit's type arrives or the dialog opens again.
+    // A later refetch of the same type must not wipe text the administrator is editing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, item?.id, item?.roomTypeId, loadedTypeId])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>
             {item
@@ -595,9 +580,9 @@ function UnitDialog({
               toast.error('Недостатньо прав для цієї дії')
               return
             }
-            if (!canSubmitCategory) {
+            if (!item && !createTypeReady) {
               form.setError('roomTypeId', {
-                message: `Оберіть категорію типу «${roomTypeKindLabel[kind]}»`,
+                message: `Оберіть тип «${roomTypeKindLabel[kind]}»`,
               })
               return
             }
@@ -611,17 +596,60 @@ function UnitDialog({
               }
               floorValue = parsed
             }
+            const type = item ? assignedType.data : undefined
+            let guests = type?.maxGuests
+            let nextDescription = type?.description ?? null
+            let nextGuestName = type?.name
+            if (item && type) {
+              guests = Number(maxGuests)
+              if (!Number.isInteger(guests) || guests < 1) {
+                setTypeError('Місткість має бути цілим числом від 1')
+                return
+              }
+              if (!guestName.trim()) {
+                setTypeError('Вкажіть назву для гостей')
+                return
+              }
+              if (guestName.trim().length > 200) {
+                setTypeError('Назва для гостей задовга')
+                return
+              }
+              if (description.length > 4000) {
+                setTypeError('Опис задовгий')
+                return
+              }
+              nextGuestName = guestName.trim()
+              nextDescription = description.trim() ? description.trim() : null
+              setTypeError(null)
+            }
             try {
               const payload = {
                 name: values.name.trim() ? values.name.trim() : null,
                 number: values.number,
-                roomTypeId: values.roomTypeId,
+                roomTypeId: item?.roomTypeId ?? values.roomTypeId,
                 floor: floorValue,
                 status: values.status,
                 active: values.active === 'yes',
               }
               if (item) {
                 await update.mutateAsync({ id: item.id, input: payload })
+                if (
+                  type &&
+                  nextGuestName &&
+                  guests !== undefined &&
+                  (nextGuestName !== type.name ||
+                    nextDescription !== (type.description ?? null) ||
+                    guests !== type.maxGuests)
+                ) {
+                  await updateType.mutateAsync({
+                    id: type.id,
+                    input: {
+                      name: nextGuestName,
+                      description: nextDescription,
+                      maxGuests: guests,
+                    },
+                  })
+                }
               } else {
                 await create.mutateAsync(payload)
               }
@@ -632,29 +660,57 @@ function UnitDialog({
             }
           })}
         >
-          {item && assignedType.data && assignedType.data.kind !== kind ? (
-            <p className="rounded-md border border-border bg-surface-muted px-3 py-2 text-sm text-muted-foreground">
-              Призначена категорія «{assignedType.data.name}» має тип «
-              {roomTypeKindLabel[assignedType.data.kind]}», тоді як цей список — «{roomTypeKindLabel[kind]}».
-              Категорію не змінено автоматично. Оберіть сумісну категорію нижче, щоб зберегти, або
-              закрийте діалог і відкрийте одиницю у відповідній вкладці.
-            </p>
-          ) : null}
-          <Field label="Назва">
+          <Field label="Назва" hint="Як одиницю видно в CRM">
             <Input disabled={!canWrite} {...form.register('name')} />
           </Field>
           <Field label="Номер / код" error={form.formState.errors.number?.message}>
             <Input disabled={!canWrite} {...form.register('number')} />
           </Field>
-          <Field label="Категорія" error={form.formState.errors.roomTypeId?.message}>
-            <RoomTypePicker
-              value={form.watch('roomTypeId')}
-              kind={kind}
-              activeOnly={!item}
-              disabled={!canWrite}
-              onChange={(value) => form.setValue('roomTypeId', value, { shouldValidate: true })}
-            />
-          </Field>
+          {item ? (
+            <>
+              <p className="text-xs text-muted-foreground">{sharedRoomTypeNotice(sharedUnitCount)}</p>
+              <Field label="Назва для гостей" hint="Спільна для всіх розміщень цього типу">
+                <Input
+                  disabled={!canWrite || !assignedType.data}
+                  value={guestName}
+                  onChange={(event) => setGuestName(event.target.value)}
+                />
+              </Field>
+              <Field label="Опис" hint="Спільний для всіх розміщень цього типу">
+                <Textarea
+                  disabled={!canWrite || !assignedType.data}
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                />
+              </Field>
+              <Field label="Місткість" hint="Спільний максимум гостей для всіх розміщень цього типу">
+                <Input
+                  type="number"
+                  min={1}
+                  disabled={!canWrite || !assignedType.data}
+                  value={maxGuests}
+                  onChange={(event) => setMaxGuests(event.target.value)}
+                />
+              </Field>
+              {typeError ? <p className="text-sm text-destructive">{typeError}</p> : null}
+              {assignedType.isError ? (
+                <p className="text-sm text-muted-foreground">
+                  Не вдалося завантажити опис і місткість. Назву, номер і стан усе одно можна зберегти.
+                </p>
+              ) : null}
+              {assignedType.data ? <ImageManager roomTypeId={assignedType.data.id} canWrite={canWrite} /> : null}
+            </>
+          ) : (
+            <Field label="Тип розміщення" error={form.formState.errors.roomTypeId?.message}>
+              <RoomTypePicker
+                value={form.watch('roomTypeId')}
+                kind={kind}
+                activeOnly
+                disabled={!canWrite}
+                onChange={(value) => form.setValue('roomTypeId', value, { shouldValidate: true })}
+              />
+            </Field>
+          )}
           <Field label="Поверх" error={form.formState.errors.floor?.message} hint="Необовʼязково">
             <Input type="number" disabled={!canWrite} {...form.register('floor')} />
           </Field>
@@ -695,293 +751,7 @@ function UnitDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Скасувати
             </Button>
-            <Button type="submit" disabled={!canWrite || pending || !canSubmitCategory}>
-              Зберегти
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-const categorySchema = z.object({
-  name: z.string().trim().min(1, 'Вкажіть назву').max(200, 'Назва задовга'),
-  slug: z
-    .string()
-    .trim()
-    .min(1, 'Вкажіть slug')
-    .max(80, 'Slug задовгий')
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Лише малі латинські літери, цифри та дефіси'),
-  description: z.string().max(4000, 'Опис задовгий'),
-  kind: z.enum(ROOM_TYPE_KINDS),
-  maxGuests: z.number({ invalid_type_error: 'Вкажіть місткість' }).int().min(1, 'Мінімум 1 гість'),
-  active: z.enum(['yes', 'no']),
-})
-
-function CategorySection({
-  page,
-  currentPage,
-  search,
-  kindFilter,
-  inventoryFilter,
-  onInventoryFilterChange,
-  onKindFilterChange,
-  onSearchChange,
-  onSearchSubmit,
-  onPageChange,
-}: {
-  page?: { items: RoomType[]; pagination: { page: number; totalPages: number; total: number } }
-  currentPage: number
-  search: string
-  kindFilter: RoomTypeKind | 'all'
-  inventoryFilter: InventoryActiveFilter
-  onInventoryFilterChange: (value: InventoryActiveFilter) => void
-  onKindFilterChange: (value: RoomTypeKind | 'all') => void
-  onSearchChange: (value: string) => void
-  onSearchSubmit: () => void
-  onPageChange: (page: number) => void
-}) {
-  const { user } = useAuth()
-  const canWrite = canManageAccommodations(user?.role)
-  const [editing, setEditing] = useState<RoomType | 'new' | null>(null)
-  const items = page?.items ?? []
-
-  return (
-    <div>
-      <SectionHeading
-        title="Категорії"
-        action={canWrite ? <Button onClick={() => setEditing('new')}>Додати категорію</Button> : undefined}
-      />
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end">
-        <form
-          className="flex max-w-md flex-1 gap-2"
-          onSubmit={(event) => {
-            event.preventDefault()
-            onSearchSubmit()
-          }}
-        >
-          <Input
-            value={search}
-            onChange={(event) => onSearchChange(event.target.value)}
-            placeholder="Пошук категорій"
-          />
-          <Button type="submit" variant="outline">
-            Знайти
-          </Button>
-        </form>
-        <div className="w-full max-w-xs">
-          <Field label="Тип розміщення">
-            <Select
-              value={kindFilter}
-              onValueChange={(value: RoomTypeKind | 'all') => onKindFilterChange(value)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Усі</SelectItem>
-                <SelectItem value="ROOM">{roomTypeKindLabel.ROOM}</SelectItem>
-                <SelectItem value="COTTAGE">{roomTypeKindLabel.COTTAGE}</SelectItem>
-              </SelectContent>
-            </Select>
-          </Field>
-        </div>
-        <div className="w-full max-w-xs">
-          <Field label="Статус">
-            <Select
-              value={inventoryFilter}
-              onValueChange={(value: InventoryActiveFilter) => onInventoryFilterChange(value)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.keys(INVENTORY_ACTIVE_FILTER_LABEL) as InventoryActiveFilter[]).map((key) => (
-                  <SelectItem key={key} value={key}>
-                    {INVENTORY_ACTIVE_FILTER_LABEL[key]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-        </div>
-      </div>
-      {items.length === 0 ? (
-        <EmptyState>Категорій за цим запитом немає.</EmptyState>
-      ) : (
-        <Table>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead>Назва</TableHead>
-              <TableHead>Тип</TableHead>
-              <TableHead>Slug</TableHead>
-              <TableHead>Місткість</TableHead>
-              <TableHead>Стан</TableHead>
-              <TableHead />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.map((type) => (
-              <TableRow key={type.id}>
-                <TableCell>
-                  <div>{type.name}</div>
-                  <div className="max-w-md text-xs text-muted-foreground">{type.description ?? '—'}</div>
-                </TableCell>
-                <TableCell>{roomTypeKindLabel[type.kind]}</TableCell>
-                <TableCell className="font-mono text-xs">{type.slug}</TableCell>
-                <TableCell>{type.maxGuests}</TableCell>
-                <TableCell>
-                  <Badge tone={type.active ? 'success' : 'neutral'}>
-                    {type.active ? 'Активна' : 'Вимкнена'}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  {canWrite ? (
-                    <Button size="sm" variant="ghost" onClick={() => setEditing(type)}>
-                      Редагувати
-                    </Button>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">Лише перегляд</span>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
-      <Pagination
-        page={currentPage}
-        pageSize={PAGE_SIZE}
-        total={page?.pagination.total ?? 0}
-        onPageChange={onPageChange}
-      />
-      <CategoryDialog
-        open={editing !== null}
-        item={editing && editing !== 'new' ? editing : undefined}
-        onOpenChange={(open) => !open && setEditing(null)}
-      />
-    </div>
-  )
-}
-
-function CategoryDialog({
-  open,
-  item,
-  onOpenChange,
-}: {
-  open: boolean
-  item?: RoomType
-  onOpenChange: (open: boolean) => void
-}) {
-  const { user } = useAuth()
-  const canWrite = canManageAccommodations(user?.role)
-  const create = useCreateAdminRoomType()
-  const update = useUpdateAdminRoomType()
-  const pending = create.isPending || update.isPending
-  const form = useForm<z.infer<typeof categorySchema>>({
-    resolver: zodResolver(categorySchema),
-    values: {
-      name: item?.name ?? '',
-      slug: item?.slug ?? '',
-      description: item?.description ?? '',
-      kind: item?.kind ?? 'ROOM',
-      maxGuests: item?.maxGuests ?? 2,
-      active: item?.active === false ? 'no' : 'yes',
-    },
-  })
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle>{item ? 'Редагувати категорію' : 'Нова категорія'}</DialogTitle>
-        </DialogHeader>
-        <form
-          className="space-y-4"
-          onSubmit={form.handleSubmit(async (values) => {
-            if (!canWrite) {
-              toast.error('Недостатньо прав для цієї дії')
-              return
-            }
-            try {
-              const input = {
-                name: values.name,
-                slug: values.slug,
-                description: values.description.trim() ? values.description.trim() : null,
-                kind: values.kind,
-                maxGuests: values.maxGuests,
-                active: values.active === 'yes',
-              }
-              if (item) {
-                await update.mutateAsync({ id: item.id, input })
-              } else {
-                await create.mutateAsync(input)
-              }
-              toast.success('Збережено')
-              onOpenChange(false)
-            } catch (error) {
-              toast.error(accommodationErrorMessage(error))
-            }
-          })}
-        >
-          <Field label="Назва" error={form.formState.errors.name?.message}>
-            <Input disabled={!canWrite} {...form.register('name')} />
-          </Field>
-          <Field label="Slug" error={form.formState.errors.slug?.message} hint="Лише a-z, 0-9 та дефіси">
-            <Input disabled={!canWrite} {...form.register('slug')} />
-          </Field>
-          <Field label="Тип розміщення" error={form.formState.errors.kind?.message}>
-            <Select
-              value={form.watch('kind')}
-              onValueChange={(value: RoomTypeKind) => form.setValue('kind', value, { shouldValidate: true })}
-              disabled={!canWrite}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ROOM_TYPE_KINDS.map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {roomTypeKindLabel[value]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field label="Опис" error={form.formState.errors.description?.message}>
-            <Textarea disabled={!canWrite} {...form.register('description')} />
-          </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Місткість" error={form.formState.errors.maxGuests?.message}>
-              <Input
-                type="number"
-                disabled={!canWrite}
-                {...form.register('maxGuests', { valueAsNumber: true })}
-              />
-            </Field>
-            <Field label="Стан">
-              <Select
-                value={form.watch('active')}
-                onValueChange={(value: 'yes' | 'no') => form.setValue('active', value)}
-                disabled={!canWrite}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="yes">Активна</SelectItem>
-                  <SelectItem value="no">Вимкнена</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
-          </div>
-          {item ? <ImageManager roomTypeId={item.id} canWrite={canWrite} /> : null}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Скасувати
-            </Button>
-            <Button type="submit" disabled={!canWrite || pending}>
+            <Button type="submit" disabled={!canWrite || pending || (!item && !createTypeReady) || Boolean(item && assignedType.isLoading)}>
               Зберегти
             </Button>
           </DialogFooter>
@@ -1051,7 +821,7 @@ function ImageManager({ roomTypeId, canWrite }: { roomTypeId: string; canWrite: 
   return (
     <div className="space-y-3 border-t border-border pt-4">
       <div>
-        <h3 className="text-sm font-medium">Зображення категорії</h3>
+        <h3 className="text-sm font-medium">Зображення</h3>
         <p className="text-xs text-muted-foreground">
           Зберігаються лише HTTP(S) URL-записи. Завантаження файлів і cover-прапорець у backend відсутні.
         </p>
@@ -1247,8 +1017,8 @@ function accommodationErrorMessage(error: unknown) {
   if (error.status === 403) return 'Недостатньо прав для цієї дії'
   if (error.status === 404) return error.message || 'Запис не знайдено'
   if (error.status === 409) {
-    if (error.code === 'ROOM_TYPE_SLUG_EXISTS') return 'Категорія з таким slug уже існує'
-    if (error.code === 'ROOM_NUMBER_EXISTS') return 'Такий номер уже існує в цій категорії'
+    if (error.code === 'ROOM_TYPE_SLUG_EXISTS') return 'Така назва вже використовується'
+    if (error.code === 'ROOM_NUMBER_EXISTS') return 'Такий номер уже існує'
     if (error.code === 'ROOM_BLOCK_OVERLAP' || error.code === 'ACTIVE_BOOKING_OVERLAP') {
       return blockConflictMessage(error)
     }

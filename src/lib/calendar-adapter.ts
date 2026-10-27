@@ -1,3 +1,4 @@
+import { chessboardRoomLabel, roomTypeDisplayName } from '@/lib/accommodation-labels'
 import { addCalendarDays } from '@/lib/dates'
 import type {
   AdminBookingListItem,
@@ -58,16 +59,26 @@ export function buildChessboardModel(input: {
       continue
     }
 
-    const rooms: ChessboardRoomRow[] = type.rooms.map((room) => ({
-      roomId: room.roomId,
-      number: room.number,
-      roomTypeId: type.roomTypeId,
-      roomTypeName: meta?.name ?? type.name,
-      kind,
-      status: room.status,
-      active: room.active,
-      nights: room.nights,
-    }))
+    const typeName = meta?.name ?? type.name
+    const rooms: ChessboardRoomRow[] = type.rooms.map((room) => {
+      const labeled = chessboardRoomLabel({
+        roomId: room.roomId,
+        number: room.number,
+        typeName,
+      })
+      return {
+        roomId: room.roomId,
+        number: room.number,
+        displayTitle: labeled.title,
+        displayCode: labeled.code,
+        roomTypeId: type.roomTypeId,
+        roomTypeName: typeName,
+        kind,
+        status: room.status,
+        active: room.active,
+        nights: room.nights,
+      }
+    })
 
     if (rooms.length === 0) continue
 
@@ -108,7 +119,8 @@ export function buildChessboardModel(input: {
 
     groups.push({
       roomTypeId: type.roomTypeId,
-      name: meta?.name ?? type.name,
+      name: typeName,
+      displayName: roomTypeDisplayName(typeName),
       kind,
       rooms,
     })

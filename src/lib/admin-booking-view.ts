@@ -1,3 +1,4 @@
+import { unitDisplayLabel } from '@/lib/accommodation-labels'
 import { formatMoneyAmount } from '@/lib/format'
 import type {
   AdminBookingCreateInput,
@@ -42,11 +43,7 @@ export function adminGuestName(guest: AdminBookingGuest) {
 export function adminRoomsLabel(rooms: readonly AdminBookingRoom[]) {
   if (rooms.length === 0) return '—'
   return rooms
-    .map((room) => {
-      const number = room.number?.trim() || '—'
-      const type = room.roomTypeName?.trim()
-      return type ? `${number} · ${type}` : number
-    })
+    .map((room) => unitDisplayLabel({ name: null, number: room.number }, room.roomTypeName))
     .join(', ')
 }
 

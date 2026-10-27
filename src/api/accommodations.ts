@@ -1,5 +1,6 @@
 import { apiRequest } from '@/lib/api-client'
 import { ApiError } from '@/lib/api-error'
+import { collectPagedRooms, RoomPageError } from '@/lib/room-pages'
 import { delay } from '@/mocks/delay'
 import * as db from '@/mocks/db'
 import type {
@@ -146,6 +147,22 @@ export async function listRooms(
     })}`,
     { signal },
   )
+}
+
+/** Paginate through every Room page (limit 100). A partial list is an error, not a complete catalog. */
+export async function listAllRooms(
+  query: Omit<RoomListQuery, 'page' | 'limit'> = {},
+  signal?: AbortSignal,
+): Promise<Accommodation[]> {
+  try {
+    return await collectPagedRooms((page, limit) => {
+      if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
+      return listRooms({ ...query, page, limit }, signal)
+    })
+  } catch (error) {
+    if (error instanceof RoomPageError) throw new ApiError(error.message, 0, error.code)
+    throw error
+  }
 }
 
 export async function getRoom(id: string): Promise<Accommodation> {

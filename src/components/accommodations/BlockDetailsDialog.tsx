@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog'
 import { useAuth } from '@/hooks/useAuth'
 import { useDeleteAdminRoomBlock } from '@/hooks/useHotel'
-import { roomDisplayName } from '@/lib/dates'
+import { unitDisplayTitle } from '@/lib/accommodation-labels'
 import { formatDate, formatDateTime } from '@/lib/format'
 import { blockConflictMessage, blockReasonLabel, unblockConfirmMessage } from '@/lib/room-block'
 import { canManageAccommodations } from '@/lib/roles'
@@ -24,7 +24,7 @@ export function BlockDetailsDialog({
   onOpenChange,
 }: {
   open: boolean
-  room: { id: string; name: string | null; number: string } | null
+  room: { id: string; name: string | null; number: string; typeName?: string | null } | null
   block: Block | null
   onOpenChange: (open: boolean) => void
 }) {
@@ -86,7 +86,7 @@ export function BlockDetailsDialog({
             <DialogHeader>
               <DialogTitle>Блокування дат</DialogTitle>
               <DialogDescription>
-                {room ? roomDisplayName(room) : 'Розміщення'} · {block ? `${formatDate(block.startDate)} — ${formatDate(block.endDate)}` : ''}
+                {room ? unitDisplayTitle(room, room.typeName) : 'Розміщення'} · {block ? `${formatDate(block.startDate)} — ${formatDate(block.endDate)}` : ''}
               </DialogDescription>
             </DialogHeader>
             {block ? (

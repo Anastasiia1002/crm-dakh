@@ -1,5 +1,6 @@
 import { ApiError } from '@/lib/api-error'
-import { addCalendarDays, nightsBetween, roomDisplayName } from '@/lib/dates'
+import { unitDisplayTitle } from '@/lib/accommodation-labels'
+import { addCalendarDays, nightsBetween } from '@/lib/dates'
 import { errorMessage } from '@/lib/errors'
 import { nightsLabel } from '@/lib/format'
 import { roomBlockTypeLabel } from '@/lib/labels'
@@ -122,18 +123,22 @@ export function formatExclusiveSpanUk(startDate: string, endDate: string) {
   return `${start.day} ${startMonth} ${start.year} до ${end.day} ${endMonth} ${end.year} року`
 }
 
-export function blockConfirmMessage(room: { name: string | null; number: string }, startDate: string, endDate: string) {
+export function blockConfirmMessage(
+  room: { name: string | null; number: string; typeName?: string | null },
+  startDate: string,
+  endDate: string,
+) {
   const nights = nightsBetween(startDate, endDate)
-  const name = roomDisplayName(room)
+  const name = unitDisplayTitle(room, room.typeName)
   return `Заблокувати ${name} на ${nightsLabel(nights)}: ${formatNightSpanUk(startDate, endDate)}? У цей період нові бронювання будуть недоступні.`
 }
 
 export function unblockConfirmMessage(
-  room: { name: string | null; number: string },
+  room: { name: string | null; number: string; typeName?: string | null },
   startDate: string,
   endDate: string,
 ) {
-  const name = roomDisplayName(room)
+  const name = unitDisplayTitle(room, room.typeName)
   return `Зняти блокування для «${name}» з ${formatExclusiveSpanUk(startDate, endDate)}?`
 }
 

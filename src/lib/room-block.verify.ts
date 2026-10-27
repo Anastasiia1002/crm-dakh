@@ -149,10 +149,18 @@ assert(
 )
 assert(rangePrefill.startDate !== '2026-10-25' && rangePrefill.endDate !== '2026-10-25', '2. dialog does not collapse to 25 Oct')
 assert(blockedNights(rangePrefill.startDate, rangePrefill.endDate).length === 6, '3. exclusive end covers six nights, not the 30th')
+const slugConfirm = blockConfirmMessage({ name: null, number: room14 }, rangePrefill.startDate, rangePrefill.endDate)
+assert(slugConfirm.includes('6 ночей'), '10. confirmation counts six nights')
+assert(!slugConfirm.includes(room14), '10. confirmation does not show the technical room code')
 assert(
-  blockConfirmMessage({ name: null, number: room14 }, rangePrefill.startDate, rangePrefill.endDate).includes('6 ночей'),
-  '10. confirmation counts six nights',
+  blockConfirmMessage(
+    { name: null, number: room14, typeName: 'Номер 14/3' },
+    rangePrefill.startDate,
+    rangePrefill.endDate,
+  ).includes('Номер 14/3'),
+  '10. confirmation uses the room-type name',
 )
+assert(rangePrefill.roomId === room14, '10. block identity stays the room id')
 
 const monthSpan = {
   roomId: room14,

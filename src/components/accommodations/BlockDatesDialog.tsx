@@ -20,7 +20,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useCreateAdminRoomBlock } from '@/hooks/useHotel'
 import { createSubmitLock } from '@/lib/booking-form'
 import { repairBlockEndDate } from '@/lib/calendar-selection'
-import { roomDisplayName } from '@/lib/dates'
+import { unitDisplayLabel } from '@/lib/accommodation-labels'
 import { nightsLabel } from '@/lib/format'
 import {
   BLOCK_NOTE_MAX,
@@ -60,6 +60,7 @@ export function BlockDatesDialog({
   open,
   rooms,
   selectedRoomId,
+  typeNamesByRoomTypeId,
   initialStartDate = '',
   initialEndDate = '',
   onOpenChange,
@@ -68,6 +69,7 @@ export function BlockDatesDialog({
   open: boolean
   rooms: Accommodation[]
   selectedRoomId?: string
+  typeNamesByRoomTypeId?: ReadonlyMap<string, string>
   initialStartDate?: string
   initialEndDate?: string
   onOpenChange: (open: boolean) => void
@@ -91,6 +93,8 @@ export function BlockDatesDialog({
   })
   const values = form.watch()
   const room = rooms.find((item) => item.id === values.roomId) ?? null
+  const roomTypeName = room ? typeNamesByRoomTypeId?.get(room.roomTypeId) : undefined
+  const roomLabel = room ? unitDisplayLabel(room, roomTypeName) : 'Розміщення'
   const nights = blockedNights(values.startDate, values.endDate)
   const roomLocked = Boolean(selectedRoomId) || rooms.length === 1
 
@@ -186,7 +190,7 @@ export function BlockDatesDialog({
               </DialogDescription>
             </DialogHeader>
             {roomLocked ? (
-              <p className="text-sm">{room ? roomDisplayName(room) : 'Розміщення'}</p>
+              <p className="text-sm">{roomLabel}</p>
             ) : (
               <Field label="Розміщення" error={form.formState.errors.roomId?.message}>
                 <Select
@@ -200,7 +204,7 @@ export function BlockDatesDialog({
                   <SelectContent>
                     {rooms.map((item) => (
                       <SelectItem key={item.id} value={item.id}>
-                        {roomDisplayName(item)}
+                        {unitDisplayLabel(item, typeNamesByRoomTypeId?.get(item.roomTypeId))}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -269,7 +273,11 @@ export function BlockDatesDialog({
               <DialogTitle>Підтвердити блокування</DialogTitle>
               <DialogDescription>
                 {room
-                  ? blockConfirmMessage(room, values.startDate, values.endDate)
+                  ? blockConfirmMessage(
+                      { name: room.name, number: room.number, typeName: roomTypeName },
+                      values.startDate,
+                      values.endDate,
+                    )
                   : 'Перевірте дати перед підтвердженням.'}
               </DialogDescription>
             </DialogHeader>

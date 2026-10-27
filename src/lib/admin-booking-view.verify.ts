@@ -79,7 +79,16 @@ export function runAdminBookingViewChecks(): string[] {
 
   assert(adminBookingRef('abcdef12-3456-7890') === 'abcdef12', 'ref shortens uuid')
   assert(adminGuestName(baseListItem.guest) === 'Іван Коваль', 'guest name')
-  assert(adminRoomsLabel(baseListItem.rooms) === '101 · Standard', 'rooms label')
+  assert(adminRoomsLabel(baseListItem.rooms) === 'Standard · 101', 'rooms label uses the type, then the physical number')
+  assert(
+    adminRoomsLabel([{ ...baseListItem.rooms[0], number: 'dakh-room-14-3', roomTypeName: 'Номер 14/3' }]) === 'Номер 14/3',
+    'rooms label hides a technical slug',
+  )
+  assert(
+    adminRoomsLabel([{ ...baseListItem.rooms[0], number: 'dakh-room-14-3', roomTypeName: 'dakh-room-14-3' }]) === 'Розміщення',
+    'archived slug without a usable type uses the neutral fallback',
+  )
+  assert(adminRoomsLabel(baseListItem.rooms) !== baseListItem.rooms[0]?.roomId, 'rooms label is not the room id')
   assert(formatAdminBookingMoney('1200.50', 'UAH').includes('1'), 'uah money')
   results.push('Display helpers PASS')
 

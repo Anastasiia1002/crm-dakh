@@ -333,6 +333,66 @@ export function runCalendarAdapterChecks(): string[] {
   )
   results.push('History PASS: archived units visible in archive mode; bookingId kept; list history separate')
 
+  const labeled = buildChessboardModel({
+    calendar: {
+      from: '2026-10-10',
+      to: '2026-10-11',
+      roomTypes: [
+        {
+          roomTypeId: 'rt-slug',
+          name: 'dakh-room-14-3',
+          rooms: [
+            {
+              roomId: 'room-slug',
+              number: 'dakh-room-14-3',
+              status: 'AVAILABLE',
+              active: true,
+              nights: [night('2026-10-10', 'AVAILABLE')],
+            },
+          ],
+        },
+        {
+          roomTypeId: 'rt-phys',
+          name: 'Номер з терасою',
+          rooms: [
+            {
+              roomId: 'room-phys',
+              number: '14/1',
+              status: 'AVAILABLE',
+              active: true,
+              nights: [night('2026-10-10', 'BOOKED', 'b-keep')],
+            },
+          ],
+        },
+      ],
+    },
+    roomTypeMeta: [
+      { id: 'rt-slug', kind: 'ROOM', name: 'Номер 14/3' },
+      { id: 'rt-phys', kind: 'ROOM', name: 'Номер з терасою' },
+    ],
+    bookings: [],
+    kindFilter: 'all',
+  })
+  const slugRoom = labeled.groups.find((group) => group.roomTypeId === 'rt-slug')?.rooms[0]
+  const physicalRoom = labeled.groups.find((group) => group.roomTypeId === 'rt-phys')?.rooms[0]
+  assert(slugRoom?.roomId === 'room-slug' && slugRoom.number === 'dakh-room-14-3', 'label: room id and raw number stay')
+  assert(slugRoom?.displayTitle === 'Номер 14/3' && slugRoom.displayCode === null, 'label: slug is not the row title')
+  assert(
+    physicalRoom?.number === '14/1' &&
+      physicalRoom.displayTitle === 'Номер з терасою' &&
+      physicalRoom.displayCode === '14/1',
+    'label: 14/1 stays beside the type name',
+  )
+  assert(
+    labeled.bookingBars.some((bar) => bar.bookingId === 'b-keep' && bar.roomId === 'room-phys'),
+    'label: booking stays on roomId',
+  )
+  assert(
+    !labeled.bookingBars.some((bar) => bar.roomId === '14/1' || bar.roomId === 'Номер з терасою'),
+    'label: booking is not attached to the display text',
+  )
+  results.push('Label PASS: display text is separate from roomId and bookingId')
+
   return results
 }
 

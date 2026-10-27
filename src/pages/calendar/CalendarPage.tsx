@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { listRoomBlocks } from '@/api/accommodations'
+import { listAllRooms, listRoomBlocks } from '@/api/accommodations'
 import { BlockDatesDialog } from '@/components/accommodations/BlockDatesDialog'
 import { BlockDetailsDialog } from '@/components/accommodations/BlockDetailsDialog'
 import { Chessboard } from '@/components/calendar/Chessboard'
@@ -10,7 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { EmptyState, LoadingState } from '@/components/ui/states'
 import { useAuth } from '@/hooks/useAuth'
 import { CALENDAR_WINDOW_DAYS, useAdminCalendarBoard } from '@/hooks/useCalendarBoard'
-import { useAdminRooms } from '@/hooks/useHotel'
 import {
   blockDialogPrefill,
   bookingQueryFromSelection,
@@ -19,12 +18,15 @@ import {
   showCalendarBlockButton,
   type NightSelection,
 } from '@/lib/calendar-selection'
+import { chessboardRoomLabel, unitDisplayLabel } from '@/lib/accommodation-labels'
 import { addCalendarDays, todayIso } from '@/lib/dates'
 import { formatDateShort } from '@/lib/format'
 import {
+  activeFilterToQuery,
   INVENTORY_ACTIVE_FILTER_LABEL,
   type InventoryActiveFilter,
 } from '@/lib/inventory-status'
+import { CATALOG_STALE_TIME } from '@/lib/queryClient'
 import { roomTypeKindLabel } from '@/lib/labels'
 import type { Accommodation, ChessboardAdminBar, RoomTypeKind } from '@/types'
 
@@ -55,7 +57,12 @@ export function CalendarPage() {
   const [draft, setDraft] = useState<{ roomId: string; startDate: string; endDate: string } | null>(null)
   const [selection, setSelection] = useState<NightSelection | null>(null)
   const [selectionNote, setSelectionNote] = useState<string | null>(null)
-  const [inspecting, setInspecting] = useState<{ roomId: string; blockId: string; number: string } | null>(null)
+  const [inspecting, setInspecting] = useState<{
+    roomId: string
+    blockId: string
+    number: string
+    typeName: string | null
+  } | null>(null)
 
   const board = useAdminCalendarBoard({
     from: start,
@@ -64,8 +71,13 @@ export function CalendarPage() {
     roomTypeId: roomTypeId === 'all' ? undefined : roomTypeId,
     inventoryFilter,
   })
-  const roomsQuery = useAdminRooms({ page: 1, limit: 100, active: true })
-  const rooms = roomsQuery.data?.items ?? []
+  const inventoryActive = activeFilterToQuery(inventoryFilter)
+  const roomsQuery = useQuery({
+    queryKey: ['admin-rooms-all', { active: inventoryActive }],
+    queryFn: ({ signal }) => listAllRooms({ active: inventoryActive }, signal),
+    staleTime: CATALOG_STALE_TIME,
+  })
+  const rooms = roomsQuery.data ?? []
   const inspectingBlocks = useQuery({
     queryKey: ['admin-room-blocks', inspecting?.roomId],
     queryFn: ({ signal }) => listRoomBlocks(inspecting!.roomId, signal),
@@ -73,11 +85,16 @@ export function CalendarPage() {
   })
   const inspectingBlock = inspectingBlocks.data?.find((block) => block.id === inspecting?.blockId) ?? null
   const inspectingRoom = inspecting
-    ? rooms.find((room) => room.id === inspecting.roomId) ?? {
-        id: inspecting.roomId,
-        name: null,
-        number: inspecting.number,
-      }
+    ? (() => {
+        const match = rooms.find((room) => room.id === inspecting.roomId)
+        if (match) return { ...match, typeName: inspecting.typeName }
+        return {
+          id: inspecting.roomId,
+          name: null,
+          number: inspecting.number,
+          typeName: inspecting.typeName,
+        }
+      })()
     : null
 
   useEffect(() => {
@@ -99,6 +116,42 @@ export function CalendarPage() {
   function roomRow(roomId: string) {
     return board.model?.groups.flatMap((group) => group.rooms).find((room) => room.roomId === roomId)
   }
+
+  function roomLabel(roomId: string) {
+    const unit = rooms.find((room) => room.id === roomId)
+    const row = roomRow(roomId)
+    return unitDisplayLabel(
+      { name: unit?.name ?? null, number: unit?.number ?? row?.number ?? '' },
+      row?.roomTypeName,
+    )
+  }
+
+  const boardModel = useMemo(() => {
+    const model = board.model
+    if (!model) return null
+    const byId = new Map(rooms.map((room) => [room.id, room]))
+    return {
+      ...model,
+      groups: model.groups.map((group) => ({
+        ...group,
+        rooms: group.rooms.map((room) => {
+          const unit = byId.get(room.roomId)
+          const labeled = chessboardRoomLabel({
+            roomId: room.roomId,
+            number: room.number,
+            name: unit?.name,
+            typeName: room.roomTypeName,
+          })
+          return {
+            ...room,
+            number: room.number,
+            displayTitle: labeled.title,
+            displayCode: labeled.code,
+          }
+        }),
+      })),
+    }
+  }, [board.model, rooms])
 
   function availableDates(roomId: string) {
     const nights = roomRow(roomId)?.nights ?? []
@@ -159,12 +212,21 @@ export function CalendarPage() {
     return list
   }, [blockPrefill?.roomId, board.model, rooms])
 
+  const typeNamesByRoomTypeId = useMemo(() => {
+    const names = new Map<string, string>()
+    for (const group of board.model?.groups ?? []) names.set(group.roomTypeId, group.name)
+    return names
+  }, [board.model])
+
   function openBlockDetails(bar: ChessboardAdminBar) {
     if (!bar.blockId) return
-    const number =
-      board.model?.groups.flatMap((group) => group.rooms).find((room) => room.roomId === bar.roomId)?.number ??
-      bar.roomId
-    setInspecting({ roomId: bar.roomId, blockId: bar.blockId, number })
+    const row = roomRow(bar.roomId)
+    setInspecting({
+      roomId: bar.roomId,
+      blockId: bar.blockId,
+      number: row?.number ?? '',
+      typeName: row?.roomTypeName ?? null,
+    })
   }
 
   return (
@@ -217,10 +279,10 @@ export function CalendarPage() {
           </div>
           <Select value={roomTypeId} onValueChange={(value) => setRoomTypeId(value)}>
             <SelectTrigger className="w-full sm:w-52">
-              <SelectValue placeholder="Категорія" />
+              <SelectValue placeholder="Тип" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Усі категорії</SelectItem>
+              <SelectItem value="all">Усі типи</SelectItem>
               {typeOptions.map((type) => (
                 <SelectItem key={type.id} value={type.id}>
                   {type.name}
@@ -253,7 +315,7 @@ export function CalendarPage() {
         <div className="flex flex-col gap-3 rounded-md border border-border bg-surface px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-sm">
             <p>
-              {roomRow(selection.roomId)?.number ?? 'Номер'} · {formatDateShort(selection.startDate)} —{' '}
+              {roomLabel(selection.roomId)} · {formatDateShort(selection.startDate)} —{' '}
               {formatDateShort(selection.endDate)}
             </p>
             <p className="text-xs text-muted-foreground">Кінець не входить у період. Оберіть дію.</p>
@@ -321,7 +383,7 @@ export function CalendarPage() {
 
       {!board.isLoading && !board.isError && board.model && board.model.groups.length > 0 ? (
         <Chessboard
-          model={board.model}
+          model={boardModel ?? board.model}
           selected={blocking ? draft : selection}
           emptyMode={nightIntent}
           onAdminBar={openBlockDetails}
@@ -334,6 +396,7 @@ export function CalendarPage() {
         key={dialogSession}
         open={blocking}
         rooms={dialogRooms}
+        typeNamesByRoomTypeId={typeNamesByRoomTypeId}
         selectedRoomId={blockPrefill?.roomId || undefined}
         initialStartDate={blockPrefill?.startDate ?? ''}
         initialEndDate={blockPrefill?.endDate ?? ''}

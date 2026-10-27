@@ -1,5 +1,7 @@
+import { useQuery } from '@tanstack/react-query'
 import { useDeferredValue, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { listAllRoomTypes } from '@/api/accommodations'
 import { AdminBookingTable } from '@/components/bookings/AdminBookingTable'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -7,11 +9,12 @@ import { Pagination } from '@/components/ui/pagination'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { EmptyState, LoadingState } from '@/components/ui/states'
 import { useAdminBookings } from '@/hooks/useBookings'
-import { useAdminRooms } from '@/hooks/useHotel'
+import { useAllAdminRooms } from '@/hooks/useHotel'
+import { ACCOMMODATION_FALLBACK_LABEL, bookingRoomFilterLabel } from '@/lib/accommodation-labels'
 import { adminBookingDateFilterReady } from '@/lib/admin-booking-view'
-import { roomDisplayName } from '@/lib/dates'
 import { errorMessage } from '@/lib/errors'
 import { adminBookingSourceLabel, bookingStatusLabel } from '@/lib/labels'
+import { CATALOG_STALE_TIME } from '@/lib/queryClient'
 import type { AdminBookingListFilters, AdminBookingSource, BookingStatus } from '@/types'
 
 const PAGE_SIZE = 20
@@ -42,7 +45,12 @@ export function BookingsPage() {
   )
 
   const bookings = useAdminBookings(filters, { enabled: dateGuard.ok || (!checkIn && !checkOut) })
-  const rooms = useAdminRooms({ page: 1, limit: 100 })
+  const rooms = useAllAdminRooms()
+  const roomTypes = useQuery({
+    queryKey: ['admin-room-types-all', { active: undefined }],
+    queryFn: ({ signal }) => listAllRoomTypes({}, signal),
+    staleTime: CATALOG_STALE_TIME,
+  })
 
   const dirty =
     search || status !== 'all' || roomId !== 'all' || source !== 'all' || checkIn || checkOut || page !== 1
@@ -120,6 +128,7 @@ export function BookingsPage() {
           </Select>
         </Filter>
         <Filter label="Номер / будиночок">
+          <div className="space-y-1">
           <Select
             value={roomId}
             onValueChange={(value) => {
@@ -132,13 +141,20 @@ export function BookingsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Усі</SelectItem>
-              {(rooms.data?.items ?? []).map((item) => (
+              {roomId !== 'all' && !(rooms.data ?? []).some((item) => item.id === roomId) ? (
+                <SelectItem value={roomId}>{ACCOMMODATION_FALLBACK_LABEL}</SelectItem>
+              ) : null}
+              {(rooms.data ?? []).map((item) => (
                 <SelectItem key={item.id} value={item.id}>
-                  {roomDisplayName(item)}
+                  {bookingRoomFilterLabel(item, roomTypes.data?.find((type) => type.id === item.roomTypeId)?.name)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+          {rooms.isError ? (
+            <p className="max-w-52 text-xs text-destructive">Не вдалося завантажити повний список розміщень.</p>
+          ) : null}
+          </div>
         </Filter>
         <Filter label="Джерело">
           <Select
