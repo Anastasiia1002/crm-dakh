@@ -1,50 +1,30 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { getGuestProfile, importGuestFile, listGuests, listGuestsForExport, saveGuest } from '@/api/guests'
-import type { GuestFilters, GuestWriteInput } from '@/types'
+import { useQuery } from '@tanstack/react-query'
+import { getAdminGuest, listAdminGuestBookings, listAdminGuests } from '@/api/guests'
+import type { GuestDirectoryQuery, GuestHistoryQuery } from '@/lib/admin-guests'
+import { OPERATIONAL_STALE_TIME } from '@/lib/queryClient'
 
-export function useGuestList(filters: GuestFilters) {
+export function useGuestList(query: GuestDirectoryQuery) {
   return useQuery({
-    queryKey: ['guest-directory', filters],
-    queryFn: () => listGuests(filters),
+    queryKey: ['admin-guests', query],
+    queryFn: ({ signal }) => listAdminGuests(query, signal),
+    staleTime: OPERATIONAL_STALE_TIME,
   })
 }
 
 export function useGuestProfile(id: string) {
   return useQuery({
-    queryKey: ['guest-profile', id],
-    queryFn: () => getGuestProfile(id),
+    queryKey: ['admin-guest', id],
+    queryFn: ({ signal }) => getAdminGuest(id, signal),
     enabled: Boolean(id),
+    staleTime: OPERATIONAL_STALE_TIME,
   })
 }
 
-function useRefreshGuests() {
-  const queryClient = useQueryClient()
-  return () => {
-    void queryClient.invalidateQueries({ queryKey: ['guest-directory'] })
-    void queryClient.invalidateQueries({ queryKey: ['guest-profile'] })
-    void queryClient.invalidateQueries({ queryKey: ['guests'] })
-    void queryClient.invalidateQueries({ queryKey: ['audit'] })
-  }
-}
-
-export function useSaveGuest() {
-  const refresh = useRefreshGuests()
-  return useMutation({
-    mutationFn: (input: GuestWriteInput) => saveGuest(input),
-    onSuccess: refresh,
-  })
-}
-
-export function useImportGuests() {
-  const refresh = useRefreshGuests()
-  return useMutation({
-    mutationFn: importGuestFile,
-    onSuccess: refresh,
-  })
-}
-
-export function useGuestExport() {
-  return useMutation({
-    mutationFn: (filters: GuestFilters) => listGuestsForExport(filters),
+export function useGuestHistory(id: string, query: GuestHistoryQuery, enabled: boolean) {
+  return useQuery({
+    queryKey: ['admin-guest-bookings', id, query],
+    queryFn: ({ signal }) => listAdminGuestBookings(id, query, signal),
+    enabled: enabled && Boolean(id),
+    staleTime: OPERATIONAL_STALE_TIME,
   })
 }

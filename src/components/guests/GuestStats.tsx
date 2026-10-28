@@ -1,13 +1,14 @@
-import { formatCount, formatDate, formatMoney, nightsLabel } from '@/lib/format'
-import type { GuestStats as GuestStatsData } from '@/types'
+import { formatCount, formatDate, formatMoneyAmount, nightsLabel } from '@/lib/format'
+import type { AdminGuestStats } from '@/lib/admin-guests'
 
-export function GuestStats({ stats }: { stats: GuestStatsData }) {
+export function GuestStats({ stats }: { stats: AdminGuestStats }) {
+  const spent = stats.currency === 'UAH' ? formatMoneyAmount(stats.totalSpent) : `${stats.totalSpent} ${stats.currency}`
   const items = [
     { label: 'Бронювань', value: formatCount(stats.bookingsCount) },
     { label: 'Завершених проживань', value: formatCount(stats.completedStays) },
     { label: 'Ночей', value: nightsLabel(stats.totalNights) },
-    { label: 'Витрачено', value: formatMoney(stats.totalSpent) },
-    { label: 'Останнє бронювання', value: stats.lastBookingDate ? formatDate(stats.lastBookingDate) : '—' },
+    { label: 'Витрачено', value: spent },
+    { label: 'Останній заїзд', value: stats.lastCheckIn ? formatDate(stats.lastCheckIn) : '—' },
   ]
 
   return (

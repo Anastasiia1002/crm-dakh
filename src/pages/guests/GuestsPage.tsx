@@ -1,142 +1,78 @@
-import { useState } from 'react'
-import { GuestExportDialog } from '@/components/guests/GuestExportDialog'
+import { useDeferredValue, useState } from 'react'
 import { GuestFilters } from '@/components/guests/GuestFilters'
-import { GuestFormDialog } from '@/components/guests/GuestFormDialog'
-import { GuestImportDialog } from '@/components/guests/GuestImportDialog'
 import { GuestTable } from '@/components/guests/GuestTable'
 import { Button } from '@/components/ui/button'
 import { Pagination } from '@/components/ui/pagination'
 import { EmptyState, LoadingState } from '@/components/ui/states'
 import { useGuestList } from '@/hooks/useGuestDirectory'
+import { guestFailure, guestFailureMessage } from '@/lib/admin-guests'
 import { formatCount } from '@/lib/format'
-import type { Guest, GuestFilters as GuestFilterState } from '@/types'
 
-const initialFilters: GuestFilterState = {
-  search: '',
-  country: 'all',
-  status: 'all',
-  bookings: 'all',
-  lastBooking: 'any',
-  page: 1,
-  pageSize: 10,
-}
-
-function filtersActive(filters: GuestFilterState) {
-  return Boolean(
-    filters.search?.trim() ||
-      (filters.country && filters.country !== 'all') ||
-      (filters.status && filters.status !== 'all') ||
-      (filters.bookings && filters.bookings !== 'all') ||
-      (filters.lastBooking && filters.lastBooking !== 'any'),
-  )
-}
+const PAGE_SIZE = 20
 
 export function GuestsPage() {
-  const [filters, setFilters] = useState<GuestFilterState>(initialFilters)
-  const [importOpen, setImportOpen] = useState(false)
-  const [exportOpen, setExportOpen] = useState(false)
-  const [formGuest, setFormGuest] = useState<Guest | 'new' | null>(null)
-  const guests = useGuestList(filters)
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const deferredSearch = useDeferredValue(search)
+  const guests = useGuestList({ page, limit: PAGE_SIZE, search: deferredSearch })
+  const failure = guests.isError ? guestFailure(guests.error) : null
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <p className="max-w-md text-sm text-muted-foreground">База гостей та історія проживань</p>
-        <div className="flex flex-wrap gap-2">
-          <Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>
-            Імпортувати
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => setExportOpen(true)}>
-            Експортувати
-          </Button>
-          <Button size="sm" onClick={() => setFormGuest('new')}>
-            Додати гостя
-          </Button>
-        </div>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <p className="max-w-xl text-sm text-muted-foreground">
+          Гості цього готелю з бронювань, включно з сайтом. Додавання, редагування, імпорт і експорт тут недоступні.
+        </p>
       </div>
 
-      {guests.data ? <GuestSummary summary={guests.data.summary} /> : null}
+      {guests.data ? (
+        <dl className="border-y border-border py-4">
+          <dt className="text-[11px] tracking-[0.12em] text-muted uppercase">
+            {deferredSearch.trim() ? 'Знайдено' : 'Усього гостей'}
+          </dt>
+          <dd className="mt-1 font-serif text-[1.7rem] leading-none tabular-nums">{formatCount(guests.data.total)}</dd>
+        </dl>
+      ) : null}
 
       <GuestFilters
-        filters={filters}
-        onChange={(patch) => setFilters((current) => ({ ...current, ...patch }))}
-        onClear={() => setFilters(initialFilters)}
+        search={search}
+        onSearch={(value) => {
+          setSearch(value)
+          setPage(1)
+        }}
+        onClear={() => {
+          setSearch('')
+          setPage(1)
+        }}
       />
 
       {guests.isLoading ? <LoadingState /> : null}
-      {guests.isError ? (
+      {failure ? (
         <div className="space-y-3 border-t border-border py-10">
-          <p className="text-sm">Не вдалося завантажити дані</p>
+          <p className="text-sm">{guestFailureMessage(failure)}</p>
           <Button size="sm" variant="outline" onClick={() => void guests.refetch()}>
             Спробувати ще раз
           </Button>
         </div>
       ) : null}
 
-      {guests.data && guests.data.summary.totalGuests === 0 && !filtersActive(filters) ? (
+      {guests.data && guests.data.total === 0 && !deferredSearch.trim() ? (
         <div className="border-t border-border py-16 text-center">
           <h2 className="font-serif text-3xl font-medium">Гостей поки немає</h2>
-          <p className="mt-2 text-sm text-muted-foreground">Додайте першого гостя або імпортуйте список клієнтів.</p>
-          <div className="mt-6 flex flex-wrap justify-center gap-2">
-            <Button size="sm" onClick={() => setFormGuest('new')}>
-              Додати гостя
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>
-              Імпортувати список
-            </Button>
-          </div>
+          <p className="mt-2 text-sm text-muted-foreground">Вони з’являться після першого бронювання.</p>
         </div>
       ) : null}
 
-      {guests.data && (guests.data.summary.totalGuests > 0 || filtersActive(filters)) ? (
+      {guests.data && (guests.data.total > 0 || deferredSearch.trim()) ? (
         guests.data.items.length === 0 ? (
-          <EmptyState>За цими фільтрами гостей немає.</EmptyState>
+          <EmptyState>За цим пошуком гостей немає.</EmptyState>
         ) : (
           <>
-            <GuestTable guests={guests.data.items} onEdit={(guest) => setFormGuest(guest)} />
-            <Pagination
-              page={guests.data.page}
-              pageSize={guests.data.pageSize}
-              total={guests.data.total}
-              onPageChange={(page) => setFilters((current) => ({ ...current, page }))}
-            />
+            <GuestTable guests={guests.data.items} />
+            <Pagination page={guests.data.page} pageSize={guests.data.limit} total={guests.data.total} onPageChange={setPage} />
           </>
         )
       ) : null}
-
-      <GuestImportDialog open={importOpen} onOpenChange={setImportOpen} />
-      <GuestExportDialog open={exportOpen} filters={filters} onOpenChange={setExportOpen} />
-      <GuestFormDialog
-        open={formGuest !== null}
-        guest={formGuest && formGuest !== 'new' ? formGuest : undefined}
-        onOpenChange={(open) => {
-          if (!open) setFormGuest(null)
-        }}
-      />
     </div>
-  )
-}
-
-function GuestSummary({
-  summary,
-}: {
-  summary: { totalGuests: number; newGuests: number; withBookings: number; returningGuests: number }
-}) {
-  const items = [
-    { label: 'Усього гостей', value: formatCount(summary.totalGuests) },
-    { label: 'Нові гості', value: `+${formatCount(summary.newGuests)}` },
-    { label: 'Гості з бронюваннями', value: formatCount(summary.withBookings) },
-    { label: 'Повторні гості', value: formatCount(summary.returningGuests) },
-  ]
-
-  return (
-    <dl className="grid grid-cols-2 gap-x-6 gap-y-4 border-y border-border py-4 md:grid-cols-4">
-      {items.map((item) => (
-        <div key={item.label}>
-          <dt className="text-[11px] tracking-[0.12em] text-muted uppercase">{item.label}</dt>
-          <dd className="mt-1 font-serif text-[1.7rem] leading-none tabular-nums">{item.value}</dd>
-        </div>
-      ))}
-    </dl>
   )
 }
