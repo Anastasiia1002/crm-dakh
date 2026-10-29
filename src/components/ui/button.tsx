@@ -1,11 +1,11 @@
-import { Slot } from '@radix-ui/react-slot'
+import { Slot, Slottable } from '@radix-ui/react-slot'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { Loader2 } from 'lucide-react'
-import type { ButtonHTMLAttributes } from 'react'
+import type { ButtonHTMLAttributes, MouseEvent } from 'react'
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-40 aria-disabled:pointer-events-none aria-disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
   {
     variants: {
       variant: {
@@ -43,18 +43,51 @@ export function Button({
   loading = false,
   disabled,
   children,
+  onClick,
   ...props
 }: ButtonProps) {
-  const Comp = asChild ? Slot : 'button'
+  const inactive = Boolean(disabled || loading)
+  const classes = cn(buttonVariants({ variant, size }), className)
+  const spinner = loading ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null
+
+  if (asChild) {
+    // Slot throws if it receives an array (a spinner or even null beside the child).
+    // Slottable keeps one element and composes the spinner inside it.
+    return (
+      <Slot
+        className={classes}
+        aria-busy={loading || undefined}
+        aria-disabled={inactive || undefined}
+        tabIndex={inactive ? -1 : undefined}
+        onClick={
+          inactive
+            ? (event) => {
+                event.preventDefault()
+                event.stopPropagation()
+              }
+            : onClick
+              ? (event) => onClick(event as MouseEvent<HTMLButtonElement>)
+              : undefined
+        }
+        {...props}
+      >
+        {spinner}
+        <Slottable>{children}</Slottable>
+      </Slot>
+    )
+  }
+
   return (
-    <Comp
-      className={cn(buttonVariants({ variant, size }), className)}
-      disabled={disabled || loading}
+    <button
+      className={classes}
+      disabled={inactive}
       aria-busy={loading || undefined}
+      aria-disabled={inactive || undefined}
+      onClick={onClick}
       {...props}
     >
-      {loading && !asChild ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
+      {spinner}
       {children}
-    </Comp>
+    </button>
   )
 }
