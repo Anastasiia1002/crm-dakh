@@ -63,6 +63,11 @@ async function main() {
   assert(errorMessage(new ApiError('Потрібна автентифікація', 401, 'UNAUTHORIZED')) === SESSION, 'missing session copy')
   assert(errorMessage(new ApiError(OFFLINE, 0, 'NETWORK')) === OFFLINE, 'network copy')
   assert(errorMessage(new ApiError(OFFLINE, 503, 'UPSTREAM')) === OFFLINE, 'server copy')
+  assert(
+    errorMessage(new ApiError('Сервер відповідає занадто довго. Спробуйте ще раз.', 0, 'TIMEOUT')) ===
+      'Сервер відповідає занадто довго. Спробуйте ще раз.',
+    'timeout copy is not an expired session',
+  )
   console.log('PASS: login error copy')
 
   installLocalStorage()
@@ -70,7 +75,7 @@ async function main() {
 
   const { login } = await import('../api/auth')
   const { getAccessTokenForTests, resetApiClientForTests } = await import('./api-client')
-  const { clearAuthStorage, readRefreshToken } = await import('./auth-storage')
+  const { clearAuthStorage, readRefreshToken, writeRefreshToken } = await import('./auth-storage')
 
   const staff = {
     id: 'admin-1',
@@ -152,6 +157,40 @@ async function main() {
     globalThis.fetch = previous
   }
   console.log('PASS: login network error')
+
+  const { restoreSession } = await import('../api/auth')
+  resetApiClientForTests()
+  clearAuthStorage()
+  writeRefreshToken('refresh-restore')
+  let meCalls = 0
+  let refreshCalls = 0
+  globalThis.fetch = async (input) => {
+    const url = String(input)
+    if (url.endsWith('/api/auth/refresh')) {
+      refreshCalls += 1
+      return jsonResponse(200, {
+        accessToken: 'access-restored',
+        refreshToken: 'refresh-restored',
+        expiresIn: 900,
+        admin: staff,
+      })
+    }
+    if (url.endsWith('/api/auth/me')) {
+      meCalls += 1
+      return jsonResponse(200, staff)
+    }
+    return jsonResponse(404, {})
+  }
+  try {
+    const [first, second] = await Promise.all([restoreSession(), restoreSession()])
+    assert(first?.email === 'staff@dakh.test' && second?.email === 'staff@dakh.test', 'restore returns user')
+    assert(refreshCalls === 1, 'restore shares one refresh')
+    assert(meCalls === 2, 'profile fetched after restore')
+    assert(getAccessTokenForTests() === 'access-restored', 'access restored for queries')
+  } finally {
+    globalThis.fetch = previous
+  }
+  console.log('PASS: restore session once')
 
   console.log('All login auth checks passed.')
 }

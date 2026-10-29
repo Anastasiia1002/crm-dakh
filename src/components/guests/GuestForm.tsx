@@ -94,7 +94,7 @@ export function GuestForm({
         <Button type="button" variant="outline" onClick={onCancel}>
           Скасувати
         </Button>
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending} loading={pending}>
           {submitLabel}
         </Button>
       </div>

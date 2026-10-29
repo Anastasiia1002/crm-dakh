@@ -6,8 +6,10 @@ import { Logo } from '@/components/brand/Logo'
 import { Button } from '@/components/ui/button'
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { AuthRestoreState } from '@/components/ui/page-status'
 import { useAuth } from '@/hooks/useAuth'
 import { errorMessage } from '@/lib/errors'
+import { consumeReturnPath } from '@/lib/session-policy'
 import { AuthLayout } from '@/layouts/AuthLayout'
 
 const schema = z.object({
@@ -18,14 +20,22 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>
 
 export function LoginPage() {
-  const { user, isLoading, login } = useAuth()
+  const { user, isLoading, canRetryRestore, restoreError, retryRestore, login } = useAuth()
   const navigate = useNavigate()
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: { email: '', password: '' },
   })
 
+  if (canRetryRestore) {
+    return <AuthRestoreState error={restoreError} onRetry={retryRestore} />
+  }
+
   if (!isLoading && user) return <Navigate to="/admin" replace />
+
+  if (isLoading) {
+    return <AuthRestoreState slow={false} />
+  }
 
   return (
     <AuthLayout>
@@ -40,7 +50,8 @@ export function LoginPage() {
         onSubmit={form.handleSubmit(async (values) => {
           try {
             await login(values.email, values.password)
-            navigate('/admin')
+            const next = consumeReturnPath(window.sessionStorage)
+            navigate(next)
           } catch (error) {
             form.setError('root', { message: errorMessage(error) })
           }
@@ -55,7 +66,7 @@ export function LoginPage() {
         {form.formState.errors.root ? (
           <p className="text-sm text-destructive">{form.formState.errors.root.message}</p>
         ) : null}
-        <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || isLoading}>
+        <Button type="submit" className="w-full" loading={form.formState.isSubmitting} disabled={isLoading}>
           Увійти
         </Button>
       </form>

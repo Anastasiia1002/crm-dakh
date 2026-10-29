@@ -520,7 +520,12 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
   const accommodationName = selectedRoom ? bookingRoomFilterLabel(selectedRoom, roomType?.name) : ''
 
   return (
-    <form className="mx-auto max-w-3xl space-y-8 overflow-x-hidden px-1 sm:px-0" onSubmit={(event) => void handleSubmit(event)}>
+    <form
+      className="mx-auto max-w-3xl space-y-8 overflow-x-hidden px-1 sm:px-0"
+      aria-busy={submitting || undefined}
+      onSubmit={(event) => void handleSubmit(event)}
+    >
+      <fieldset disabled={submitting} className="space-y-8 disabled:opacity-80">
       <section className="space-y-4 border-t border-border pt-5">
         <h3 className="font-serif text-2xl">Гість</h3>
         {profile ? (
@@ -825,12 +830,18 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
       {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
 
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-        <Button type="submit" disabled={submitDisabled} className="w-full sm:w-auto">
+        <Button type="submit" disabled={submitDisabled} loading={submitting} className="w-full sm:w-auto">
           {submitting ? 'Збереження…' : isEdit ? 'Зберегти зміни' : 'Створити бронювання'}
         </Button>
-        <Button type="button" variant="outline" asChild className="w-full sm:w-auto">
-          <Link to={booking ? `/admin/bookings/${booking.id}` : '/admin/bookings'}>Скасувати</Link>
-        </Button>
+        {submitting ? (
+          <Button type="button" variant="outline" disabled className="w-full sm:w-auto">
+            Скасувати
+          </Button>
+        ) : (
+          <Button type="button" variant="outline" asChild className="w-full sm:w-auto">
+            <Link to={booking ? `/admin/bookings/${booking.id}` : '/admin/bookings'}>Скасувати</Link>
+          </Button>
+        )}
       </div>
 
       <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
@@ -870,12 +881,13 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
             <Button type="button" variant="outline" disabled={submitting} onClick={() => setReviewOpen(false)}>
               Повернутися
             </Button>
-            <Button type="button" disabled={submitting} onClick={() => void applyReview()}>
+            <Button type="button" disabled={submitting} loading={submitting} onClick={() => void applyReview()}>
               {submitting ? 'Збереження…' : 'Застосувати'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </fieldset>
     </form>
   )
 }

@@ -11,7 +11,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
-import { useDashboard } from '@/hooks/useBookings'
 import { useAuth } from '@/hooks/useAuth'
 import { userRoleLabel } from '@/lib/labels'
 import { titleForPath } from '@/router/nav'
@@ -21,10 +20,7 @@ export function Header() {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAuth()
-  const dashboard = useDashboard()
   const [open, setOpen] = useState(false)
-  const pending = dashboard.data?.pendingCount ?? 0
-  const arrivals = dashboard.data?.arrivalsToday ?? 0
 
   return (
     <header className="sticky top-0 z-30 flex min-h-16 items-center justify-between gap-4 border-b border-border bg-background/95 px-4 pt-[env(safe-area-inset-top)] backdrop-blur-sm md:px-8">
@@ -46,22 +42,19 @@ export function Header() {
         <DropdownMenu>
           <DropdownMenuTrigger className="relative rounded-md p-2 text-foreground outline-none hover:bg-surface-muted" aria-label="Сповіщення">
             <Bell className="size-[18px]" strokeWidth={1.5} />
-            {pending > 0 ? <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-accent" /> : null}
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80">
             <DropdownMenuLabel>Сповіщення</DropdownMenuLabel>
             <DropdownMenuItem onSelect={() => navigate('/admin/bookings')}>
               <span>
                 <span className="block">Очікують підтвердження</span>
-                <span className="text-xs text-muted-foreground">
-                  {pending > 0 ? `${pending} бронювання` : 'Немає нових заявок'}
-                </span>
+                <span className="text-xs text-muted-foreground">Відкрити список бронювань</span>
               </span>
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => navigate('/admin')}>
               <span>
                 <span className="block">Заїзди сьогодні</span>
-                <span className="text-xs text-muted-foreground">{arrivals}</span>
+                <span className="text-xs text-muted-foreground">Відкрити головну</span>
               </span>
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -92,7 +85,9 @@ export function Header() {
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onSelect={() => {
-                  void logout().then(() => navigate('/login'))
+                  void logout().then(() => {
+                    window.location.assign(`${import.meta.env.BASE_URL.replace(/\/+$/, '')}/login`)
+                  })
                 }}
               >
                 Вийти

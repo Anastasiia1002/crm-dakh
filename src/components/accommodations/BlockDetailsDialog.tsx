@@ -75,6 +75,7 @@ export function BlockDetailsDialog({
                 type="button"
                 variant="destructive"
                 disabled={!canWrite || removeBlock.isPending}
+                loading={removeBlock.isPending}
                 onClick={() => void confirmRemove()}
               >
                 Зняти блокування

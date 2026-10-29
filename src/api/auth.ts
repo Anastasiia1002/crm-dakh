@@ -1,4 +1,10 @@
-import { apiRequest, refreshAccessToken, setAccessToken, setSessionLostHandler } from '@/lib/api-client'
+import {
+  apiRequest,
+  installAuthStorageListener,
+  refreshAccessToken,
+  setAccessToken,
+  setSessionLostHandler,
+} from '@/lib/api-client'
 import { ApiError } from '@/lib/api-error'
 import { clearAuthStorage, readRefreshToken, writeRefreshToken } from '@/lib/auth-storage'
 import { queryClient } from '@/lib/queryClient'
@@ -21,8 +27,9 @@ type BackendAdmin = {
   active: boolean
 }
 
+installAuthStorageListener()
+
 setSessionLostHandler(() => {
-  // Drop cached hotel data as soon as refresh fails — do not keep scoped lists in memory.
   queryClient.setQueryData(['session'], null)
   queryClient.clear()
 })
@@ -45,14 +52,12 @@ export async function login(email: string, password: string): Promise<AdminUser>
 
 export async function restoreSession(): Promise<AdminUser | null> {
   if (!readRefreshToken()) return null
-  try {
-    const refreshed = await refreshAccessToken()
-    if (!refreshed) return null
-    return await getCurrentUser()
-  } catch {
-    clearLocalSession()
-    return null
+  const refreshed = await refreshAccessToken()
+  if (refreshed === 'unavailable') {
+    throw new ApiError('Сервер тимчасово недоступний. Спробуйте пізніше.', 0, 'NETWORK')
   }
+  if (refreshed !== 'ok') return null
+  return await getCurrentUser()
 }
 
 export async function getCurrentUser(): Promise<AdminUser> {

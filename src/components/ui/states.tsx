@@ -1,7 +1,11 @@
 import type { ReactNode } from 'react'
 
-export function LoadingState() {
-  return <p className="py-16 text-sm text-muted-foreground">Завантаження…</p>
+export function LoadingState({ label = 'Завантаження…' }: { label?: string }) {
+  return (
+    <p className="py-16 text-sm text-muted-foreground" aria-busy="true" aria-live="polite">
+      {label}
+    </p>
+  )
 }
 
 export function EmptyState({ children }: { children: ReactNode }) {

@@ -297,7 +297,7 @@ function HotelForm({ hotel, canEdit }: { hotel: HotelSettings; canEdit: boolean 
         </Field>
         {canEdit ? (
           <div className="sm:col-span-2">
-            <Button type="submit" disabled={update.isPending}>
+            <Button type="submit" disabled={update.isPending} loading={update.isPending}>
               Зберегти
             </Button>
           </div>
@@ -363,7 +363,7 @@ function BookingSettingsForm({ settings, canEdit }: { settings: HotelBookingSett
         </Field>
         {canEdit ? (
           <div className="sm:col-span-2">
-            <Button type="submit" disabled={update.isPending}>
+            <Button type="submit" disabled={update.isPending} loading={update.isPending}>
               Зберегти
             </Button>
           </div>
@@ -670,7 +670,7 @@ function PolicyDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Скасувати
             </Button>
-            <Button type="submit" disabled={!canWrite || pending}>
+            <Button type="submit" disabled={!canWrite || pending} loading={pending}>
               Зберегти
             </Button>
           </DialogFooter>

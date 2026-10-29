@@ -407,7 +407,7 @@ function DayPriceDialog({
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Скасувати
               </Button>
-              <Button type="submit" disabled={!canWrite || pending || !catalogReady}>
+              <Button type="submit" disabled={!canWrite || pending || !catalogReady} loading={pending}>
                 Зберегти
               </Button>
             </>
@@ -647,7 +647,7 @@ function LengthStayDialog({
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Скасувати
               </Button>
-              <Button type="submit" disabled={!canWrite || pending || !catalogReady}>
+              <Button type="submit" disabled={!canWrite || pending || !catalogReady} loading={pending}>
                 Зберегти
               </Button>
             </>

@@ -165,7 +165,7 @@ function ServiceDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Скасувати
             </Button>
-            <Button type="submit" disabled={save.isPending}>
+            <Button type="submit" disabled={save.isPending} loading={save.isPending}>
               Зберегти
             </Button>
           </DialogFooter>

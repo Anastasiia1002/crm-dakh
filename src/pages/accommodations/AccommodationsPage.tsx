@@ -751,7 +751,7 @@ function UnitDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Скасувати
             </Button>
-            <Button type="submit" disabled={!canWrite || pending || (!item && !createTypeReady) || Boolean(item && assignedType.isLoading)}>
+            <Button type="submit" disabled={!canWrite || pending || (!item && !createTypeReady) || Boolean(item && assignedType.isLoading)} loading={pending}>
               Зберегти
             </Button>
           </DialogFooter>
@@ -915,7 +915,7 @@ function ImageManager({ roomTypeId, canWrite }: { roomTypeId: string; canWrite: 
           <Field label="Alt" error={form.formState.errors.alt?.message}>
             <Input {...form.register('alt')} />
           </Field>
-          <Button type="submit" size="sm" disabled={create.isPending}>
+          <Button type="submit" size="sm" disabled={create.isPending} loading={create.isPending}>
             Додати URL
           </Button>
         </form>
@@ -965,7 +965,7 @@ function ImageManager({ roomTypeId, canWrite }: { roomTypeId: string; canWrite: 
               <Button type="button" variant="outline" onClick={() => setEditingImage(null)}>
                 Скасувати
               </Button>
-              <Button type="submit" disabled={update.isPending}>
+              <Button type="submit" disabled={update.isPending} loading={update.isPending}>
                 Зберегти
               </Button>
             </DialogFooter>

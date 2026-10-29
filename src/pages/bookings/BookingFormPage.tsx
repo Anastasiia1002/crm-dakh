@@ -1,11 +1,12 @@
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useBlocker, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { listAllRooms, listAllRoomTypes } from '@/api/accommodations'
 import { AdminBookingForm } from '@/components/bookings/AdminBookingForm'
 import { Button } from '@/components/ui/button'
-import { LoadingState } from '@/components/ui/states'
+import { PageSkeleton, QueryErrorState } from '@/components/ui/page-status'
+import { PendingOverlay } from '@/components/ui/pending-overlay'
 import {
   useAdminBooking,
   useCreateAdminBooking,
@@ -14,7 +15,7 @@ import {
 import { useAdminRatePlans } from '@/hooks/useHotel'
 import { withReferencedRoom } from '@/lib/accommodation-labels'
 import { adminBookingRef, formatAdminBookingMoney, parseCalendarPrefill } from '@/lib/admin-booking-view'
-import { errorMessage } from '@/lib/errors'
+import { classifyMutationFailure, type MutationKind, type MutationPhase } from '@/lib/mutation-action'
 import { CATALOG_STALE_TIME } from '@/lib/queryClient'
 import type { Accommodation, AdminBookingCreateInput, AdminBookingDetail, AdminBookingUpdateInput } from '@/types'
 
@@ -39,6 +40,8 @@ export function BookingFormPage() {
   const createMutation = useCreateAdminBooking()
   const updateMutation = useUpdateAdminBooking(id ?? '')
   const [created, setCreated] = useState<AdminBookingDetail | null>(null)
+  const [phase, setPhase] = useState<Extract<MutationPhase, 'idle' | 'submitting' | 'uncertain'>>('idle')
+  const [kind, setKind] = useState<MutationKind>(isEdit ? 'update' : 'create')
 
   const preset = useMemo(() => {
     const parsed = parseCalendarPrefill(params)
@@ -48,6 +51,23 @@ export function BookingFormPage() {
       checkOut: parsed.checkOut,
     }
   }, [params])
+
+  const submitting = phase === 'submitting' || createMutation.isPending || updateMutation.isPending
+  const blocker = useBlocker(submitting)
+
+  useEffect(() => {
+    if (!submitting) return
+    const onLeave = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', onLeave)
+    return () => window.removeEventListener('beforeunload', onLeave)
+  }, [submitting])
+
+  useEffect(() => {
+    if (!submitting && blocker.state === 'blocked') blocker.proceed()
+  }, [blocker, submitting])
 
   if (created) {
     return (
@@ -70,37 +90,32 @@ export function BookingFormPage() {
     )
   }
 
-  if (isEdit && bookingQuery.isLoading) return <LoadingState />
-  if (roomsQuery.isLoading || typesQuery.isLoading || plansQuery.isLoading) return <LoadingState />
+  if (isEdit && bookingQuery.isLoading && !bookingQuery.data) return <PageSkeleton label="Завантажуємо бронювання…" />
+  if (!roomsQuery.data && roomsQuery.isLoading) return <PageSkeleton label="Завантажуємо номери та тарифи…" />
+  if (!typesQuery.data && typesQuery.isLoading) return <PageSkeleton label="Завантажуємо номери та тарифи…" />
+  if (!plansQuery.data && plansQuery.isLoading) return <PageSkeleton label="Завантажуємо номери та тарифи…" />
 
   if (isEdit && bookingQuery.isError) {
     return (
-      <div className="space-y-3 py-10">
-        <p className="text-sm">Не вдалося завантажити бронювання.</p>
-        <p className="text-sm text-muted-foreground">{errorMessage(bookingQuery.error)}</p>
-        <Button size="sm" variant="outline" onClick={() => void bookingQuery.refetch()}>
-          Спробувати ще раз
-        </Button>
-      </div>
+      <QueryErrorState
+        title="Не вдалося завантажити бронювання."
+        error={bookingQuery.error}
+        onRetry={() => void bookingQuery.refetch()}
+      />
     )
   }
 
   if (roomsQuery.isError || typesQuery.isError || plansQuery.isError) {
     return (
-      <div className="space-y-3 py-10">
-        <p className="text-sm">Не вдалося завантажити номери або тарифи.</p>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => {
-            void roomsQuery.refetch()
-            void typesQuery.refetch()
-            void plansQuery.refetch()
-          }}
-        >
-          Спробувати ще раз
-        </Button>
-      </div>
+      <QueryErrorState
+        title="Не вдалося завантажити номери або тарифи."
+        error={roomsQuery.error ?? typesQuery.error ?? plansQuery.error}
+        onRetry={() => {
+          void roomsQuery.refetch()
+          void typesQuery.refetch()
+          void plansQuery.refetch()
+        }}
+      />
     )
   }
 
@@ -125,10 +140,20 @@ export function BookingFormPage() {
   const rooms = withReferencedRoom(roomsQuery.data ?? [], referencedRoom)
   const roomTypes = typesQuery.data ?? []
   const ratePlans = plansQuery.data?.items ?? []
-  const submitting = createMutation.isPending || updateMutation.isPending
 
   return (
     <div className="space-y-6">
+      {phase === 'submitting' || phase === 'uncertain' ? (
+        <PendingOverlay
+          kind={kind}
+          phase={phase}
+          onStopWaiting={phase === 'uncertain' ? () => setPhase('idle') : undefined}
+          onCheckList={phase === 'uncertain' ? () => navigate('/admin/bookings') : undefined}
+        />
+      ) : null}
+      {blocker.state === 'blocked' ? (
+        <p className="text-sm text-muted-foreground">Дочекайтеся відповіді сервера, перш ніж залишати сторінку.</p>
+      ) : null}
       <div>
         <h2 className="font-serif text-3xl font-medium">{isEdit ? 'Редагування бронювання' : 'Нове бронювання'}</h2>
         <p className="mt-2 text-sm text-muted-foreground">
@@ -141,17 +166,31 @@ export function BookingFormPage() {
         roomTypes={roomTypes}
         ratePlans={ratePlans}
         preset={isEdit ? undefined : preset}
-        submitting={submitting}
+        submitting={submitting || phase === 'uncertain'}
         onSubmit={async (input) => {
-          if (isEdit) {
-            const saved = await updateMutation.mutateAsync(input as AdminBookingUpdateInput)
-            toast.success('Бронювання оновлено')
-            navigate(`/admin/bookings/${saved.id}`)
-            return
+          const nextKind: MutationKind = isEdit ? 'update' : 'create'
+          setKind(nextKind)
+          setPhase('submitting')
+          try {
+            if (isEdit) {
+              const saved = await updateMutation.mutateAsync(input as AdminBookingUpdateInput)
+              setPhase('idle')
+              toast.success('Бронювання оновлено')
+              navigate(`/admin/bookings/${saved.id}`)
+              return
+            }
+            const saved = await createMutation.mutateAsync(input as AdminBookingCreateInput)
+            setPhase('idle')
+            toast.success('Бронювання створено')
+            setCreated(saved)
+          } catch (error) {
+            if (classifyMutationFailure(nextKind, error) === 'uncertain') {
+              setPhase('uncertain')
+              return
+            }
+            setPhase('idle')
+            throw error
           }
-          const saved = await createMutation.mutateAsync(input as AdminBookingCreateInput)
-          toast.success('Бронювання створено')
-          setCreated(saved)
         }}
       />
     </div>

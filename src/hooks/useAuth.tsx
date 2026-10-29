@@ -1,11 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createContext, useContext, type ReactNode } from 'react'
 import { login, logout, restoreSession } from '@/api/auth'
+import { isRecoverableConnectionError } from '@/lib/session-policy'
 import type { AdminUser } from '@/types'
 
 type AuthContextValue = {
   user: AdminUser | null
   isLoading: boolean
+  restoreError: unknown
+  canRetryRestore: boolean
+  retryRestore: () => void
   login: (email: string, password: string) => Promise<AdminUser>
   logout: () => Promise<void>
 }
@@ -17,10 +21,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const session = useQuery({
     queryKey: ['session'],
     queryFn: restoreSession,
-    // A mounted page must not rotate the refresh token. API calls refresh on 401.
     staleTime: Infinity,
+    gcTime: Infinity,
     refetchOnMount: false,
     refetchOnReconnect: false,
+    refetchOnWindowFocus: false,
+    retry: (count, error) => isRecoverableConnectionError(error) && count < 2,
   })
 
   const loginMutation = useMutation({
@@ -40,7 +46,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value: AuthContextValue = {
     user: session.data ?? null,
-    isLoading: session.isLoading,
+    isLoading: session.isPending && session.isFetching,
+    restoreError: session.error,
+    canRetryRestore: session.isError && isRecoverableConnectionError(session.error),
+    retryRestore: () => {
+      void session.refetch()
+    },
     login: (email, password) => loginMutation.mutateAsync({ email, password }),
     logout: () => logoutMutation.mutateAsync(),
   }

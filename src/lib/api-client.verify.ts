@@ -231,7 +231,7 @@ async function main() {
     return jsonResponse(404, {})
   }, async () => {
     const ok = await refreshAccessToken()
-    assert(ok === false, 'refreshAccessToken false')
+    assert(ok === 'invalid', 'refreshAccessToken invalid')
     assert(readRefreshToken() === null, 'refresh removed')
     assert(lost === 1, 'session lost on direct refresh failure')
   })
@@ -248,11 +248,64 @@ async function main() {
     return jsonResponse(404, {})
   }, async () => {
     const ok = await refreshAccessToken()
-    assert(ok === true, 'restore refresh ok')
+    assert(ok === 'ok', 'restore refresh ok')
     assert(getAccessTokenForTests() === 'access-restored', 'access restored')
     assert(readRefreshToken() === 'refresh-restored', 'refresh restored')
   })
   console.log('PASS: restore-session refresh')
+
+  // 7) 403 does not refresh or logout
+  resetApiClientForTests()
+  clearAuthStorage()
+  writeRefreshToken('refresh-keep')
+  setAccessToken('access-ok')
+  lost = 0
+  setSessionLostHandler(() => {
+    lost += 1
+  })
+  await withMockFetch(async (url) => {
+    if (url.endsWith('/api/admin/users')) return jsonResponse(403, { error: 'FORBIDDEN' })
+    return jsonResponse(500, { message: 'refresh should not run' })
+  }, async (calls) => {
+    let thrown: unknown
+    try {
+      await apiRequest('/api/admin/users')
+    } catch (error) {
+      thrown = error
+    }
+    assert(thrown instanceof ApiError && thrown.status === 403, '403 surfaces')
+    assert(getAccessTokenForTests() === 'access-ok', 'access kept')
+    assert(readRefreshToken() === 'refresh-keep', 'refresh kept')
+    assert(lost === 0, '403 does not logout')
+    assert(calls.every((c) => !c.url.endsWith('/api/auth/refresh')), 'no refresh on 403')
+  })
+  console.log('PASS: 403 does not logout')
+
+  // 8) Network failure on refresh keeps the session
+  resetApiClientForTests()
+  clearAuthStorage()
+  writeRefreshToken('refresh-keep')
+  setAccessToken('access-expired')
+  lost = 0
+  setSessionLostHandler(() => {
+    lost += 1
+  })
+  await withMockFetch(async (url) => {
+    if (url.endsWith('/api/admin/bookings')) return jsonResponse(401, { error: 'UNAUTHORIZED' })
+    if (url.endsWith('/api/auth/refresh')) throw new TypeError('Failed to fetch')
+    return jsonResponse(404, {})
+  }, async () => {
+    let thrown: unknown
+    try {
+      await apiRequest('/api/admin/bookings')
+    } catch (error) {
+      thrown = error
+    }
+    assert(thrown instanceof ApiError && thrown.code === 'NETWORK', 'network code')
+    assert(readRefreshToken() === 'refresh-keep', 'refresh kept after network')
+    assert(lost === 0, 'network does not destroy session')
+  })
+  console.log('PASS: network timeout does not destroy session')
 
   console.log('All api-client auth/refresh checks passed.')
 }

@@ -6,6 +6,10 @@ export function errorMessage(error: unknown) {
       if (error.code === 'INVALID_CREDENTIALS') return 'Неправильний email або пароль.'
       return 'Сесія недійсна. Увійдіть знову.'
     }
+    if (error.code === 'TIMEOUT') return 'Сервер відповідає занадто довго. Спробуйте ще раз.'
+    if (error.code === 'NETWORK' || error.status === 0) {
+      return 'Сервер тимчасово недоступний. Спробуйте пізніше.'
+    }
     if (error.status === 403) return error.message || 'Недостатньо прав.'
     if (error.status === 404) return error.message || 'Не знайдено.'
     if (error.status === 409) {

@@ -262,7 +262,7 @@ export function BlockDatesDialog({
               <Button type="button" variant="outline" onClick={close}>
                 Скасувати
               </Button>
-              <Button type="submit" disabled={!canWrite || save.isPending}>
+              <Button type="submit" disabled={!canWrite || save.isPending} loading={save.isPending}>
                 Далі
               </Button>
             </DialogFooter>
@@ -285,7 +285,7 @@ export function BlockDatesDialog({
               <Button type="button" variant="outline" onClick={() => setStep('form')} disabled={save.isPending}>
                 Назад
               </Button>
-              <Button type="button" onClick={() => void confirm()} disabled={!canWrite || save.isPending}>
+              <Button type="button" onClick={() => void confirm()} disabled={!canWrite || save.isPending} loading={save.isPending}>
                 Заблокувати
               </Button>
             </DialogFooter>

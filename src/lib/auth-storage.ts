@@ -1,4 +1,4 @@
-const REFRESH_TOKEN_KEY = 'dakh.auth.refresh'
+export const REFRESH_TOKEN_KEY = 'dakh.auth.refresh'
 const LEGACY_MOCK_USER_KEY = 'dakh.admin.user'
 
 function storage(): Storage | null {

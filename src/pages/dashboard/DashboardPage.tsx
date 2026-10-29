@@ -1,5 +1,6 @@
 import { BookingTable } from '@/components/bookings/BookingTable'
-import { LoadingState, SectionHeading } from '@/components/ui/states'
+import { PageSkeleton, QueryErrorState } from '@/components/ui/page-status'
+import { SectionHeading } from '@/components/ui/states'
 import { useAccommodations } from '@/hooks/useHotel'
 import { useDashboard, useGuests } from '@/hooks/useBookings'
 
@@ -16,14 +17,39 @@ export function DashboardPage() {
   const guests = useGuests()
   const accommodations = useAccommodations()
 
-  if (dashboard.isLoading || guests.isLoading || accommodations.isLoading || !dashboard.data || !guests.data || !accommodations.data) {
-    return <LoadingState />
+  if (dashboard.isLoading && !dashboard.data) {
+    return <PageSkeleton label="Завантажуємо головну…" />
+  }
+
+  if (dashboard.isError) {
+    return (
+      <QueryErrorState
+        title="Не вдалося завантажити головну."
+        error={dashboard.error}
+        onRetry={() => {
+          void dashboard.refetch()
+          void guests.refetch()
+          void accommodations.refetch()
+        }}
+      />
+    )
+  }
+
+  if (!dashboard.data) {
+    return <PageSkeleton label="Завантажуємо головну…" />
   }
 
   const data = dashboard.data
+  const guestList = guests.data ?? []
+  const roomList = accommodations.data ?? []
 
   return (
     <div className="space-y-12">
+      {dashboard.isFetching ? (
+        <p className="text-xs text-muted-foreground" aria-live="polite">
+          Оновлення…
+        </p>
+      ) : null}
       <section className="grid grid-cols-2 gap-x-6 gap-y-8 border-y border-border py-6 md:grid-cols-5">
         {stats.map((stat) => {
           const value = data[stat.key]
@@ -46,8 +72,8 @@ export function DashboardPage() {
             <BookingTable
               variant="arrivals"
               bookings={data.arrivals}
-              guests={guests.data}
-              accommodations={accommodations.data}
+              guests={guestList}
+              accommodations={roomList}
               empty="Сьогодні заїздів немає."
             />
           </div>
@@ -56,8 +82,8 @@ export function DashboardPage() {
             <BookingTable
               variant="departures"
               bookings={data.departures}
-              guests={guests.data}
-              accommodations={accommodations.data}
+              guests={guestList}
+              accommodations={roomList}
               empty="Сьогодні виїздів немає."
             />
           </div>
@@ -69,8 +95,8 @@ export function DashboardPage() {
         <BookingTable
           variant="upcoming"
           bookings={data.upcoming}
-          guests={guests.data}
-          accommodations={accommodations.data}
+          guests={guestList}
+          accommodations={roomList}
           empty="Найближчих бронювань немає."
         />
       </section>

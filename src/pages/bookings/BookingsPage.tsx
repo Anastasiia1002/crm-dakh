@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Pagination } from '@/components/ui/pagination'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { EmptyState, LoadingState } from '@/components/ui/states'
+import { PageSkeleton } from '@/components/ui/page-status'
+import { EmptyState } from '@/components/ui/states'
 import { useAdminBookings } from '@/hooks/useBookings'
 import { useAllAdminRooms } from '@/hooks/useHotel'
 import { ACCOMMODATION_FALLBACK_LABEL, bookingRoomFilterLabel } from '@/lib/accommodation-labels'
@@ -192,7 +193,7 @@ export function BookingsPage() {
         <p className="text-sm text-muted-foreground">{dateGuard.message}</p>
       ) : null}
 
-      {bookings.isLoading && !bookings.data ? <LoadingState /> : null}
+      {bookings.isLoading && !bookings.data ? <PageSkeleton label="Завантажуємо бронювання…" /> : null}
       {bookings.isFetching && bookings.data ? (
         <p className="text-xs text-muted-foreground">Оновлення списку…</p>
       ) : null}

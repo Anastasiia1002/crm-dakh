@@ -1,6 +1,8 @@
 import { ApiError } from '@/lib/api-error'
 import { assertViteApiBaseUrl } from '@/lib/api-env'
-import { clearAuthStorage, readRefreshToken, writeRefreshToken } from '@/lib/auth-storage'
+import { redirectToLogin } from '@/lib/auth-redirect'
+import { clearAuthStorage, readRefreshToken, REFRESH_TOKEN_KEY, writeRefreshToken } from '@/lib/auth-storage'
+import { REQUEST_TIMEOUT_MS, refreshOutcomeFromError, type RefreshOutcome } from '@/lib/session-policy'
 
 type Method = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
 
@@ -10,6 +12,7 @@ type ApiRequestOptions = {
   auth?: boolean
   retry?: boolean
   signal?: AbortSignal
+  timeoutMs?: number
 }
 
 type TokenResponse = {
@@ -18,8 +21,9 @@ type TokenResponse = {
 }
 
 let accessToken: string | null = null
-let refreshInFlight: Promise<boolean> | null = null
+let refreshInFlight: Promise<RefreshOutcome> | null = null
 let onSessionLost: (() => void) | null = null
+let storageListenerInstalled = false
 
 export function setAccessToken(token: string | null) {
   accessToken = token
@@ -57,7 +61,7 @@ export function apiBaseUrl() {
   }
 }
 
-export async function refreshAccessToken(): Promise<boolean> {
+export async function refreshAccessToken(): Promise<RefreshOutcome> {
   if (!refreshInFlight) {
     refreshInFlight = rotateSession().finally(() => {
       refreshInFlight = null
@@ -72,26 +76,39 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   if (options.body !== undefined) headers.set('Content-Type', 'application/json')
   if (options.auth !== false && accessToken) headers.set('Authorization', `Bearer ${accessToken}`)
 
+  const timed = timeoutSignal(options.signal, options.timeoutMs ?? REQUEST_TIMEOUT_MS)
   let response: Response
   try {
     response = await fetch(resolveUrl(path), {
       method,
       headers,
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
-      signal: options.signal,
+      signal: timed.signal,
     })
   } catch (error) {
-    if (options.signal?.aborted || (error instanceof DOMException && error.name === 'AbortError')) {
+    if (options.signal?.aborted || (error instanceof DOMException && error.name === 'AbortError' && options.signal?.aborted)) {
       throw error
+    }
+    if (isTimeoutError(error) || timed.timedOut) {
+      throw new ApiError('Сервер відповідає занадто довго. Спробуйте ще раз.', 0, 'TIMEOUT')
     }
     if (import.meta.env?.DEV) console.error('API network error', path)
     throw new ApiError('Сервер тимчасово недоступний. Спробуйте пізніше.', 0, 'NETWORK')
+  } finally {
+    timed.clear()
   }
 
-  if (response.status === 401 && options.auth !== false && options.retry !== false) {
-    const refreshed = await refreshAccessToken()
-    if (!refreshed) throw new ApiError('Сесія недійсна', 401, 'INVALID_SESSION')
-    return apiRequest<T>(path, { ...options, retry: false })
+  if (response.status === 401 && options.auth !== false) {
+    if (options.retry !== false) {
+      const refreshed = await refreshAccessToken()
+      if (refreshed === 'ok') return apiRequest<T>(path, { ...options, retry: false })
+      if (refreshed === 'unavailable') {
+        throw new ApiError('Сервер тимчасово недоступний. Спробуйте пізніше.', 0, 'NETWORK')
+      }
+      throw new ApiError('Сесія недійсна', 401, 'INVALID_SESSION')
+    }
+    dropSession('invalid')
+    throw new ApiError('Сесія недійсна', 401, 'INVALID_SESSION')
   }
 
   if (!response.ok) throw await readError(response)
@@ -103,11 +120,11 @@ function resolveUrl(path: string) {
   return `${apiBaseUrl()}${suffix}`
 }
 
-async function rotateSession(): Promise<boolean> {
+async function rotateSession(): Promise<RefreshOutcome> {
   const refreshToken = readRefreshToken()
   if (!refreshToken) {
-    dropSession()
-    return false
+    dropSession('invalid')
+    return 'invalid'
   }
 
   try {
@@ -118,25 +135,56 @@ async function rotateSession(): Promise<boolean> {
       retry: false,
     })
     if (!session.accessToken || !session.refreshToken) {
-      dropSession()
-      return false
+      dropSession('invalid')
+      return 'invalid'
     }
     accessToken = session.accessToken
     writeRefreshToken(session.refreshToken)
-    return true
+    return 'ok'
   } catch (error) {
     if (import.meta.env?.DEV && error instanceof ApiError) {
       console.error('Session refresh failed', error.status, error.code ?? '')
     }
-    dropSession()
-    return false
+    const outcome = refreshOutcomeFromError(error)
+    if (outcome === 'invalid') dropSession('invalid')
+    return outcome
   }
 }
 
-function dropSession() {
+function dropSession(reason: 'invalid' | 'local') {
   accessToken = null
   clearAuthStorage()
   onSessionLost?.()
+  if (reason === 'invalid' && typeof window !== 'undefined') {
+    redirectToLogin()
+  }
+}
+
+function timeoutSignal(userSignal: AbortSignal | undefined, timeoutMs: number) {
+  const controller = new AbortController()
+  let timedOut = false
+  const timer = setTimeout(() => {
+    timedOut = true
+    controller.abort(new DOMException('Timeout', 'TimeoutError'))
+  }, timeoutMs)
+  const onUserAbort = () => controller.abort(userSignal?.reason)
+  userSignal?.addEventListener('abort', onUserAbort, { once: true })
+  if (userSignal?.aborted) onUserAbort()
+  return {
+    signal: controller.signal,
+    get timedOut() {
+      return timedOut
+    },
+    clear() {
+      clearTimeout(timer)
+      userSignal?.removeEventListener('abort', onUserAbort)
+    },
+  }
+}
+
+function isTimeoutError(error: unknown) {
+  if (!(error instanceof DOMException)) return false
+  return error.name === 'TimeoutError' || error.message === 'Timeout'
 }
 
 async function readSuccess<T>(response: Response): Promise<T> {
@@ -189,4 +237,18 @@ function safeDetails(value: unknown) {
     return message ? [message] : []
   })
   return details.length > 0 ? details : undefined
+}
+
+export function installAuthStorageListener() {
+  if (storageListenerInstalled || typeof window === 'undefined') return
+  if (typeof window.addEventListener !== 'function') return
+  storageListenerInstalled = true
+  window.addEventListener('storage', (event) => {
+    if (event.key !== REFRESH_TOKEN_KEY) return
+    if (event.newValue === null && event.oldValue) {
+      accessToken = null
+      onSessionLost?.()
+      redirectToLogin()
+    }
+  })
 }

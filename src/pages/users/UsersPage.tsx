@@ -382,7 +382,7 @@ function CreateUserDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Скасувати
             </Button>
-            <Button type="submit" disabled={create.isPending}>
+            <Button type="submit" disabled={create.isPending} loading={create.isPending}>
               Зберегти
             </Button>
           </DialogFooter>
@@ -509,7 +509,7 @@ function EditUserDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Скасувати
             </Button>
-            <Button type="submit" disabled={!canManage || update.isPending}>
+            <Button type="submit" disabled={!canManage || update.isPending} loading={update.isPending}>
               Зберегти
             </Button>
           </DialogFooter>
@@ -593,7 +593,7 @@ function PasswordDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Скасувати
             </Button>
-            <Button type="submit" disabled={!canManage || changePassword.isPending}>
+            <Button type="submit" disabled={!canManage || changePassword.isPending} loading={changePassword.isPending}>
               Зберегти пароль
             </Button>
           </DialogFooter>

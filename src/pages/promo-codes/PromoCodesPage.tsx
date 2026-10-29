@@ -219,7 +219,7 @@ function PromoDialog({
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Скасувати
               </Button>
-              <Button type="submit" disabled={!canWrite || save.isPending}>
+              <Button type="submit" disabled={!canWrite || save.isPending} loading={save.isPending}>
                 Зберегти
               </Button>
             </>

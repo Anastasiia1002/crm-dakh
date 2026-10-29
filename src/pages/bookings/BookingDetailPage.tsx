@@ -1,12 +1,13 @@
-import { useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useBlocker, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { BookingStatusBadge } from '@/components/bookings/BookingStatusBadge'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Field } from '@/components/ui/field'
-import { LoadingState } from '@/components/ui/states'
+import { PageSkeleton, QueryErrorState } from '@/components/ui/page-status'
+import { PendingOverlay } from '@/components/ui/pending-overlay'
 import { Textarea } from '@/components/ui/textarea'
 import { useAdminBooking, useAdminBookingStatus } from '@/hooks/useBookings'
 import { useAuth } from '@/hooks/useAuth'
@@ -22,6 +23,7 @@ import {
   isAdminBookingTerminal,
 } from '@/lib/admin-booking-view'
 import { createSubmitLock } from '@/lib/booking-form'
+import { classifyMutationFailure, type MutationKind, type MutationPhase } from '@/lib/mutation-action'
 import { statusOccupancyImpact } from '@/lib/booking-manage'
 import { ApiError } from '@/lib/api-error'
 import { errorMessage } from '@/lib/errors'
@@ -38,27 +40,46 @@ export function BookingDetailPage() {
   const [cancelOpen, setCancelOpen] = useState(false)
   const [reason, setReason] = useState('')
   const [confirm, setConfirm] = useState<Exclude<AdminBookingStatusAction, 'cancel'> | null>(null)
+  const [phase, setPhase] = useState<Extract<MutationPhase, 'idle' | 'submitting' | 'uncertain'>>('idle')
+  const [kind, setKind] = useState<MutationKind>('status')
   const actionLock = useRef(createSubmitLock())
+  const pending = statusMutation.isPending || phase === 'submitting' || phase === 'uncertain'
+  const blocker = useBlocker(phase === 'submitting')
 
-  if (bookingQuery.isLoading && !bookingQuery.data) return <LoadingState />
+  useEffect(() => {
+    if (phase !== 'submitting') return
+    const onLeave = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', onLeave)
+    return () => window.removeEventListener('beforeunload', onLeave)
+  }, [phase])
+
+  useEffect(() => {
+    if (phase !== 'submitting' && blocker.state === 'blocked') blocker.proceed()
+  }, [blocker, phase])
+
+  if (bookingQuery.isLoading && !bookingQuery.data) return <PageSkeleton label="Завантажуємо бронювання…" />
 
   if (bookingQuery.isError) {
     const notFound = bookingQuery.error instanceof ApiError && bookingQuery.error.status === 404
-    return (
-      <div className="space-y-3 border-t border-border py-10">
-        <p className="text-sm">{notFound ? 'Бронювання не знайдено.' : 'Не вдалося завантажити бронювання.'}</p>
-        {!notFound ? <p className="text-sm text-muted-foreground">{errorMessage(bookingQuery.error)}</p> : null}
-        <div className="flex flex-wrap gap-2">
-          {!notFound ? (
-            <Button size="sm" variant="outline" onClick={() => void bookingQuery.refetch()}>
-              Спробувати ще раз
-            </Button>
-          ) : null}
+    if (notFound) {
+      return (
+        <div className="space-y-3 border-t border-border py-10">
+          <p className="text-sm">Бронювання не знайдено.</p>
           <Button size="sm" variant="ghost" onClick={() => navigate('/admin/bookings')}>
             До списку
           </Button>
         </div>
-      </div>
+      )
+    }
+    return (
+      <QueryErrorState
+        title="Не вдалося завантажити бронювання."
+        error={bookingQuery.error}
+        onRetry={() => void bookingQuery.refetch()}
+      />
     )
   }
 
@@ -72,20 +93,28 @@ export function BookingDetailPage() {
   const closed = isAdminBookingTerminal(booking.status)
   const canEdit = canEditAdminBookingProfile(booking.status)
   const canMove = canEditAdminBookingCommercial(booking.status) && canReassignAdminBookingRoom(user?.role)
-  const pending = statusMutation.isPending
 
   async function runAction(action: AdminBookingStatusAction, cancellationReason?: string) {
     if (pending || !actionLock.current.tryBegin()) return
+    const nextKind: MutationKind = action === 'cancel' ? 'cancel' : 'status'
+    setKind(nextKind)
+    setPhase('submitting')
     try {
       await statusMutation.mutateAsync({
         action,
         cancel: cancellationReason ? { cancellationReason } : undefined,
       })
+      setPhase('idle')
       toast.success('Статус оновлено')
       setConfirm(null)
       setCancelOpen(false)
       setReason('')
     } catch (error) {
+      if (classifyMutationFailure(nextKind, error) === 'uncertain') {
+        setPhase('uncertain')
+        return
+      }
+      setPhase('idle')
       toast.error(errorMessage(error))
     } finally {
       actionLock.current.end()
@@ -93,7 +122,15 @@ export function BookingDetailPage() {
   }
 
   return (
-    <div className="max-w-5xl space-y-10">
+    <div className="max-w-5xl space-y-10" aria-busy={pending || undefined}>
+      {phase === 'submitting' || phase === 'uncertain' ? (
+        <PendingOverlay
+          kind={kind}
+          phase={phase}
+          onStopWaiting={phase === 'uncertain' ? () => setPhase('idle') : undefined}
+          onCheckList={phase === 'uncertain' ? () => navigate('/admin/bookings') : undefined}
+        />
+      ) : null}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-[11px] tracking-[0.16em] text-muted uppercase" title={booking.id}>
@@ -233,6 +270,7 @@ export function BookingDetailPage() {
             <Button
               variant="destructive"
               disabled={pending}
+              loading={pending && kind === 'cancel'}
               onClick={() => void runAction('cancel', reason)}
             >
               Скасувати бронювання

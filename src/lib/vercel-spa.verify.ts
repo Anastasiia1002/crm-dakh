@@ -39,7 +39,11 @@ assert(viteConfig.includes("base: githubPages ? '/crm-dakh/' : '/'"), 'Vercel ba
 const router = readFileSync(new URL('../router/index.tsx', import.meta.url), 'utf8')
 assert(router.includes('import.meta.env.BASE_URL'), 'router basename follows the Vite base')
 assert(router.includes("path: '/login'"), 'login route')
-assert(router.includes("navigate('/login')") || readFileSync(new URL('../components/layout/Header.tsx', import.meta.url), 'utf8').includes("navigate('/login')"), 'logout returns to /login')
+const header = readFileSync(new URL('../components/layout/Header.tsx', import.meta.url), 'utf8')
+assert(
+  header.includes("navigate('/login')") || header.includes('/login') && header.includes('location.assign'),
+  'logout returns to /login',
+)
 
 const pages = readFileSync(new URL('../../.github/workflows/deploy.yml', import.meta.url), 'utf8')
 assert(pages.includes("GITHUB_PAGES: 'true'"), 'Pages workflow sets the base')
