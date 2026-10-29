@@ -41,7 +41,10 @@ import { errorMessage } from '@/lib/errors'
 import { normalizePhone, phonesMatch } from '@/lib/phone'
 import {
   HOTEL_TIME_ZONE,
+  checkInPolicyError,
   kyivTodayIso,
+  reconcileStayDates,
+  storedStayDatesUnchanged,
   monthKey,
   calendarNightMaps,
   monthQueryRange,
@@ -68,10 +71,20 @@ type Props = {
   ratePlans: RatePlan[]
   preset?: { roomId?: string; checkIn?: string; checkOut?: string }
   submitting: boolean
+  onCreateActivity?: (active: boolean) => void
   onSubmit: (input: AdminBookingCreateInput | AdminBookingUpdateInput) => Promise<void>
 }
 
-export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset, submitting, onSubmit }: Props) {
+export function AdminBookingForm({
+  booking,
+  rooms,
+  roomTypes,
+  ratePlans,
+  preset,
+  submitting,
+  onCreateActivity,
+  onSubmit,
+}: Props) {
   const { user } = useAuth()
   const hotelQuery = useHotelSettings()
   const policyQuery = useHotelBookingSettings()
@@ -98,6 +111,7 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
   const [children, setChildren] = useState(booking?.children ?? 0)
   const [notes, setNotes] = useState(booking?.notes ?? '')
   const [calendarMonth, setCalendarMonth] = useState(monthKey(booking?.checkIn ?? preset?.checkIn ?? kyivTodayIso()))
+  const [clock, setClock] = useState(() => new Date())
   const [selectionError, setSelectionError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [showErrors, setShowErrors] = useState(false)
@@ -211,6 +225,43 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
   }, [appliedPromo, checkIn, checkOut, commercial, guestCount, isEdit, ownBookingId, promoCleared, promoTouched, ratePlanId, roomId, stayChanged])
   const quoteQuery = useAdminBookingQuote(quoteInput)
 
+  const hotelToday = kyivTodayIso(clock, rules?.timeZone ?? HOTEL_TIME_ZONE)
+  useEffect(() => {
+    const tick = () => setClock(new Date())
+    const timer = window.setInterval(tick, 30_000)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') tick()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [])
+  const storedStay =
+    booking?.checkIn && booking.checkOut ? { checkIn: booking.checkIn, checkOut: booking.checkOut } : null
+  const datesUnchanged = storedStayDatesUnchanged(storedStay, checkIn, checkOut)
+  useEffect(() => {
+    const stored =
+      booking?.checkIn && booking.checkOut ? { checkIn: booking.checkIn, checkOut: booking.checkOut } : null
+    if (!commercial || !checkIn || storedStayDatesUnchanged(stored, checkIn, checkOut)) return
+    const policy = rules
+      ? checkInPolicyError(checkIn, rules, clock)
+      : checkIn < hotelToday
+        ? 'Дата заїзду не може бути в минулому.'
+        : null
+    const orderError = !policy && checkOut && checkOut <= checkIn ? 'Виїзд має бути пізніше заїзду.' : null
+    const next = reconcileStayDates({
+      checkIn,
+      checkOut,
+      stored,
+      policyError: policy ?? orderError,
+    })
+    if (next.checkIn !== checkIn) setCheckIn(next.checkIn)
+    if (next.checkOut !== checkOut) setCheckOut(next.checkOut)
+    if (next.error) setSelectionError(next.error)
+  }, [booking?.checkIn, booking?.checkOut, checkIn, checkOut, clock, commercial, hotelToday, rules])
+
   const solePlanId = activePlans.length === 1 ? activePlans[0].id : ''
   useEffect(() => {
     if (!ratePlanId && solePlanId) setRatePlanId(solePlanId)
@@ -230,8 +281,9 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
           guestCount: adults < 1 ? 0 : guestCount,
           maxGuests,
           notes,
-          rules,
-          nights: rangeNights,
+          rules: datesUnchanged ? null : rules,
+          nights: datesUnchanged && roomId === (booking?.rooms[0]?.roomId ?? roomId) ? null : rangeNights,
+          now: clock,
         })
       : validateStayFields({
           checkIn,
@@ -255,9 +307,11 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
     return { ...guestErrors, ...stayErrors }
   }, [
     adults,
+    clock,
     checkIn,
     checkOut,
     commercial,
+    datesUnchanged,
     email,
     firstName,
     guestCount,
@@ -347,6 +401,7 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
       clicked: date,
       nights: nightKinds,
       rules,
+      now: clock,
     })
     setSelectionError(next.error)
     if (next.error) return
@@ -405,7 +460,17 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
     }
 
     const normalizedPhone = normalizePhone(phone)
+    if (!booking && !normalizedPhone.ok) {
+      setFormError(normalizedPhone.error)
+      submitLock.current.end()
+      return
+    }
+    let createStarted = false
     try {
+      if (!booking) {
+        onCreateActivity?.(true)
+        createStarted = true
+      }
       if (booking) {
         const result = buildAdminBookingUpdateInput({
           booking,
@@ -497,11 +562,13 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
         setFormError(result.error)
         return
       }
+      createStarted = false
       await onSubmit(result)
     } catch (error) {
       if (error instanceof ApiError && error.code === 'ROOM_UNAVAILABLE') setFormError(bookingConflictMessage())
       else setFormError(errorMessage(error))
     } finally {
+      if (createStarted) onCreateActivity?.(false)
       submitLock.current.end()
     }
   }
@@ -716,6 +783,8 @@ export function AdminBookingForm({ booking, rooms, roomTypes, ratePlans, preset,
             checkIn={checkIn}
             checkOut={checkOut}
             nights={nightKinds}
+            today={hotelToday}
+            allowSameDay={rules?.allowSameDayBooking ?? true}
             loading={calendarQuery.isFetching}
             error={selectionError || (calendarQuery.isError ? 'Не вдалося завантажити доступність.' : null)}
             disabled={!roomId}

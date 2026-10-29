@@ -5,13 +5,23 @@ export type MutationKind = 'create' | 'update' | 'cancel' | 'status'
 
 export type MutationPhase = 'idle' | 'validating' | 'submitting' | 'success' | 'error' | 'uncertain'
 
-export function mutationOverlayCopy(kind: MutationKind): { title: string; detail: string } {
-  if (kind === 'create') {
-    return {
-      title: 'Створюємо бронювання…',
-      detail: 'Зачекайте, поки система підтвердить результат.',
-    }
+export function createProgressCopy() {
+  return {
+    title: 'Створюємо бронювання',
+    detail: 'Зберігаємо дані гостя, перевіряємо доступність та формуємо бронювання.',
   }
+}
+
+export function createUncertainCopy() {
+  return {
+    title: 'Перевіряємо результат бронювання',
+    detail:
+      'Сервер ще не підтвердив результат. Бронювання могло бути створене. Не надсилайте його повторно, доки результат не буде перевірено.',
+  }
+}
+
+export function mutationOverlayCopy(kind: MutationKind): { title: string; detail: string } {
+  if (kind === 'create') return createProgressCopy()
   if (kind === 'update') {
     return {
       title: 'Зберігаємо зміни…',

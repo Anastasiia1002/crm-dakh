@@ -126,6 +126,47 @@ export function stayNightsAvailable(checkIn: string, checkOut: string, nights: R
   return true
 }
 
+/**
+ * The booking window applies to a new stay and to a stay whose dates changed.
+ * An update that keeps the stored dates skips it, matching backend skipWindow: !datesChanged.
+ */
+export function storedStayDatesUnchanged(
+  stored: { checkIn: string; checkOut: string } | null,
+  checkIn: string,
+  checkOut: string,
+) {
+  return Boolean(stored && checkIn === stored.checkIn && checkOut === stored.checkOut)
+}
+
+/**
+ * Keep a stored stay intact. A new stay with an invalid check-in is cleared.
+ * A changed stay that fails the window returns to the stored dates instead of being blanked.
+ */
+export function reconcileStayDates(input: {
+  checkIn: string
+  checkOut: string
+  stored: { checkIn: string; checkOut: string } | null
+  policyError: string | null
+}): { checkIn: string; checkOut: string; error: string | null } {
+  if (storedStayDatesUnchanged(input.stored, input.checkIn, input.checkOut)) {
+    return { checkIn: input.checkIn, checkOut: input.checkOut, error: null }
+  }
+  if (!input.policyError) {
+    return { checkIn: input.checkIn, checkOut: input.checkOut, error: null }
+  }
+  if (input.stored) {
+    return { checkIn: input.stored.checkIn, checkOut: input.stored.checkOut, error: input.policyError }
+  }
+  return { checkIn: '', checkOut: '', error: input.policyError }
+}
+
+/** Past hotel-local dates are closed. Today stays open unless same-day check-in is off. */
+export function stayDateDisabled(date: string, today: string, allowSameDay: boolean) {
+  if (date < today) return 'past' as const
+  if (!allowSameDay && date === today) return 'same-day' as const
+  return null
+}
+
 export function checkInPolicyError(checkIn: string, rules: BookingWindowRules, now = new Date()) {
   const today = kyivTodayIso(now, rules.timeZone)
   if (checkIn < today) return 'Дата заїзду не може бути в минулому.'
@@ -174,6 +215,18 @@ export function selectStayDate(input: {
   now?: Date
 }): DateSelection {
   const { clicked, nights, rules } = input
+  const today = kyivTodayIso(input.now, rules?.timeZone ?? HOTEL_TIME_ZONE)
+  const closed = stayDateDisabled(clicked, today, rules?.allowSameDayBooking ?? true)
+  if (closed) {
+    return {
+      checkIn: input.currentCheckIn,
+      checkOut: input.currentCheckOut,
+      error:
+        closed === 'past'
+          ? 'Дата заїзду не може бути в минулому.'
+          : 'Бронювання в день заїзду вимкнено політикою готелю.',
+    }
+  }
   const availability = nights.has(clicked) ? nights.get(clicked)! : 'blocked'
   const restart = () => {
     if (availability !== 'free') {

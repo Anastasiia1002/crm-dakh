@@ -147,7 +147,7 @@ export function BookingFormPage() {
         <PendingOverlay
           kind={kind}
           phase={phase}
-          onStopWaiting={phase === 'uncertain' ? () => setPhase('idle') : undefined}
+          onStopWaiting={phase === 'uncertain' && kind !== 'create' ? () => setPhase('idle') : undefined}
           onCheckList={phase === 'uncertain' ? () => navigate('/admin/bookings') : undefined}
         />
       ) : null}
@@ -167,6 +167,15 @@ export function BookingFormPage() {
         ratePlans={ratePlans}
         preset={isEdit ? undefined : preset}
         submitting={submitting || phase === 'uncertain'}
+        onCreateActivity={(active) => {
+          if (isEdit) return
+          if (active) {
+            setKind('create')
+            setPhase('submitting')
+            return
+          }
+          setPhase('idle')
+        }}
         onSubmit={async (input) => {
           const nextKind: MutationKind = isEdit ? 'update' : 'create'
           setKind(nextKind)

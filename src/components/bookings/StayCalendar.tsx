@@ -2,6 +2,7 @@ import { formatDate } from '@/lib/format'
 import {
   monthGrid,
   shiftMonth,
+  stayDateDisabled,
   weekdayLabels,
   type NightAvailability,
 } from '@/lib/stay-calendar'
@@ -32,9 +33,11 @@ function cellClass(input: {
   isCheckIn: boolean
   isCheckOut: boolean
   inStay: boolean
+  closed: boolean
 }) {
   if (input.isCheckIn || input.isCheckOut) return 'bg-primary text-primary-foreground'
   if (input.inStay) return 'bg-[#efe7dc] text-foreground'
+  if (input.closed) return 'cursor-not-allowed text-muted-foreground/45'
   if (input.availability === 'occupied') return 'bg-[#e7d4cf] text-[#6d4038] line-through'
   if (input.availability === 'blocked') return 'bg-[#ece7df] text-muted-foreground'
   if (!input.inMonth) return 'text-muted-foreground/70'
@@ -47,6 +50,8 @@ export function StayCalendar({
   checkIn,
   checkOut,
   nights,
+  today,
+  allowSameDay = true,
   loading,
   error,
   disabled,
@@ -58,6 +63,8 @@ export function StayCalendar({
   checkIn: string
   checkOut: string
   nights: ReadonlyMap<string, NightAvailability>
+  today: string
+  allowSameDay?: boolean
   loading: boolean
   error: string | null
   disabled?: boolean
@@ -104,24 +111,36 @@ export function StayCalendar({
       <div className="grid grid-cols-7 gap-1">
         {dates.map((date) => {
           const availability = nights.has(date) ? nights.get(date)! : nights.size > 0 ? 'blocked' : 'free'
+          const closed = stayDateDisabled(date, today, allowSameDay)
           const inStay = Boolean(checkIn && checkOut && date >= checkIn && date < checkOut)
           const isCheckIn = date === checkIn
           const isCheckOut = date === checkOut
+          const dateDisabled = Boolean(disabled || closed)
+          const reason = closed === 'past' ? 'минула дата' : closed === 'same-day' ? 'заїзд сьогодні вимкнено' : availability
           return (
             <button
               key={date}
               type="button"
-              disabled={disabled}
-              onClick={() => onSelect(date)}
-              className={`h-9 min-w-0 rounded-md text-sm tabular-nums ${cellClass({
+              disabled={dateDisabled}
+              aria-disabled={dateDisabled || undefined}
+              onClick={() => {
+                if (dateDisabled) return
+                onSelect(date)
+              }}
+              onKeyDown={(event) => {
+                if (!dateDisabled) return
+                if (event.key === 'Enter' || event.key === ' ') event.preventDefault()
+              }}
+              className={`h-9 min-w-0 rounded-md text-sm tabular-nums disabled:cursor-not-allowed ${cellClass({
                 availability,
                 inMonth: date.startsWith(month),
                 isCheckIn,
                 isCheckOut,
                 inStay,
+                closed: Boolean(closed) && !isCheckIn && !isCheckOut && !inStay,
               })}`}
-              aria-label={date}
-              aria-pressed={isCheckIn || isCheckOut || inStay}
+              aria-label={`${date}, ${reason}`}
+              aria-pressed={isCheckIn || isCheckOut || inStay || undefined}
             >
               {Number(date.slice(8, 10))}
             </button>
@@ -133,6 +152,7 @@ export function StayCalendar({
         <li>Вільна ніч</li>
         <li className="text-[#6d4038]">Зайнята ніч</li>
         <li>Недоступна ніч</li>
+        <li className="text-muted-foreground/70">Минула дата</li>
         <li className="text-foreground">Обраний заїзд / виїзд</li>
       </ul>
       {loading ? <p className="text-sm text-muted-foreground">Завантаження доступності…</p> : null}

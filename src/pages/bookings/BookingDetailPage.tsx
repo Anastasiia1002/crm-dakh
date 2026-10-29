@@ -190,10 +190,6 @@ export function BookingDetailPage() {
           <h3 className="font-serif text-2xl">Гість</h3>
           <Info label="Телефон" value={booking.guest.phone ?? '—'} />
           <Info label="Електронна пошта" value={booking.guest.email || '—'} />
-          <Info
-            label="Місто / країна"
-            value={[booking.guest.city, booking.guest.country].filter(Boolean).join(', ') || '—'}
-          />
           {booking.notes ? <Info label="Примітки до бронювання" value={booking.notes} /> : null}
           {booking.cancellationReason ? (
             <Info label="Причина скасування" value={booking.cancellationReason} />
