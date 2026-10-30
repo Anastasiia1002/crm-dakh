@@ -309,6 +309,7 @@ export type RatePlan = {
   type: RatePlanType
   cancellationPolicyId: string | null
   active: boolean
+  publicOfferable: boolean
   createdAt: string
   updatedAt: string
 }
@@ -380,6 +381,7 @@ export type RatePlanCreateInput = {
   type?: RatePlanType
   cancellationPolicyId?: string | null
   active?: boolean
+  publicOfferable?: boolean
 }
 
 export type RatePlanUpdateInput = {
@@ -389,6 +391,7 @@ export type RatePlanUpdateInput = {
   type?: RatePlanType
   cancellationPolicyId?: string | null
   active?: boolean
+  publicOfferable?: boolean
 }
 
 export type CancellationPolicyCreateInput = {

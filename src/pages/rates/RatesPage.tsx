@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueries } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
@@ -11,6 +11,7 @@ import { CancellationPolicyPicker } from '@/components/rates/CancellationPolicyP
 import { RatePlanPicker } from '@/components/rates/RatePlanPicker'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Field } from '@/components/ui/field'
@@ -30,6 +31,22 @@ import {
   useUpdateAdminRatePlan,
   useUpdateAdminRoomPrice,
 } from '@/hooks/useHotel'
+import {
+  beginRatePlanSave,
+  classifyRatePlanSaveError,
+  enablingPublicOffer,
+  finishRatePlanSave,
+  isInternalOnlyRatePlanCode,
+  nextPublicOffer,
+  PUBLIC_OFFER_CONFIRM_DETAIL,
+  PUBLIC_OFFER_CONFIRM_TITLE,
+  RATE_PLAN_CURRENCY_LABEL,
+  RATE_PLAN_PRICE_NOTE,
+  RATE_PLAN_SITE_LABEL,
+  RATE_PLAN_UNCERTAIN_MESSAGE,
+  ratePlanSiteState,
+  type RatePlanSaveGate,
+} from '@/lib/admin-rate-plans'
 import { ApiError } from '@/lib/api-error'
 import { errorMessage } from '@/lib/errors'
 import { formatDate, formatMoneyAmount, normalizeMoneyString, parseStayNights } from '@/lib/format'
@@ -142,6 +159,7 @@ export function RatesPage() {
             canWrite ? <Button onClick={() => setEditingPlan('new')}>Додати тариф</Button> : undefined
           }
         />
+        <p className="mb-4 max-w-2xl text-sm text-muted-foreground">{RATE_PLAN_PRICE_NOTE}</p>
         <form
           className="mb-4 flex max-w-md gap-2"
           onSubmit={(event) => {
@@ -161,7 +179,7 @@ export function RatesPage() {
         </form>
         {plansQuery.isError ? (
           <div className="space-y-3 py-6">
-            <p className="text-sm">Не вдалося завантажити тарифи</p>
+            <p className="text-sm">{ratesErrorMessage(plansQuery.error)}</p>
             <Button size="sm" variant="outline" onClick={() => void plansQuery.refetch()}>
               Спробувати ще раз
             </Button>
@@ -178,7 +196,9 @@ export function RatesPage() {
                 <TableHead>Код</TableHead>
                 <TableHead>Тип</TableHead>
                 <TableHead>Скасування</TableHead>
+                <TableHead>Валюта</TableHead>
                 <TableHead>Стан</TableHead>
+                <TableHead>Сайт</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
@@ -215,19 +235,24 @@ export function RatesPage() {
                         <span className="text-xs text-muted-foreground">Не знайдено</span>
                       )}
                     </TableCell>
+                    <TableCell>{RATE_PLAN_CURRENCY_LABEL}</TableCell>
                     <TableCell>
                       <Badge tone={plan.active ? 'success' : 'neutral'}>
                         {plan.active ? 'Активний' : 'Вимкнений'}
                       </Badge>
+                      {!plan.active && plan.publicOfferable && !isInternalOnlyRatePlanCode(plan.code) ? (
+                        <div className="mt-1 text-xs text-muted-foreground">Сайт його не покаже, доки тариф вимкнений.</div>
+                      ) : null}
+                    </TableCell>
+                    <TableCell>
+                      <Badge tone={ratePlanSiteState(plan) === 'public-candidate' ? 'success' : 'neutral'}>
+                        {RATE_PLAN_SITE_LABEL[ratePlanSiteState(plan)]}
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      {canWrite ? (
-                        <Button size="sm" variant="ghost" onClick={() => setEditingPlan(plan)}>
-                          Редагувати
-                        </Button>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">Лише перегляд</span>
-                      )}
+                      <Button size="sm" variant="ghost" onClick={() => setEditingPlan(plan)}>
+                        {canWrite ? 'Редагувати' : 'Переглянути'}
+                      </Button>
                     </TableCell>
                   </TableRow>
                 )
@@ -283,7 +308,7 @@ export function RatesPage() {
                 <TableHead>Тариф</TableHead>
                 <TableHead>Категорія</TableHead>
                 <TableHead>Період</TableHead>
-                <TableHead>Ціна за ніч</TableHead>
+                  <TableHead>Ціна за ніч, грн</TableHead>
                 <TableHead>Мін. ночей</TableHead>
                 <TableHead>Стан</TableHead>
                 <TableHead />
@@ -396,6 +421,7 @@ const planSchema = z.object({
   type: z.enum(RATE_TYPES),
   cancellationPolicyId: z.string(),
   active: z.enum(['yes', 'no']),
+  publicOfferable: z.boolean(),
 })
 
 function PlanDialog({
@@ -412,6 +438,10 @@ function PlanDialog({
   const create = useCreateAdminRatePlan()
   const update = useUpdateAdminRatePlan()
   const pending = create.isPending || update.isPending
+  const saveGate = useRef<RatePlanSaveGate>({ busy: false, uncertain: false })
+  const [held, setHeld] = useState(false)
+  const [confirmPublic, setConfirmPublic] = useState(false)
+  const confirmedPublic = useRef(false)
   const form = useForm<z.infer<typeof planSchema>>({
     resolver: zodResolver(planSchema),
     values: {
@@ -421,11 +451,27 @@ function PlanDialog({
       type: item?.type ?? 'STANDARD',
       cancellationPolicyId: item?.cancellationPolicyId ?? '',
       active: item?.active === false ? 'no' : 'yes',
+      publicOfferable: item?.publicOfferable === true,
     },
   })
+  const watchedCode = form.watch('code')
+  const internalOnly = isInternalOnlyRatePlanCode(item?.code ?? watchedCode) || isInternalOnlyRatePlanCode(watchedCode)
+  const canEditPublicOfferable = canWrite && !internalOnly
+  const wasPublic = item?.publicOfferable === true
+
+  function closePlan(next: boolean) {
+    if (!next) {
+      saveGate.current = { busy: false, uncertain: false }
+      confirmedPublic.current = false
+      setHeld(false)
+      setConfirmPublic(false)
+    }
+    onOpenChange(next)
+  }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+    <Dialog open={open} onOpenChange={closePlan}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{item ? 'Редагувати тариф' : 'Новий тариф'}</DialogTitle>
@@ -437,8 +483,27 @@ function PlanDialog({
               toast.error('Недостатньо прав для цієї дії')
               return
             }
+            const nextGate = beginRatePlanSave(saveGate.current)
+            if (!nextGate) return
+            saveGate.current = nextGate
+            setHeld(true)
+            const publish = !internalOnly && values.publicOfferable === true
+            if (enablingPublicOffer(wasPublic, publish) && !confirmedPublic.current) {
+              saveGate.current = finishRatePlanSave('error')
+              setHeld(false)
+              setConfirmPublic(true)
+              return
+            }
             try {
-              const input = {
+              const input: {
+                name: string
+                code: string
+                description: string | null
+                type: RatePlanType
+                cancellationPolicyId: string | null
+                active: boolean
+                publicOfferable?: boolean
+              } = {
                 name: values.name,
                 code: values.code,
                 description: values.description.trim() ? values.description.trim() : null,
@@ -448,14 +513,28 @@ function PlanDialog({
                   : null,
                 active: values.active === 'yes',
               }
+              if (!internalOnly) {
+                input.publicOfferable = publish
+              }
               if (item) {
                 await update.mutateAsync({ id: item.id, input })
               } else {
                 await create.mutateAsync(input)
               }
+              saveGate.current = finishRatePlanSave('success')
+              setHeld(false)
               toast.success('Збережено')
-              onOpenChange(false)
+              closePlan(false)
             } catch (error) {
+              const outcome = classifyRatePlanSaveError(error)
+              if (outcome === 'uncertain') {
+                saveGate.current = finishRatePlanSave('uncertain')
+                setHeld(true)
+                toast.error(RATE_PLAN_UNCERTAIN_MESSAGE)
+                return
+              }
+              saveGate.current = finishRatePlanSave('error')
+              setHeld(false)
               toast.error(ratesErrorMessage(error))
             }
           })}
@@ -510,17 +589,59 @@ function PlanDialog({
               </SelectContent>
             </Select>
           </Field>
+          {internalOnly ? (
+            <p className="text-sm text-muted-foreground">
+              Внутрішній тестовий тариф не публікується як комерційна пропозиція на сайті.
+            </p>
+          ) : (
+            <Field
+              label="Доступний для бронювання на сайті"
+              hint="Ознака лише дозволяє показати тариф гостям. Він також має бути активним і мати коректні ціни за періодами."
+            >
+              <label className="flex items-center gap-3 text-sm">
+                <Checkbox
+                  checked={form.watch('publicOfferable') === true}
+                  disabled={!canEditPublicOfferable || held}
+                  onCheckedChange={(checked) => {
+                    const requested = checked === true
+                    if (!requested) {
+                      confirmedPublic.current = false
+                      form.setValue('publicOfferable', false, { shouldValidate: true })
+                      return
+                    }
+                    const allowed = nextPublicOffer(form.getValues('publicOfferable') === true, true, false)
+                    if (allowed) return
+                    setConfirmPublic(true)
+                  }}
+                />
+                {form.watch('publicOfferable') ? 'Так' : 'Ні'}
+              </label>
+            </Field>
+          )}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => closePlan(false)}>
               Скасувати
             </Button>
-            <Button type="submit" disabled={!canWrite || pending}>
+            <Button type="submit" disabled={!canWrite || pending || held}>
               Зберегти
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
+    <ConfirmDialog
+      open={confirmPublic}
+      title={PUBLIC_OFFER_CONFIRM_TITLE}
+      description={PUBLIC_OFFER_CONFIRM_DETAIL}
+      confirmLabel="Дозволити на сайті"
+      onOpenChange={setConfirmPublic}
+      onConfirm={() => {
+        confirmedPublic.current = true
+        form.setValue('publicOfferable', nextPublicOffer(false, true, true), { shouldValidate: true })
+        setConfirmPublic(false)
+      }}
+    />
+    </>
   )
 }
 
@@ -740,6 +861,9 @@ function PriceDialog({
 function ratesErrorMessage(error: unknown) {
   if (error instanceof ApiError) {
     if (error.status === 403) return 'Недостатньо прав для цієї дії'
+    if (error.code === 'RATE_PLAN_CONTRACT') {
+      return error.message || 'Сервер не повернув коректний тариф. Оновлення недоступне, значення не підставляється.'
+    }
     if (error.code === 'RATE_PLAN_CODE_EXISTS') return 'Тариф з таким кодом уже існує'
     if (error.code === 'ROOM_PRICE_OVERLAP') {
       return 'Період ціни перетинається з активною ціною цього тарифу для цієї категорії'

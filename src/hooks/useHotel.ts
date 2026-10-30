@@ -346,6 +346,7 @@ export function useCreateAdminRatePlan() {
   const refresh = useRefresh()
   return useMutation({
     mutationFn: createRatePlan,
+    retry: false,
     onSuccess: () => refresh(['admin-rate-plans', 'admin-rate-plan']),
   })
 }
@@ -355,6 +356,7 @@ export function useUpdateAdminRatePlan() {
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: Parameters<typeof updateRatePlan>[1] }) =>
       updateRatePlan(id, input),
+    retry: false,
     onSuccess: () => refresh(['admin-rate-plans', 'admin-rate-plan']),
   })
 }

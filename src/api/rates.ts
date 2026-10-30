@@ -1,3 +1,4 @@
+import { parseAdminRatePlan, parseAdminRatePlanPage } from '@/lib/admin-rate-plans'
 import { apiRequest } from '@/lib/api-client'
 import { ApiError, delay } from '@/mocks/delay'
 import * as db from '@/mocks/db'
@@ -144,7 +145,7 @@ export async function deletePricePeriod(id: string) {
 /* ─── Admin Rates API ─── */
 
 export async function listRatePlans(query: RatePlanListQuery = {}, signal?: AbortSignal): Promise<RatesPage<RatePlan>> {
-  return apiRequest(
+  const body = await apiRequest(
     `/api/admin/rates/plans${querySuffix({
       page: query.page,
       limit: query.limit,
@@ -154,24 +155,28 @@ export async function listRatePlans(query: RatePlanListQuery = {}, signal?: Abor
     })}`,
     { signal },
   )
+  return parseAdminRatePlanPage(body)
 }
 
 export async function getRatePlan(id: string): Promise<RatePlan> {
-  return apiRequest(`/api/admin/rates/plans/${id}`)
+  return parseAdminRatePlan(await apiRequest(`/api/admin/rates/plans/${id}`))
 }
 
 export async function createRatePlan(input: RatePlanCreateInput): Promise<RatePlan> {
-  return apiRequest('/api/admin/rates/plans', {
-    method: 'POST',
-    body: {
-      name: input.name.trim(),
-      code: input.code.trim().toUpperCase(),
-      description: input.description?.trim() ? input.description.trim() : null,
-      type: input.type,
-      cancellationPolicyId: input.cancellationPolicyId ?? null,
-      active: input.active,
-    },
-  })
+  return parseAdminRatePlan(
+    await apiRequest('/api/admin/rates/plans', {
+      method: 'POST',
+      body: {
+        name: input.name.trim(),
+        code: input.code.trim().toUpperCase(),
+        description: input.description?.trim() ? input.description.trim() : null,
+        type: input.type,
+        cancellationPolicyId: input.cancellationPolicyId ?? null,
+        active: input.active,
+        publicOfferable: input.publicOfferable,
+      },
+    }),
+  )
 }
 
 export async function updateRatePlan(id: string, input: RatePlanUpdateInput): Promise<RatePlan> {
@@ -184,10 +189,13 @@ export async function updateRatePlan(id: string, input: RatePlanUpdateInput): Pr
   if (input.type !== undefined) body.type = input.type
   if (input.cancellationPolicyId !== undefined) body.cancellationPolicyId = input.cancellationPolicyId
   if (input.active !== undefined) body.active = input.active
-  return apiRequest(`/api/admin/rates/plans/${id}`, {
-    method: 'PATCH',
-    body,
-  })
+  if (input.publicOfferable !== undefined) body.publicOfferable = input.publicOfferable
+  return parseAdminRatePlan(
+    await apiRequest(`/api/admin/rates/plans/${id}`, {
+      method: 'PATCH',
+      body,
+    }),
+  )
 }
 
 export async function listCancellationPolicies(
