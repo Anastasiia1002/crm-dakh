@@ -946,6 +946,8 @@ export type AdminBookingCreateInput = {
   source?: AdminBookingSource
   status?: 'PENDING' | 'CONFIRMED'
   rooms: AdminBookingRoomInput[]
+  /** Catalog ids and quantities only — never client prices. */
+  services?: { serviceId: string; quantity: number }[]
   /** Server id from a successful quote. The client does not send a discount amount. */
   promoCodeId?: string
 }
@@ -968,6 +970,8 @@ export type AdminBookingUpdateInput = {
   guestCount?: number
   notes?: string | null
   rooms?: AdminBookingRoomInput[]
+  /** Catalog ids and quantities. Empty array clears saved services. Omitted leaves them unchanged. */
+  services?: { serviceId: string; quantity: number }[]
   /** Null clears a stored promo. Omitted leaves it unchanged. */
   promoCodeId?: string | null
 }
@@ -985,6 +989,8 @@ export type AdminBookingQuoteInput = {
   excludeBookingId?: string
   /** Empty string on an edit asks the quote to drop the stored promo. */
   promoCode?: string
+  /** When omitted on an edit quote, the backend reuses saved services. Send [] to quote without them. */
+  services?: { serviceId: string; quantity: number }[]
 }
 
 export type AdminBookingQuoteNight = {

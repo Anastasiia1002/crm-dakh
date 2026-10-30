@@ -9,6 +9,7 @@ import { Field } from '@/components/ui/field'
 import { PageSkeleton, QueryErrorState } from '@/components/ui/page-status'
 import { PendingOverlay } from '@/components/ui/pending-overlay'
 import { Textarea } from '@/components/ui/textarea'
+import { useAdminServices } from '@/hooks/useAdminServices'
 import { useAdminBooking, useAdminBookingStatus } from '@/hooks/useBookings'
 import { useAuth } from '@/hooks/useAuth'
 import {
@@ -27,6 +28,7 @@ import { classifyMutationFailure, type MutationKind, type MutationPhase } from '
 import { statusOccupancyImpact } from '@/lib/booking-manage'
 import { ApiError } from '@/lib/api-error'
 import { errorMessage } from '@/lib/errors'
+import { serviceDisplayName } from '@/lib/admin-services'
 import { formatDate, formatDateTime, formatGuests } from '@/lib/format'
 import { adminBookingSourceLabel } from '@/lib/labels'
 import type { AdminBookingStatusAction } from '@/types'
@@ -36,6 +38,7 @@ export function BookingDetailPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const bookingQuery = useAdminBooking(id)
+  const servicesCatalog = useAdminServices()
   const statusMutation = useAdminBookingStatus(id)
   const [cancelOpen, setCancelOpen] = useState(false)
   const [reason, setReason] = useState('')
@@ -207,7 +210,7 @@ export function BookingDetailPage() {
             {booking.services.map((service) => (
               <li key={service.id} className="flex justify-between py-2 text-sm">
                 <span>
-                  Послуга {service.serviceId.slice(0, 8)}…
+                  {serviceDisplayName(service.serviceId, servicesCatalog.data ?? [])}
                   <span className="ml-2 text-muted-foreground">× {service.quantity}</span>
                 </span>
                 <span className="tabular-nums">

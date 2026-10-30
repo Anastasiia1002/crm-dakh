@@ -128,7 +128,7 @@ export function runAdminBookingViewChecks(): string[] {
     assert(created.source === 'ADMIN' && created.status === 'CONFIRMED', 'create defaults')
     assert(created.guestId === undefined && created.guest?.firstName === 'Іван', 'guest xor')
     assert(!('totalAmount' in created) && created.rooms.length === 1, 'no client price')
-    assert(!('services' in created), 'create omits services until the catalog exists')
+    assert(!('services' in created), 'create omits services when none were selected')
   }
 
   const both = buildAdminBookingCreateInput({

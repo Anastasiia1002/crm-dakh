@@ -11,7 +11,10 @@ export function errorMessage(error: unknown) {
       return 'Сервер тимчасово недоступний. Спробуйте пізніше.'
     }
     if (error.status === 403) return error.message || 'Недостатньо прав.'
-    if (error.status === 404) return error.message || 'Не знайдено.'
+    if (error.status === 404) {
+      if (error.code === 'SERVICE_NOT_FOUND') return 'Послугу не знайдено в цьому готелі.'
+      return error.message || 'Не знайдено.'
+    }
     if (error.status === 409) {
       if (error.code === 'INVALID_STATUS_TRANSITION') {
         return 'Неможлива зміна статусу для цього бронювання.'
@@ -21,6 +24,12 @@ export function errorMessage(error: unknown) {
       }
       if (error.code === 'CANCELLATION_NOT_ALLOWED') {
         return 'Скасування недоступне для цього бронювання.'
+      }
+      if (error.code === 'SERVICE_INACTIVE') {
+        return 'Обрана послуга неактивна.'
+      }
+      if (error.code === 'DUPLICATE_SERVICE') {
+        return 'Послугу повторено в бронюванні.'
       }
       const detail = error.details?.[0]
       return detail ? `${error.message}: ${detail}` : error.message || 'Конфлікт даних.'

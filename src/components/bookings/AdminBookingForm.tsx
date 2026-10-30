@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { AdminServicePicker } from '@/components/bookings/AdminServicePicker'
 import { StayCalendar } from '@/components/bookings/StayCalendar'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -38,7 +39,12 @@ import { roomsOfferedForStay, stayPriceDifference } from '@/lib/booking-manage'
 import { ApiError } from '@/lib/api-error'
 import { bookingRoomFilterLabel } from '@/lib/accommodation-labels'
 import { errorMessage } from '@/lib/errors'
-import { adminBookingServicesBlockedMessage } from '@/lib/admin-services'
+import {
+  normalizeServiceSelections,
+  savedSelectionsFromBooking,
+  serviceSelectionsEqual,
+} from '@/lib/admin-services'
+import { useAdminServices } from '@/hooks/useAdminServices'
 import { normalizePhone, phonesMatch } from '@/lib/phone'
 import {
   HOTEL_TIME_ZONE,
@@ -133,7 +139,9 @@ export function AdminBookingForm({
   const [promoCleared, setPromoCleared] = useState(false)
   const [reviewOpen, setReviewOpen] = useState(false)
   const [pendingPatch, setPendingPatch] = useState<AdminBookingUpdateInput | null>(null)
+  const [selectedServices, setSelectedServices] = useState(() => savedSelectionsFromBooking(booking?.services ?? []))
   const submitLock = useRef(createSubmitLock())
+  const servicesCatalog = useAdminServices({ enabled: commercial })
 
   const selectedRoom = rooms.find((room) => room.id === roomId)
   const roomType = roomTypes.find((type) => type.id === selectedRoom?.roomTypeId)
@@ -223,18 +231,43 @@ export function AdminBookingForm({
   const roomChoices = offeredRoomIds ? rooms.filter((room) => offeredRoomIds.includes(room.id)) : rooms
 
   const promoTouched = appliedPromo !== null || promoCleared
+  const savedServiceLines = booking?.services ?? []
+  const servicesNormalized = useMemo(() => normalizeServiceSelections(selectedServices), [selectedServices])
+  const servicesError = servicesNormalized.ok ? null : servicesNormalized.error
+  const servicePayload = servicesNormalized.ok ? servicesNormalized.items : selectedServices
+  const servicesChanged = Boolean(
+    booking && !serviceSelectionsEqual(savedSelectionsFromBooking(savedServiceLines), servicePayload),
+  )
   const quoteInput = useMemo(() => {
     if (!commercial || !checkIn || !checkOut || !roomId || !ratePlanId || checkOut <= checkIn) return null
-    if (isEdit && !stayChanged && !promoTouched) return null
+    if (servicesError) return null
+    if (isEdit && !stayChanged && !promoTouched && !servicesChanged) return null
     return {
       checkIn,
       checkOut,
       guestCount,
       rooms: [{ roomId, ratePlanId }],
+      services: servicePayload,
       ...(ownBookingId ? { excludeBookingId: ownBookingId } : {}),
       ...(appliedPromo !== null ? { promoCode: appliedPromo } : promoCleared ? { promoCode: '' } : {}),
     }
-  }, [appliedPromo, checkIn, checkOut, commercial, guestCount, isEdit, ownBookingId, promoCleared, promoTouched, ratePlanId, roomId, stayChanged])
+  }, [
+    appliedPromo,
+    checkIn,
+    checkOut,
+    commercial,
+    guestCount,
+    isEdit,
+    ownBookingId,
+    promoCleared,
+    promoTouched,
+    ratePlanId,
+    roomId,
+    servicePayload,
+    servicesChanged,
+    servicesError,
+    stayChanged,
+  ])
   const quoteQuery = useAdminBookingQuote(quoteInput)
 
   const hotelToday = kyivTodayIso(clock, rules?.timeZone ?? HOTEL_TIME_ZONE)
@@ -343,7 +376,8 @@ export function AdminBookingForm({
   const quoteBlocked = Boolean(quoteInput) && (!quoteQuery.data || quoteQuery.isFetching || quoteQuery.isError)
   const policyBlocked = !isEdit && (policyQuery.isLoading || policyQuery.isError || !rules)
   const rangeBlocked = Boolean(checkIn && checkOut && checkOut > checkIn && (rangeQuery.isFetching || rangeQuery.isError))
-  const submitDisabled = submitting || hasFieldErrors(draftErrors) || quoteBlocked || policyBlocked || rangeBlocked
+  const submitDisabled =
+    submitting || hasFieldErrors(draftErrors) || Boolean(servicesError) || quoteBlocked || policyBlocked || rangeBlocked
 
   function guestFields() {
     return { firstName, lastName, phone, email }
@@ -442,12 +476,15 @@ export function AdminBookingForm({
           setFormError(bookingConflictMessage())
           return
         }
+      }
+      if (stayChanged || servicesChanged || promoTouched) {
         await quoteAdminBooking({
           checkIn,
           checkOut,
           guestCount,
           rooms: [{ roomId, ratePlanId }],
           excludeBookingId: booking.id,
+          services: servicePayload,
           ...(appliedPromo !== null ? { promoCode: appliedPromo } : promoCleared ? { promoCode: '' } : {}),
         })
       }
@@ -466,7 +503,8 @@ export function AdminBookingForm({
     if (submitting || !submitLock.current.tryBegin()) return
     setShowErrors(true)
     setFormError(null)
-    if (hasFieldErrors(draftErrors)) {
+    if (hasFieldErrors(draftErrors) || servicesError) {
+      if (servicesError) setFormError(servicesError)
       submitLock.current.end()
       return
     }
@@ -503,12 +541,14 @@ export function AdminBookingForm({
           ratePlanId,
           notes,
           promoCodeId: promoTouched ? (quoteQuery.data?.promoCodeId ?? null) : undefined,
+          services: servicePayload,
+          servicesChanged,
         })
         if ('error' in result) {
           setFormError(result.error)
           return
         }
-        if (stayChanged || promoTouched) {
+        if (stayChanged || promoTouched || servicesChanged) {
           const available = await freshStayAvailable()
           if (!available) {
             setFormError(bookingConflictMessage())
@@ -520,6 +560,7 @@ export function AdminBookingForm({
             guestCount,
             rooms: [{ roomId, ratePlanId }],
             excludeBookingId: booking.id,
+            services: servicePayload,
             ...(appliedPromo !== null ? { promoCode: appliedPromo } : promoCleared ? { promoCode: '' } : {}),
           })
         }
@@ -555,6 +596,7 @@ export function AdminBookingForm({
         checkOut,
         guestCount,
         rooms: [{ roomId, ratePlanId }],
+        services: servicePayload,
         ...(appliedPromo !== null ? { promoCode: appliedPromo } : {}),
       })
       const result = buildAdminBookingCreateInput({
@@ -569,6 +611,7 @@ export function AdminBookingForm({
         ratePlanId,
         notes: notes.trim(),
         promoCodeId: quoted.promoCodeId,
+        services: servicePayload,
       })
       if ('error' in result) {
         setFormError(result.error)
@@ -825,9 +868,17 @@ export function AdminBookingForm({
       {commercial ? (
         <section className="space-y-2 border-t border-border pt-5">
           <h3 className="font-serif text-2xl">Послуги</h3>
-          <p className="text-sm text-muted-foreground" role="status">
-            {adminBookingServicesBlockedMessage()}
-          </p>
+          <AdminServicePicker
+            catalog={servicesCatalog.data ?? []}
+            status={servicesCatalog.isError ? 'error' : servicesCatalog.isLoading && !servicesCatalog.data ? 'loading' : 'ready'}
+            error={servicesCatalog.error}
+            onRetry={() => void servicesCatalog.refetch()}
+            selected={selectedServices}
+            saved={savedServiceLines}
+            disabled={!commercial}
+            selectionError={servicesError}
+            onChange={setSelectedServices}
+          />
         </section>
       ) : null}
 
@@ -879,9 +930,9 @@ export function AdminBookingForm({
                 : errorMessage(quoteQuery.error)}
             </p>
           ) : null}
-          {booking && !stayChanged && !promoTouched ? (
+          {booking && !stayChanged && !promoTouched && !servicesChanged ? (
             <p className="text-sm">
-              Поточна сума {formatAdminBookingMoney(booking.price.totalAmount, booking.price.currency)} залишиться, доки не зміняться дати, розміщення або промокод.
+              Поточна сума {formatAdminBookingMoney(booking.price.totalAmount, booking.price.currency)} залишиться, доки не зміняться дати, розміщення, послуги або промокод.
             </p>
           ) : null}
           {quoteQuery.data ? (
@@ -892,7 +943,7 @@ export function AdminBookingForm({
               discountAmount={quoteQuery.data.price.discountAmount}
               taxAmount={quoteQuery.data.price.taxAmount}
               totalAmount={quoteQuery.data.price.totalAmount}
-              previousTotal={booking && stayChanged ? booking.price.totalAmount : undefined}
+              previousTotal={booking && (stayChanged || servicesChanged) ? booking.price.totalAmount : undefined}
               pricing={quoteQuery.data.pricing}
             />
           ) : !booking || stayChanged ? (
@@ -956,7 +1007,11 @@ export function AdminBookingForm({
                 {currentRoom && roomId !== currentRoom.roomId ? ` → ${accommodationName || '—'}` : ' без змін'}
               </p>
               <p>Гості: {booking.guestCount}{guestCount !== booking.guestCount ? ` → ${guestCount}` : ' без змін'}</p>
-              {stayChanged && quoteQuery.data ? (
+              <p>
+                Послуги: {savedServiceLines.length}
+                {servicesChanged ? ` → ${servicePayload.length}` : ' без змін'}
+              </p>
+              {(stayChanged || servicesChanged || promoTouched) && quoteQuery.data ? (
                 <PriceChange previous={booking.price.totalAmount} next={quoteQuery.data.price.totalAmount} currency={quoteQuery.data.price.currency} />
               ) : (
                 <p>Сума {formatAdminBookingMoney(booking.price.totalAmount, booking.price.currency)} не зміниться.</p>

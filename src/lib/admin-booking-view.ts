@@ -1,5 +1,6 @@
 import { unitDisplayLabel } from '@/lib/accommodation-labels'
 import { formatMoneyAmount } from '@/lib/format'
+import { normalizeServiceSelections, type AdminServiceSelection } from '@/lib/admin-services'
 import type {
   AdminBookingCreateInput,
   AdminBookingDetail,
@@ -145,7 +146,7 @@ export function guestCountFromOccupancy(adults: number, children: number) {
   return Math.max(1, total)
 }
 
-/** Build create body: guestId XOR guest; no prices/services/promo. */
+/** Build create body: guestId XOR guest; no client prices. */
 export function buildAdminBookingCreateInput(input: {
   guestMode: 'existing' | 'new'
   guestId: string
@@ -158,12 +159,15 @@ export function buildAdminBookingCreateInput(input: {
   ratePlanId: string
   notes?: string
   promoCodeId?: string | null
+  services?: AdminServiceSelection[]
 }): AdminBookingCreateInput | { error: string } {
   const dateError = validateStayDates(input.checkIn, input.checkOut)
   if (dateError) return { error: dateError }
   if (!input.roomId || !input.ratePlanId) return { error: 'Оберіть номер і тариф.' }
   if (input.adults < 1) return { error: 'Потрібен хоча б один дорослий.' }
   if (input.children < 0) return { error: 'Кількість дітей некоректна.' }
+  const services = prepareServicePayload(input.services, 'create')
+  if ('error' in services) return services
 
   const body: AdminBookingCreateInput = {
     checkIn: input.checkIn,
@@ -178,6 +182,7 @@ export function buildAdminBookingCreateInput(input: {
   const notes = input.notes?.trim()
   if (notes) body.notes = notes
   if (input.promoCodeId) body.promoCodeId = input.promoCodeId
+  if (services.items) body.services = services.items
 
   if (input.guestMode === 'existing') {
     if (!input.guestId) return { error: 'Оберіть гостя.' }
@@ -217,6 +222,8 @@ export function buildAdminBookingUpdateInput(input: {
   ratePlanId: string
   notes: string
   promoCodeId?: string | null
+  services?: AdminServiceSelection[]
+  servicesChanged?: boolean
 }): AdminBookingUpdateInput | { error: string } {
   const { booking, role } = input
   if (isAdminBookingTerminal(booking.status)) {
@@ -238,6 +245,11 @@ export function buildAdminBookingUpdateInput(input: {
     if (guestCount !== booking.guestCount) patch.guestCount = guestCount
     if (input.promoCodeId !== undefined && input.promoCodeId !== booking.promoCodeId) {
       patch.promoCodeId = input.promoCodeId
+    }
+    if (input.servicesChanged) {
+      const services = prepareServicePayload(input.services ?? [], 'patch')
+      if ('error' in services) return services
+      patch.services = services.items ?? []
     }
 
     const currentRoom = booking.rooms[0]
@@ -318,6 +330,10 @@ export function sanitizeAdminBookingCreateBody(input: AdminBookingCreateInput): 
   if (input.children !== undefined) body.children = input.children
   if (input.notes?.trim()) body.notes = input.notes.trim()
   if (input.promoCodeId) body.promoCodeId = input.promoCodeId
+  if (input.services !== undefined) {
+    const services = prepareServicePayload(input.services, 'create')
+    if (!('error' in services) && services.items) body.services = services.items
+  }
   if (input.guestId) {
     body.guestId = input.guestId
   } else if (input.guest) {
@@ -341,7 +357,10 @@ export function sanitizeAdminBookingQuoteBody(input: {
   rooms: { roomId: string; ratePlanId: string }[]
   excludeBookingId?: string
   promoCode?: string
+  services?: AdminServiceSelection[]
 }) {
+  const services =
+    input.services === undefined ? undefined : prepareServicePayload(input.services, 'patch')
   return {
     checkIn: input.checkIn,
     checkOut: input.checkOut,
@@ -349,6 +368,7 @@ export function sanitizeAdminBookingQuoteBody(input: {
     rooms: input.rooms.map((room) => ({ roomId: room.roomId, ratePlanId: room.ratePlanId })),
     ...(input.excludeBookingId ? { excludeBookingId: input.excludeBookingId } : {}),
     ...(input.promoCode !== undefined ? { promoCode: input.promoCode } : {}),
+    ...(!services || 'error' in services ? {} : { services: services.items ?? [] }),
   }
 }
 
@@ -361,8 +381,29 @@ export function createBodyHasForbiddenFields(body: Record<string, unknown>) {
     'discountAmount',
     'paymentStatus',
     'paymentMethod',
-    'services',
     'promoCode',
   ]
-  return forbidden.filter((key) => key in body)
+  const hits = forbidden.filter((key) => key in body)
+  if ('services' in body && servicePayloadHasClientPrices(body.services)) hits.push('services')
+  return hits
+}
+
+function prepareServicePayload(
+  rows: AdminServiceSelection[] | undefined,
+  mode: 'create' | 'patch',
+): { items?: AdminServiceSelection[] } | { error: string } {
+  if (rows === undefined) return {}
+  const normalized = normalizeServiceSelections(rows)
+  if (!normalized.ok) return { error: normalized.error }
+  if (normalized.items.length === 0) return mode === 'patch' ? { items: [] } : {}
+  return { items: normalized.items }
+}
+
+function servicePayloadHasClientPrices(value: unknown) {
+  if (!Array.isArray(value)) return true
+  return value.some((row) => {
+    if (!row || typeof row !== 'object' || Array.isArray(row)) return true
+    const record = row as Record<string, unknown>
+    return 'unitPrice' in record || 'totalPrice' in record || 'price' in record
+  })
 }

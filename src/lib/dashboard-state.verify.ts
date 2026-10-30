@@ -72,8 +72,8 @@ function main() {
   assert(authApi.includes('queryClient.clear()'), 'session logout clears the authenticated query cache')
 
   const services = readFileSync(new URL('../pages/services/ServicesPage.tsx', import.meta.url), 'utf8')
-  assert(services.includes('ADMIN_SERVICE_CATALOG_BLOCKED_LABEL'), 'services page is blocked until the catalog endpoint exists')
-  assert(!services.includes('useServices') && !services.includes('Додати послугу'), 'services page does not present the local catalog as hotel data')
+  assert(services.includes('useAdminServices'), 'services page loads GET /api/admin/services')
+  assert(!services.includes('Додати послугу') && !services.includes("from '@/api/services'"), 'services page does not present the local catalog as hotel data')
   console.log('PASS: dashboard, invalidation, and cache clearing')
 }
 
