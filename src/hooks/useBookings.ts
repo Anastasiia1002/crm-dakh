@@ -94,6 +94,7 @@ export const adminBookingInvalidationKeys = [
   ['admin-booking-quote'],
   ['admin-guest'],
   ['admin-guest-bookings'],
+  ['admin-dashboard-summary'],
 ] as const
 
 export function invalidateAdminBookingQueries(queryClient: ReturnType<typeof useQueryClient>) {

@@ -1,5 +1,5 @@
 /**
- * Dashboard honesty: no mock operational numbers, and explicit empty/error copy.
+ * Dashboard honesty: real summary endpoint, no mock operational numbers.
  * Run: npx --yes tsx src/lib/dashboard-state.verify.ts
  */
 import { readFileSync } from 'node:fs'
@@ -21,25 +21,39 @@ function main() {
     assert(!unavailable.detail.includes('%'), 'unavailable copy has no fake percentage')
     assert(unavailable.detail.includes('не показуються як отриманий дохід'), 'booking value is not labeled as paid revenue')
   }
-  assert(resolveDashboardView({ summaryEndpoint: false, phase: 'empty' }).kind === 'unavailable', 'missing endpoint is not an empty period')
+  assert(
+    resolveDashboardView({ summaryEndpoint: false, phase: 'empty' }).kind === 'unavailable',
+    'missing endpoint is not an empty period',
+  )
+  assert(
+    resolveDashboardView({ summaryEndpoint: true, phase: 'unavailable' }).kind === 'unavailable',
+    'a 404 summary is unavailable, not empty',
+  )
   assert(resolveDashboardView({ summaryEndpoint: true, phase: 'error' }).kind === 'error', 'endpoint error is an error')
   const errorView = resolveDashboardView({ summaryEndpoint: true, phase: 'error' })
   assert(errorView.kind === 'error' && errorView.message === DASHBOARD_ERROR_MESSAGE, 'error copy')
   const emptyView = resolveDashboardView({ summaryEndpoint: true, phase: 'empty' })
-  assert(emptyView.kind === 'empty' && emptyView.message === DASHBOARD_EMPTY_MESSAGE, 'empty copy')
-  assert(resolveDashboardView({ summaryEndpoint: true, phase: 'ready' }).kind === 'ready', 'ready only after a real endpoint')
+  assert(emptyView.kind === 'empty' && emptyView.message === DASHBOARD_EMPTY_MESSAGE, 'empty copy is unused for zeros')
+  assert(resolveDashboardView({ summaryEndpoint: true, phase: 'ready' }).kind === 'ready', 'ready includes a 200 with zeros')
 
   const page = readFileSync(new URL('../pages/dashboard/DashboardPage.tsx', import.meta.url), 'utf8')
   assert(!page.includes('getDashboard') && !page.includes('mocks/db') && !page.includes('useDashboard'), 'dashboard page does not read the mock summary')
-  assert(!page.includes('occupancyPercent') && !page.includes('Дохід') && !page.includes('Виручка'), 'dashboard does not invent occupancy or revenue')
-  assert(page.includes('resolveDashboardView') && page.includes('summaryEndpoint: false'), 'page stays on the unavailable contract')
+  assert(page.includes('useAdminDashboardSummary'), 'dashboard page reads the admin summary hook')
+  assert(page.includes('summaryEndpoint: true'), 'page treats the summary endpoint as present')
+  assert(!page.includes('occupancyPercent(') && !page.includes('Дохід') && !page.includes('Виручка'), 'dashboard does not invent occupancy or revenue')
+  assert(page.includes('Сума бронювань') && page.includes('Це не отримані оплати.'), 'booking value is not paid revenue')
+  assert(page.includes('PAYMENTS_UNAVAILABLE_LABEL'), 'payments unavailable uses the shared label')
+  assert(page.includes('BOOKINGS_OVERLAP_HINT'), 'period total explains stay overlap, not created-at')
   assert(page.includes('useAdminBookings'), 'recent bookings come from the admin list')
   assert(page.includes('Не вдалося завантажити дані.') && page.includes('Повторити'), 'a failed booking list can be retried')
   assert(page.includes('не підсумок за період'), 'the latest page is not described as a period total')
+  assert(page.includes('QueryErrorState'), 'summary errors can be retried')
+  assert(page.includes('Знімок на'), 'today snapshot is labeled separately from the period')
 
   const keys = adminBookingInvalidationKeys.map((key) => key[0])
   assert(new Set(keys).size === keys.length, 'booking invalidation does not repeat a query key')
   assert(keys.includes('admin-stay-calendar') && keys.includes('admin-guest-bookings'), 'stay calendar and guest history refresh after a booking change')
+  assert(keys.includes('admin-dashboard-summary'), 'booking mutations refresh the real dashboard summary')
   assert(!keys.includes('dashboard'), 'booking mutations do not refresh a mock dashboard')
   const seen: string[] = []
   invalidateAdminBookingQueries({
@@ -48,6 +62,9 @@ function main() {
     },
   } as never)
   assert(seen.length === keys.length && new Set(seen).size === seen.length, 'one invalidation pass does not duplicate requests')
+
+  const hotelHooks = readFileSync(new URL('../hooks/useHotel.ts', import.meta.url), 'utf8')
+  assert(hotelHooks.includes("invalidateQueries({ queryKey: ['admin-dashboard-summary'] })"), 'room-block mutations refresh the dashboard summary')
 
   const auth = readFileSync(new URL('../hooks/useAuth.tsx', import.meta.url), 'utf8')
   const authApi = readFileSync(new URL('../api/auth.ts', import.meta.url), 'utf8')

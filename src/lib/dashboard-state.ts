@@ -1,7 +1,7 @@
 export const DASHBOARD_EMPTY_MESSAGE = 'За вибраний період даних немає.'
 export const DASHBOARD_ERROR_MESSAGE = 'Не вдалося завантажити дані.'
 
-export type DashboardPhase = 'loading' | 'error' | 'empty' | 'ready'
+export type DashboardPhase = 'loading' | 'error' | 'empty' | 'ready' | 'unavailable'
 
 export type DashboardView =
   | { kind: 'unavailable'; title: string; detail: string }
@@ -11,11 +11,12 @@ export type DashboardView =
   | { kind: 'ready' }
 
 /**
- * There is no admin summary endpoint. A missing contract is not an empty period
- * and is not a zero. Ready metrics stay unreachable until that endpoint exists.
+ * Real GET /api/admin/dashboard/summary.
+ * A 200 with zeros is ready, not empty, and not unavailable.
+ * Empty is unused for KPI cards — zeros render as zero.
  */
 export function resolveDashboardView(input: { summaryEndpoint: boolean; phase?: DashboardPhase }): DashboardView {
-  if (!input.summaryEndpoint) {
+  if (!input.summaryEndpoint || input.phase === 'unavailable') {
     return {
       kind: 'unavailable',
       title: 'Зведення недоступне',
