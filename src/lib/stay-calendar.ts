@@ -1,7 +1,7 @@
-import { addCalendarDays, nightsBetween } from '@/lib/dates'
+import { addCalendarDays, HOTEL_TIME_ZONE, nightsBetween, todayIso } from '@/lib/dates'
 import type { CalendarNightState } from '@/types'
 
-export const HOTEL_TIME_ZONE = 'Europe/Kyiv'
+export { HOTEL_TIME_ZONE }
 
 export type NightAvailability = 'free' | 'occupied' | 'blocked'
 
@@ -21,17 +21,7 @@ export function weekdayLabels() {
 }
 
 export function kyivTodayIso(now = new Date(), timeZone = HOTEL_TIME_ZONE) {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(now)
-  const year = parts.find((part) => part.type === 'year')?.value
-  const month = parts.find((part) => part.type === 'month')?.value
-  const day = parts.find((part) => part.type === 'day')?.value
-  if (!year || !month || !day) return '1970-01-01'
-  return `${year}-${month}-${day}`
+  return todayIso(now, timeZone)
 }
 
 export function monthKey(iso: string) {

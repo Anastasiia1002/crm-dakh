@@ -1,7 +1,18 @@
-import { format } from 'date-fns'
+/** Hotel-local calendar. Stay dates and the chessboard use this zone, not the browser zone. */
+export const HOTEL_TIME_ZONE = 'Europe/Kyiv'
 
-export function todayIso() {
-  return format(new Date(), 'yyyy-MM-dd')
+export function todayIso(now = new Date(), timeZone = HOTEL_TIME_ZONE) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now)
+  const year = parts.find((part) => part.type === 'year')?.value
+  const month = parts.find((part) => part.type === 'month')?.value
+  const day = parts.find((part) => part.type === 'day')?.value
+  if (!year || !month || !day) return '1970-01-01'
+  return `${year}-${month}-${day}`
 }
 
 /** @deprecated Prefer addCalendarDays for YYYY-MM-DD stay dates (timezone-safe). */

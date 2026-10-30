@@ -283,8 +283,11 @@ function HotelForm({ hotel, canEdit }: { hotel: HotelSettings; canEdit: boolean 
         <Field label="Країна" error={form.formState.errors.country?.message}>
           <Input disabled={!canEdit} {...form.register('country')} />
         </Field>
-        <Field label="Валюта" error={form.formState.errors.currency?.message}>
-          <Input disabled={!canEdit} maxLength={3} {...form.register('currency')} />
+        <Field
+          label="Валюта"
+          hint="Показується як її повернув сервер. Ця форма не змінює валюту: дозволена лише гривня (UAH)."
+        >
+          <Input value={hotel.currency} disabled readOnly />
         </Field>
         <Field label="Часовий пояс" error={form.formState.errors.timezone?.message}>
           <Input disabled={!canEdit} {...form.register('timezone')} />
@@ -413,7 +416,6 @@ function hotelPatch(current: HotelSettings, values: HotelFormValues): HotelSetti
   const patch: HotelSettingsUpdate = {}
   const name = values.name.trim()
   const slug = values.slug.trim().toLowerCase()
-  const currency = values.currency.trim().toUpperCase()
   const timezone = values.timezone.trim()
   if (name !== current.name) patch.name = name
   if (slug !== current.slug) patch.slug = slug
@@ -423,7 +425,6 @@ function hotelPatch(current: HotelSettings, values: HotelFormValues): HotelSetti
   assignText(patch, 'address', current.address, values.address)
   assignText(patch, 'city', current.city, values.city)
   assignText(patch, 'country', current.country, values.country)
-  if (currency !== current.currency) patch.currency = currency
   if (timezone !== current.timezone) patch.timezone = timezone
   assignTime(patch, 'checkInTime', current.checkInTime, values.checkInTime)
   assignTime(patch, 'checkOutTime', current.checkOutTime, values.checkOutTime)

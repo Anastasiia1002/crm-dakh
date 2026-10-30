@@ -185,4 +185,12 @@ assert(!profilePage.includes('Країна і місто') && !profilePage.inclu
 assert(profilePage.includes('Email') && profilePage.includes('Телефон'), 'guest contact stays on the details page')
 assert(profilePage.includes('useGuestHistory') && profilePage.includes('GuestBookingHistory'), 'booking history still loads on guest details')
 
+const guestStats = readFileSync(new URL('../components/guests/GuestStats.tsx', import.meta.url), 'utf8')
+const settingsPage = readFileSync(new URL('../pages/settings/SettingsPage.tsx', import.meta.url), 'utf8')
+assert(guestStats.includes('Сума бронювань'), 'guest total is labeled as booking value')
+assert(!guestStats.includes('Витрачено'), 'guest total is not labeled as money already spent')
+assert(guestStats.includes('не отримані оплати'), 'guest total says it is not received payments')
+assert(!settingsPage.includes('patch.currency'), 'hotel settings form does not change currency')
+assert(settingsPage.includes('дозволена лише гривня'), 'currency field explains UAH only')
+
 console.log('PASS: admin guest directory uses the hotel API')

@@ -8,6 +8,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { StayCalendar } from '../components/bookings/StayCalendar'
 import type { AdminBookingDetail } from '@/types'
 import { buildAdminBookingUpdateInput, canEditAdminBookingCommercial } from './admin-booking-view'
+import { todayIso } from './dates'
 import { applyGuestFill, createSubmitLock, hasFieldErrors, proposeGuestFill, validateGuestFields, validateStayFields } from './booking-form'
 import { normalizePhone, phonesMatch } from './phone'
 import {
@@ -259,6 +260,7 @@ function main() {
   const winter = new Date('2026-01-15T22:30:00.000Z')
   const summer = new Date('2026-06-15T21:30:00.000Z')
   assert(kyivTodayIso(winter) === '2026-01-16', 'winter offset uses the next hotel date before UTC midnight')
+  assert(todayIso(winter) === kyivTodayIso(winter), 'calendar today follows the hotel date, not the browser zone')
   assert(kyivTodayIso(summer) === '2026-06-16', 'summer offset uses the next hotel date before UTC midnight')
   assert(stayDateDisabled('2026-01-15', kyivTodayIso(winter), true) === 'past', 'utc today can already be past in winter')
   const yearTurn = new Date('2026-12-31T22:30:00.000Z')
