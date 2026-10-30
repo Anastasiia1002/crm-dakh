@@ -160,6 +160,28 @@ export function reconcileStayDates(input: {
   return { checkIn: '', checkOut: '', error: input.policyError }
 }
 
+/** New bookings do not open months entirely before the current hotel month. Edits may. */
+export function canBrowsePreviousMonth(month: string, today: string, allowPastMonths: boolean) {
+  if (allowPastMonths) return true
+  return month > today.slice(0, 7)
+}
+
+/**
+ * A create link cannot seed a past check-in. Today stays allowed until same-day policy says otherwise.
+ * Stored booking dates are not passed through this helper.
+ */
+export function createStayPreset(input: {
+  checkIn?: string
+  checkOut?: string
+  today: string
+  allowSameDay: boolean
+}) {
+  const checkIn =
+    input.checkIn && !stayDateDisabled(input.checkIn, input.today, input.allowSameDay) ? input.checkIn : undefined
+  const checkOut = checkIn && input.checkOut && input.checkOut > checkIn ? input.checkOut : undefined
+  return { checkIn, checkOut }
+}
+
 /** Past hotel-local dates are closed. Today stays open unless same-day check-in is off. */
 export function stayDateDisabled(date: string, today: string, allowSameDay: boolean) {
   if (date < today) return 'past' as const

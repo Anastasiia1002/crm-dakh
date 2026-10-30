@@ -1,5 +1,6 @@
 import { formatDate } from '@/lib/format'
 import {
+  canBrowsePreviousMonth,
   monthGrid,
   shiftMonth,
   stayDateDisabled,
@@ -35,12 +36,12 @@ function cellClass(input: {
   inStay: boolean
   closed: boolean
 }) {
-  if (input.isCheckIn || input.isCheckOut) return 'bg-primary text-primary-foreground'
-  if (input.inStay) return 'bg-[#efe7dc] text-foreground'
-  if (input.closed) return 'cursor-not-allowed text-muted-foreground/45'
+  if (input.isCheckIn || input.isCheckOut) return 'bg-primary font-semibold text-primary-foreground underline decoration-2'
+  if (input.inStay) return 'bg-[#efe7dc] font-medium text-foreground underline decoration-1'
+  if (input.closed) return 'cursor-not-allowed text-muted-foreground/45 opacity-40'
   if (input.availability === 'occupied') return 'bg-[#e7d4cf] text-[#6d4038] line-through'
-  if (input.availability === 'blocked') return 'bg-[#ece7df] text-muted-foreground'
-  if (!input.inMonth) return 'text-muted-foreground/70'
+  if (input.availability === 'blocked') return 'border border-dashed border-muted-foreground/50 bg-[#ece7df] text-muted-foreground'
+  if (!input.inMonth) return 'text-muted-foreground/70 italic'
   return 'bg-surface hover:bg-surface-muted'
 }
 
@@ -52,6 +53,7 @@ export function StayCalendar({
   nights,
   today,
   allowSameDay = true,
+  allowPastMonths = false,
   loading,
   error,
   disabled,
@@ -65,6 +67,7 @@ export function StayCalendar({
   nights: ReadonlyMap<string, NightAvailability>
   today: string
   allowSameDay?: boolean
+  allowPastMonths?: boolean
   loading: boolean
   error: string | null
   disabled?: boolean
@@ -72,6 +75,7 @@ export function StayCalendar({
   onSelect: (date: string) => void
 }) {
   const dates = monthGrid(month)
+  const previousMonthEnabled = !disabled && canBrowsePreviousMonth(month, today, allowPastMonths)
   const rangeLabel =
     checkIn && checkOut ? `${formatDate(checkIn)} — ${formatDate(checkOut)}` : checkIn ? `Заїзд ${formatDate(checkIn)}` : 'Оберіть заїзд, потім виїзд'
 
@@ -85,9 +89,13 @@ export function StayCalendar({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            className="rounded-md border border-border px-2 py-1 text-sm"
-            onClick={() => onMonthChange(shiftMonth(month, -1))}
-            disabled={disabled}
+            className="rounded-md border border-border px-2 py-1 text-sm disabled:cursor-not-allowed disabled:opacity-40"
+            onClick={() => {
+              if (!previousMonthEnabled) return
+              onMonthChange(shiftMonth(month, -1))
+            }}
+            disabled={!previousMonthEnabled}
+            aria-label="Попередній місяць"
           >
             Назад
           </button>
@@ -108,7 +116,7 @@ export function StayCalendar({
           <div key={label}>{label}</div>
         ))}
       </div>
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-7 gap-1" aria-busy={loading || undefined}>
         {dates.map((date) => {
           const availability = nights.has(date) ? nights.get(date)! : nights.size > 0 ? 'blocked' : 'free'
           const closed = stayDateDisabled(date, today, allowSameDay)
@@ -150,13 +158,21 @@ export function StayCalendar({
 
       <ul className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
         <li>Вільна ніч</li>
-        <li className="text-[#6d4038]">Зайнята ніч</li>
-        <li>Недоступна ніч</li>
-        <li className="text-muted-foreground/70">Минула дата</li>
-        <li className="text-foreground">Обраний заїзд / виїзд</li>
+        <li className="line-through">Зайнята ніч</li>
+        <li className="underline decoration-dashed">Недоступна ніч</li>
+        <li className="opacity-40">Минула дата</li>
+        <li className="font-semibold underline">Обраний заїзд / виїзд</li>
       </ul>
-      {loading ? <p className="text-sm text-muted-foreground">Завантаження доступності…</p> : null}
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {loading ? (
+        <p className="text-sm text-muted-foreground" role="status">
+          Завантаження доступності…
+        </p>
+      ) : null}
+      {error ? (
+        <p className="text-sm text-destructive" role="alert">
+          {error}
+        </p>
+      ) : null}
     </div>
   )
 }

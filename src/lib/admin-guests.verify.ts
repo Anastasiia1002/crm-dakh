@@ -181,5 +181,8 @@ assert(!directory.includes('newGuests') && !directory.includes('Постійни
 assert(profilePage.includes('Редагування картки гостя недоступне'), 'profile edit is unavailable')
 assert(profilePage.includes('useGuestHistory'), 'history uses its own request')
 assert(!profilePage.includes('profile.data.history'), 'profile history slice is not the table')
+assert(!profilePage.includes('Країна і місто') && !profilePage.includes('guestPlaceLabel'), 'guest details do not show city and country')
+assert(profilePage.includes('Email') && profilePage.includes('Телефон'), 'guest contact stays on the details page')
+assert(profilePage.includes('useGuestHistory') && profilePage.includes('GuestBookingHistory'), 'booking history still loads on guest details')
 
 console.log('PASS: admin guest directory uses the hotel API')

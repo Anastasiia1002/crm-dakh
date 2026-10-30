@@ -40,7 +40,7 @@ export function BookingFormPage() {
   const createMutation = useCreateAdminBooking()
   const updateMutation = useUpdateAdminBooking(id ?? '')
   const [created, setCreated] = useState<AdminBookingDetail | null>(null)
-  const [phase, setPhase] = useState<Extract<MutationPhase, 'idle' | 'submitting' | 'uncertain'>>('idle')
+  const [phase, setPhase] = useState<Extract<MutationPhase, 'idle' | 'validating' | 'submitting' | 'uncertain'>>('idle')
   const [kind, setKind] = useState<MutationKind>(isEdit ? 'update' : 'create')
 
   const preset = useMemo(() => {
@@ -52,7 +52,8 @@ export function BookingFormPage() {
     }
   }, [params])
 
-  const submitting = phase === 'submitting' || createMutation.isPending || updateMutation.isPending
+  const submitting =
+    phase === 'validating' || phase === 'submitting' || createMutation.isPending || updateMutation.isPending
   const blocker = useBlocker(submitting)
 
   useEffect(() => {
@@ -143,7 +144,7 @@ export function BookingFormPage() {
 
   return (
     <div className="space-y-6">
-      {phase === 'submitting' || phase === 'uncertain' ? (
+      {phase === 'validating' || phase === 'submitting' || phase === 'uncertain' ? (
         <PendingOverlay
           kind={kind}
           phase={phase}
@@ -171,7 +172,7 @@ export function BookingFormPage() {
           if (isEdit) return
           if (active) {
             setKind('create')
-            setPhase('submitting')
+            setPhase('validating')
             return
           }
           setPhase('idle')

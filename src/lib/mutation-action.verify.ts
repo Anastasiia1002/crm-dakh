@@ -10,6 +10,7 @@ import {
   classifyMutationFailure,
   createProgressCopy,
   createUncertainCopy,
+  createValidatingCopy,
   mutationOverlayCopy,
   uncertainOutcomeMessage,
 } from './mutation-action'
@@ -19,10 +20,15 @@ function assert(condition: boolean, message: string) {
 }
 
 function main() {
+  const validating = createValidatingCopy()
+  assert(validating.title === 'Перевіряємо дані', 'validating title')
+  assert(validating.detail.includes('ще не надіслане'), 'validating is not a create confirmation')
   const creating = createProgressCopy()
-  assert(creating.title === 'Створюємо бронювання', 'create title')
-  assert(creating.detail.includes('Зберігаємо дані гостя'), 'create detail')
+  assert(creating.title === 'Надсилаємо бронювання', 'create title')
+  assert(creating.detail.includes('після підтвердженої відповіді'), 'create waits for the API')
+  assert(!creating.detail.includes('Зберігаємо дані гостя'), 'create does not claim guest persistence')
   assert(!creating.detail.includes('%'), 'create progress is not a fake percentage')
+  assert(mutationOverlayCopy('create', 'validating').title === validating.title, 'validating overlay copy')
   const uncertainCreate = createUncertainCopy()
   assert(uncertainCreate.title === 'Перевіряємо результат бронювання', 'create uncertain title')
   assert(uncertainCreate.detail.includes('могло бути створене'), 'timeout is not reported as failure')
@@ -42,11 +48,14 @@ function main() {
 
   const formPage = readFileSync(new URL('../pages/bookings/BookingFormPage.tsx', import.meta.url), 'utf8')
   const overlay = readFileSync(new URL('../components/ui/pending-overlay.tsx', import.meta.url), 'utf8')
+  assert(formPage.includes("setPhase('validating')"), 'create shows feedback before the POST')
+  assert(formPage.includes("setPhase('submitting')"), 'POST uses the submitting phase')
   assert(formPage.includes("kind !== 'create'"), 'create timeout does not return the form to idle')
   assert(overlay.includes("kind !== 'create'"), 'create overlay has no stop-and-resubmit control')
   assert(overlay.includes('role="alertdialog"') && overlay.includes('motion-safe:animate-spin'), 'dialog and reduced-motion spinner')
   assert(overlay.includes('Перевірити список бронювань'), 'uncertain create can open the booking list')
   assert(!formPage.includes('Idempotency-Key'), 'create does not send an idempotency retry')
+  assert(!formPage.includes('mutateAsync(input') || formPage.includes('createMutation.mutateAsync'), 'create posts once through the mutation')
 
   const lock = createSubmitLock()
   assert(lock.tryBegin(), 'first submit')

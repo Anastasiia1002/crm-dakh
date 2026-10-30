@@ -17,12 +17,12 @@ export function PendingOverlay({
   onCheckList,
 }: {
   kind: MutationKind
-  phase: Extract<MutationPhase, 'submitting' | 'uncertain'>
+  phase: Extract<MutationPhase, 'validating' | 'submitting' | 'uncertain'>
   onStopWaiting?: () => void
   onCheckList?: () => void
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
-  const copy = mutationOverlayCopy(kind)
+  const copy = mutationOverlayCopy(kind, phase === 'uncertain' ? 'submitting' : phase)
   const uncertain = phase === 'uncertain'
   const createUncertain = uncertain && kind === 'create'
   const title = createUncertain ? createUncertainCopy().title : uncertain ? 'Не вдалося підтвердити результат операції' : copy.title

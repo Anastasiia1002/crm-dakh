@@ -1,104 +1,78 @@
-import { BookingTable } from '@/components/bookings/BookingTable'
-import { PageSkeleton, QueryErrorState } from '@/components/ui/page-status'
-import { SectionHeading } from '@/components/ui/states'
-import { useAccommodations } from '@/hooks/useHotel'
-import { useDashboard, useGuests } from '@/hooks/useBookings'
+import { Link } from 'react-router-dom'
+import { Button } from '@/components/ui/button'
+import { useAdminBookings } from '@/hooks/useBookings'
+import { adminBookingRef } from '@/lib/admin-booking-view'
+import { resolveDashboardView } from '@/lib/dashboard-state'
+import { formatDate } from '@/lib/format'
+import { bookingStatusLabel } from '@/lib/labels'
 
-const stats = [
-  { key: 'arrivalsToday', label: 'Заїзди сьогодні' },
-  { key: 'departuresToday', label: 'Виїзди сьогодні' },
-  { key: 'guestsInHouse', label: 'Гості в готелі' },
-  { key: 'availableRooms', label: 'Доступні номери' },
-  { key: 'occupancyPercent', label: 'Завантаженість' },
-] as const
+const recentFilters = {
+  page: 1,
+  limit: 8,
+  search: '',
+  status: 'all' as const,
+  source: 'all' as const,
+  roomId: 'all' as const,
+  checkIn: '',
+  checkOut: '',
+}
 
 export function DashboardPage() {
-  const dashboard = useDashboard()
-  const guests = useGuests()
-  const accommodations = useAccommodations()
-
-  if (dashboard.isLoading && !dashboard.data) {
-    return <PageSkeleton label="Завантажуємо головну…" />
-  }
-
-  if (dashboard.isError) {
-    return (
-      <QueryErrorState
-        title="Не вдалося завантажити головну."
-        error={dashboard.error}
-        onRetry={() => {
-          void dashboard.refetch()
-          void guests.refetch()
-          void accommodations.refetch()
-        }}
-      />
-    )
-  }
-
-  if (!dashboard.data) {
-    return <PageSkeleton label="Завантажуємо головну…" />
-  }
-
-  const data = dashboard.data
-  const guestList = guests.data ?? []
-  const roomList = accommodations.data ?? []
+  const summary = resolveDashboardView({ summaryEndpoint: false })
+  const recent = useAdminBookings(recentFilters)
 
   return (
-    <div className="space-y-12">
-      {dashboard.isFetching ? (
-        <p className="text-xs text-muted-foreground" aria-live="polite">
-          Оновлення…
+    <div className="space-y-10">
+      <div>
+        <h2 className="font-serif text-3xl font-medium">Головна</h2>
+        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+          Операційні цифри з’являться тут лише після зведення з сервера.
         </p>
+      </div>
+      {summary.kind === 'unavailable' ? (
+        <section className="max-w-xl space-y-2 border-y border-border py-6">
+          <h3 className="font-serif text-2xl">{summary.title}</h3>
+          <p className="text-sm text-muted-foreground">{summary.detail}</p>
+        </section>
       ) : null}
-      <section className="grid grid-cols-2 gap-x-6 gap-y-8 border-y border-border py-6 md:grid-cols-5">
-        {stats.map((stat) => {
-          const value = data[stat.key]
-          return (
-            <div key={stat.key} className="min-w-0">
-              <p className="font-serif text-4xl leading-none tracking-tight md:text-5xl">
-                {stat.key === 'occupancyPercent' ? `${value}%` : String(value).padStart(2, '0')}
-              </p>
-              <p className="mt-3 text-[13px] text-muted-foreground">{stat.label}</p>
-            </div>
-          )
-        })}
-      </section>
 
-      <section>
-        <SectionHeading title="Сьогодні" />
-        <div className="grid gap-10 xl:grid-cols-2">
-          <div>
-            <h3 className="mb-3 text-sm tracking-wide text-muted-foreground">Заїзди сьогодні</h3>
-            <BookingTable
-              variant="arrivals"
-              bookings={data.arrivals}
-              guests={guestList}
-              accommodations={roomList}
-              empty="Сьогодні заїздів немає."
-            />
+      <section className="space-y-3">
+        <h3 className="font-serif text-2xl">Останні бронювання</h3>
+        {recent.isLoading ? <p className="text-sm text-muted-foreground">Завантажуємо бронювання…</p> : null}
+        {recent.isError ? (
+          <div className="space-y-3">
+            <p className="text-sm text-destructive" role="alert">
+              Не вдалося завантажити дані.
+            </p>
+            <Button type="button" variant="outline" onClick={() => void recent.refetch()}>
+              Повторити
+            </Button>
           </div>
-          <div>
-            <h3 className="mb-3 text-sm tracking-wide text-muted-foreground">Виїзди сьогодні</h3>
-            <BookingTable
-              variant="departures"
-              bookings={data.departures}
-              guests={guestList}
-              accommodations={roomList}
-              empty="Сьогодні виїздів немає."
-            />
-          </div>
-        </div>
-      </section>
-
-      <section>
-        <SectionHeading title="Найближчі бронювання" />
-        <BookingTable
-          variant="upcoming"
-          bookings={data.upcoming}
-          guests={guestList}
-          accommodations={roomList}
-          empty="Найближчих бронювань немає."
-        />
+        ) : null}
+        {recent.data && recent.data.pagination.total === 0 ? (
+          <p className="text-sm text-muted-foreground">Бронювань ще немає.</p>
+        ) : null}
+        {recent.data && recent.data.items.length > 0 ? (
+          <ul className="divide-y divide-border border-y border-border">
+            {recent.data.items.map((booking) => (
+              <li key={booking.id} className="flex flex-wrap items-baseline justify-between gap-2 py-3 text-sm">
+                <Link to={`/admin/bookings/${booking.id}`} className="font-medium underline-offset-4 hover:underline">
+                  {adminBookingRef(booking.id)}
+                </Link>
+                <span>
+                  {booking.guest.lastName} {booking.guest.firstName}
+                </span>
+                <span className="text-muted-foreground">
+                  {formatDate(booking.checkIn)} — {formatDate(booking.checkOut)}
+                </span>
+                <span>{bookingStatusLabel[booking.status]}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <p className="text-xs text-muted-foreground">
+          Це останні створені бронювання, не підсумок за період і не отриманий дохід.
+        </p>
       </section>
     </div>
   )

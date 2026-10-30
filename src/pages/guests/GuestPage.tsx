@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Pagination } from '@/components/ui/pagination'
 import { LoadingState } from '@/components/ui/states'
 import { useGuestHistory, useGuestProfile } from '@/hooks/useGuestDirectory'
-import { guestFailure, guestFailureMessage, guestPlaceLabel } from '@/lib/admin-guests'
+import { guestFailure, guestFailureMessage } from '@/lib/admin-guests'
 import { formatDateTime } from '@/lib/format'
 import { fullName } from '@/lib/utils'
 
@@ -49,7 +49,6 @@ export function GuestPage() {
     { label: 'Імʼя та прізвище', value: fullName(guest.firstName, guest.lastName), prominent: true },
     { label: 'Email', value: guest.email || '—' },
     { label: 'Телефон', value: guest.phone || '—' },
-    { label: 'Країна і місто', value: guestPlaceLabel(guest.country, guest.city) },
     { label: 'Картку створено', value: formatDateTime(guest.createdAt) },
   ]
 

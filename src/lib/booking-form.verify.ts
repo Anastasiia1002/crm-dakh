@@ -11,7 +11,9 @@ import { buildAdminBookingUpdateInput, canEditAdminBookingCommercial } from './a
 import { applyGuestFill, createSubmitLock, hasFieldErrors, proposeGuestFill, validateGuestFields, validateStayFields } from './booking-form'
 import { normalizePhone, phonesMatch } from './phone'
 import {
+  canBrowsePreviousMonth,
   checkInPolicyError,
+  createStayPreset,
   kyivTodayIso,
   monthGrid,
   reconcileStayDates,
@@ -127,6 +129,45 @@ function main() {
     now,
   })
   assert(blocked.error !== null, 'occupied night cannot be check-in')
+  const occupiedOnly = selectStayDate({
+    currentCheckIn: '',
+    currentCheckOut: '',
+    clicked: '2026-10-22',
+    nights: nights([['2026-10-22', 'occupied']]),
+    rules,
+    now,
+  })
+  const blockedOnly = selectStayDate({
+    currentCheckIn: '',
+    currentCheckOut: '',
+    clicked: '2026-10-22',
+    nights: nights([['2026-10-22', 'blocked']]),
+    rules,
+    now,
+  })
+  assert(occupiedOnly.error === 'Ця ніч уже зайнята.', 'occupied nights have their own copy')
+  assert(blockedOnly.error === 'Ця ніч недоступна.', 'blocked nights are not labeled occupied')
+  const yearNights = nights([
+    ['2026-12-31', 'free'],
+    ['2027-01-01', 'free'],
+  ])
+  const yearStart = selectStayDate({
+    currentCheckIn: '',
+    currentCheckOut: '',
+    clicked: '2026-12-31',
+    nights: yearNights,
+    rules,
+    now: new Date('2026-12-20T10:00:00+02:00'),
+  })
+  const yearEnd = selectStayDate({
+    currentCheckIn: yearStart.checkIn,
+    currentCheckOut: '',
+    clicked: '2027-01-02',
+    nights: yearNights,
+    rules,
+    now: new Date('2026-12-20T10:00:00+02:00'),
+  })
+  assert(yearStart.checkIn === '2026-12-31' && yearEnd.checkOut === '2027-01-02' && yearEnd.error === null, 'date range can cross years')
   console.log('PASS: occupied dates, same-day stay, checkout boundary')
 
   const pastClick = selectStayDate({
@@ -226,6 +267,17 @@ function main() {
   const previousMonth = monthGrid('2026-09')
   assert(previousMonth.some((date) => date.startsWith('2026-09-') && stayDateDisabled(date, '2026-10-01', true) === 'past'), 'previous month contains past dates')
   assert(stayDateDisabled('2026-10-01', '2026-10-01', true) === null, 'first day of the month stays open')
+  assert(!canBrowsePreviousMonth('2026-10', '2026-10-19', false), 'a new booking cannot leave the current hotel month backward')
+  assert(canBrowsePreviousMonth('2026-11', '2026-10-19', false), 'a new booking can return from a later month')
+  assert(canBrowsePreviousMonth('2026-09', '2026-10-19', true), 'an existing booking can open earlier months')
+  assert(!canBrowsePreviousMonth('2026-12', '2027-01-01', false), 'year boundary blocks a new booking from the previous year')
+  assert(canBrowsePreviousMonth('2027-01', '2026-12-31', false), 'year boundary still allows returning to the hotel month')
+  const droppedPreset = createStayPreset({ checkIn: '2026-10-18', checkOut: '2026-10-20', today: '2026-10-19', allowSameDay: true })
+  assert(!droppedPreset.checkIn && !droppedPreset.checkOut, 'a past create link does not seed check-in')
+  const todayPreset = createStayPreset({ checkIn: '2026-10-19', checkOut: '2026-10-21', today: '2026-10-19', allowSameDay: true })
+  assert(todayPreset.checkIn === '2026-10-19' && todayPreset.checkOut === '2026-10-21', 'same-day create link stays')
+  const closedToday = createStayPreset({ checkIn: '2026-10-19', checkOut: '2026-10-21', today: '2026-10-19', allowSameDay: false })
+  assert(!closedToday.checkIn, 'same-day policy removes today from a create link')
   console.log('PASS: past dates, midnight, month and year boundaries')
 
   const calendarHtml = renderToStaticMarkup(
@@ -256,6 +308,10 @@ function main() {
   assert(selectedButton.includes('bg-primary') && !selectedButton.includes('disabled=""'), 'selected date stays distinct')
   assert(occupiedButton.includes('bg-[#e7d4cf]') && !occupiedButton.includes('disabled=""'), 'occupied date stays distinct and clickable')
   assert(calendarHtml.includes('Минула дата'), 'legend names past dates')
+  const backButton = calendarHtml.match(/<button[^>]*aria-label="Попередній місяць"[^>]*>/)?.[0] ?? ''
+  assert(backButton.includes('disabled=""'), 'new booking month cannot move before the hotel month')
+  assert(pastButton.includes('opacity-40'), 'past dates are muted without reusing the occupied strike')
+  assert(occupiedButton.includes('line-through'), 'occupied nights stay struck through')
   const historicalHtml = renderToStaticMarkup(
     createElement(StayCalendar, {
       month: '2026-10',
@@ -282,6 +338,11 @@ function main() {
   assert(!detail.includes('StayCalendar') && !detail.includes('stayDateDisabled'), 'booking detail does not apply the past-date calendar')
   const formSource = readFileSync(new URL('../components/bookings/AdminBookingForm.tsx', import.meta.url), 'utf8')
   assert(formSource.includes('storedStayDatesUnchanged'), 'the edit form keeps an unchanged stored stay')
+  assert(formSource.includes('adminBookingServicesBlockedMessage'), 'create form marks services blocked')
+  assert(!formSource.includes('getServices') && !formSource.includes('useServices'), 'create form does not load mock services')
+  const guestPage = readFileSync(new URL('../pages/guests/GuestPage.tsx', import.meta.url), 'utf8')
+  assert(!guestPage.includes('Країна і місто') && !guestPage.includes('guestPlaceLabel'), 'guest details omit city and country')
+  assert(guestPage.includes('Email') && guestPage.includes('Телефон') && guestPage.includes('GuestBookingHistory'), 'guest contact and history stay')
   console.log('PASS: guest city and country hidden on booking detail')
 
   const historicalBooking: AdminBookingDetail = {

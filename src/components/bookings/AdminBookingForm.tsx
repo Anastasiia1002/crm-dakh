@@ -38,10 +38,12 @@ import { roomsOfferedForStay, stayPriceDifference } from '@/lib/booking-manage'
 import { ApiError } from '@/lib/api-error'
 import { bookingRoomFilterLabel } from '@/lib/accommodation-labels'
 import { errorMessage } from '@/lib/errors'
+import { adminBookingServicesBlockedMessage } from '@/lib/admin-services'
 import { normalizePhone, phonesMatch } from '@/lib/phone'
 import {
   HOTEL_TIME_ZONE,
   checkInPolicyError,
+  createStayPreset,
   kyivTodayIso,
   reconcileStayDates,
   storedStayDatesUnchanged,
@@ -105,12 +107,22 @@ export function AdminBookingForm({
   const [pendingGuest, setPendingGuest] = useState<GuestCard | null>(null)
   const [roomId, setRoomId] = useState(booking?.rooms[0]?.roomId ?? preset?.roomId ?? '')
   const [ratePlanId, setRatePlanId] = useState(booking?.rooms[0]?.ratePlanId ?? '')
-  const [checkIn, setCheckIn] = useState(booking?.checkIn ?? preset?.checkIn ?? '')
-  const [checkOut, setCheckOut] = useState(booking?.checkOut ?? preset?.checkOut ?? '')
+  const [initialStay] = useState(() =>
+    booking
+      ? { checkIn: booking.checkIn, checkOut: booking.checkOut }
+      : createStayPreset({
+          checkIn: preset?.checkIn,
+          checkOut: preset?.checkOut,
+          today: kyivTodayIso(),
+          allowSameDay: true,
+        }),
+  )
+  const [checkIn, setCheckIn] = useState(initialStay.checkIn ?? '')
+  const [checkOut, setCheckOut] = useState(initialStay.checkOut ?? '')
   const [adults, setAdults] = useState(booking?.adults ?? 2)
   const [children, setChildren] = useState(booking?.children ?? 0)
   const [notes, setNotes] = useState(booking?.notes ?? '')
-  const [calendarMonth, setCalendarMonth] = useState(monthKey(booking?.checkIn ?? preset?.checkIn ?? kyivTodayIso()))
+  const [calendarMonth, setCalendarMonth] = useState(monthKey(initialStay.checkIn || kyivTodayIso()))
   const [clock, setClock] = useState(() => new Date())
   const [selectionError, setSelectionError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
@@ -785,6 +797,7 @@ export function AdminBookingForm({
             nights={nightKinds}
             today={hotelToday}
             allowSameDay={rules?.allowSameDayBooking ?? true}
+            allowPastMonths={Boolean(booking)}
             loading={calendarQuery.isFetching}
             error={selectionError || (calendarQuery.isError ? 'Не вдалося завантажити доступність.' : null)}
             disabled={!roomId}
@@ -806,6 +819,15 @@ export function AdminBookingForm({
           <Field label="Нотатки" error={visibleErrors.notes} hint="Необовʼязково">
             <Textarea value={notes} maxLength={2000} onChange={(event) => setNotes(event.target.value)} rows={3} />
           </Field>
+        </section>
+      ) : null}
+
+      {commercial ? (
+        <section className="space-y-2 border-t border-border pt-5">
+          <h3 className="font-serif text-2xl">Послуги</h3>
+          <p className="text-sm text-muted-foreground" role="status">
+            {adminBookingServicesBlockedMessage()}
+          </p>
         </section>
       ) : null}
 

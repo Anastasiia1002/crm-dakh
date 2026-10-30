@@ -82,13 +82,24 @@ export function useAdminBookingQuote(input: AdminBookingQuoteInput | null) {
   })
 }
 
+export const adminBookingInvalidationKeys = [
+  adminBookingsQueryKey,
+  ['admin-booking'],
+  adminBookingGuestsQueryKey,
+  ['admin-calendar'],
+  ['admin-calendar-bookings'],
+  ['admin-stay-calendar'],
+  ['admin-stay-range'],
+  ['admin-stay-offers'],
+  ['admin-booking-quote'],
+  ['admin-guest'],
+  ['admin-guest-bookings'],
+] as const
+
 export function invalidateAdminBookingQueries(queryClient: ReturnType<typeof useQueryClient>) {
-  void queryClient.invalidateQueries({ queryKey: adminBookingsQueryKey })
-  void queryClient.invalidateQueries({ queryKey: ['admin-booking'] })
-  void queryClient.invalidateQueries({ queryKey: adminBookingGuestsQueryKey })
-  void queryClient.invalidateQueries({ queryKey: ['admin-calendar'] })
-  void queryClient.invalidateQueries({ queryKey: ['admin-calendar-bookings'] })
-  void queryClient.invalidateQueries({ queryKey: ['admin-booking-quote'] })
+  for (const queryKey of adminBookingInvalidationKeys) {
+    void queryClient.invalidateQueries({ queryKey: [...queryKey] })
+  }
 }
 
 function useInvalidateAdminMutations() {

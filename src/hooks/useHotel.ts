@@ -101,6 +101,11 @@ function useRefresh() {
     void queryClient.invalidateQueries({ queryKey: ['audit'] })
     void queryClient.invalidateQueries({ queryKey: ['calendar'] })
     void queryClient.invalidateQueries({ queryKey: ['admin-calendar'] })
+    void queryClient.invalidateQueries({ queryKey: ['admin-calendar-bookings'] })
+    void queryClient.invalidateQueries({ queryKey: ['admin-stay-calendar'] })
+    void queryClient.invalidateQueries({ queryKey: ['admin-stay-range'] })
+    void queryClient.invalidateQueries({ queryKey: ['admin-stay-offers'] })
+    void queryClient.invalidateQueries({ queryKey: ['admin-booking-quote'] })
     void queryClient.invalidateQueries({ queryKey: ['dashboard'] })
   }
 }
