@@ -55,6 +55,11 @@ export function canManageRates(role: UserRole | undefined) {
   return role === 'owner' || role === 'admin'
 }
 
+/** Mirrors admin service catalog WRITE_ROLES: SUPER_ADMIN + ADMIN. Manager/receptionist may read. */
+export function canManageAdminServices(role: UserRole | undefined) {
+  return role === 'owner' || role === 'admin'
+}
+
 /** Mirrors booking REASSIGN_ROLES: SUPER_ADMIN + ADMIN + MANAGER. */
 export function canReassignBookingRoom(role: UserRole | undefined) {
   return role === 'owner' || role === 'admin' || role === 'manager'

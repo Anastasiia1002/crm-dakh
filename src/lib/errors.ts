@@ -31,6 +31,9 @@ export function errorMessage(error: unknown) {
       if (error.code === 'DUPLICATE_SERVICE') {
         return 'Послугу повторено в бронюванні.'
       }
+      if (error.code === 'SERVICE_NAME_CONFLICT') {
+        return 'Послуга з такою назвою уже є в цьому готелі.'
+      }
       const detail = error.details?.[0]
       return detail ? `${error.message}: ${detail}` : error.message || 'Конфлікт даних.'
     }

@@ -14,13 +14,23 @@ import {
 } from './admin-booking-view'
 import {
   ADMIN_SERVICE_CATALOG_AVAILABLE,
+  SERVICE_DEACTIVATE_CONFIRMATION,
+  SERVICE_PRICE_CHANGE_NOTICE,
+  buildAdminServiceCreateBody,
+  buildAdminServicePatchBody,
+  filterManagedServices,
   normalizeServiceSelections,
   parseAdminServiceCatalog,
+  parseManagedAdminService,
+  parseManagedAdminServiceCatalog,
   serviceDisplayName,
+  serviceWriteBodyHasForbiddenFields,
   setServiceQuantity,
   toggleServiceSelection,
+  validateServicePrice,
   validateServiceQuantity,
 } from './admin-services'
+import { canManageAdminServices } from './roles'
 import type { AdminBookingDetail } from '@/types'
 
 function assert(condition: boolean, message: string) {
@@ -252,6 +262,10 @@ function main() {
   assert(errorMessage(new ApiError('x', 500, 'INTERNAL')).includes('недоступний'), '500')
   assert(errorMessage(new ApiError('x', 409, 'SERVICE_INACTIVE')).includes('неактивна'), 'inactive service')
   assert(errorMessage(new ApiError('x', 409, 'DUPLICATE_SERVICE')).includes('повторено'), 'duplicate service')
+  assert(
+    errorMessage(new ApiError('x', 409, 'SERVICE_NAME_CONFLICT')).includes('такою назвою'),
+    'duplicate service name',
+  )
 
   const form = readFileSync(new URL('../components/bookings/AdminBookingForm.tsx', import.meta.url), 'utf8')
   assert(form.includes('useAdminServices'), 'booking form loads the admin catalog')
@@ -261,14 +275,122 @@ function main() {
   assert(!form.includes('mocks/db'), 'booking form does not read mock rows')
 
   const page = readFileSync(new URL('../pages/services/ServicesPage.tsx', import.meta.url), 'utf8')
-  assert(page.includes('useAdminServices'), 'services page loads the live catalog')
-  assert(!page.includes('Додати послугу') && !page.includes('useSaveService'), 'services page has no catalog mutations')
+  assert(page.includes('useManagedAdminServices'), 'services page loads the management catalog')
+  assert(page.includes('Додати послугу'), 'admins can open create')
+  assert(page.includes('Редагувати послугу'), 'edit modal title')
+  assert(page.includes('canManageAdminServices'), 'write actions use the service-catalog role helper')
+  assert(page.includes('Недостатньо прав для цієї дії'), 'mutations still check role in the UI')
+  assert(page.includes(SERVICE_DEACTIVATE_CONFIRMATION), 'deactivation asks for confirmation')
+  assert(page.includes(SERVICE_PRICE_CHANGE_NOTICE), 'price edits warn that saved booking lines stay')
+  assert(!page.includes('useSaveService') && !page.includes('DELETE'), 'services page does not delete or use the mock save')
   assert(!page.includes('mocks/db') && !page.includes("from '@/api/services'"), 'services page does not load mock rows')
   assert(!page.includes('ADMIN_SERVICE_CATALOG_BLOCKED_LABEL'), 'services page is no longer blocked')
 
   const api = readFileSync(new URL('../api/admin-services.ts', import.meta.url), 'utf8')
-  assert(api.includes("'/api/admin/services'"), 'API client calls the deployed catalog')
+  assert(api.includes("'/api/admin/services'"), 'picker client calls the deployed catalog')
+  assert(api.includes('/api/admin/services?active=all'), 'management list asks for inactive rows')
+  assert(api.includes("method: 'POST'"), 'create uses POST')
+  assert(api.includes("method: 'PATCH'"), 'update uses PATCH')
+  assert(!api.includes('DELETE'), 'API client has no DELETE')
   assert(!api.includes('mocks/db'), 'API client is not the mock module')
+  assert(!api.includes('hotelId') && !api.includes('currency'), 'write client does not send hotelId or currency')
+
+  const hooks = readFileSync(new URL('../hooks/useAdminServices.ts', import.meta.url), 'utf8')
+  assert(hooks.includes('listAdminServices(signal)'), 'booking picker still loads GET /api/admin/services')
+  assert(!hooks.includes("listAdminServices") || hooks.includes("listManagedAdminServices"), 'management has a separate query')
+  assert(hooks.includes('adminServicesQueryKey') && hooks.includes('adminManagedServicesQueryKey'), 'picker and management caches are distinct')
+  assert(hooks.includes('adminServiceMutationInvalidateKeys'), 'mutations refresh both catalogs')
+  assert(!hooks.includes('retry: true'), 'mutations do not silently retry POST or PATCH')
+
+  assert(canManageAdminServices('owner') && canManageAdminServices('admin'), 'owner and admin can mutate')
+  assert(!canManageAdminServices('manager') && !canManageAdminServices('receptionist'), 'desk roles are read-only')
+
+  assert(parseManagedAdminServiceCatalog({ items: [] }).length === 0, 'empty management catalog')
+  const managed = parseManagedAdminServiceCatalog({
+    items: [
+      {
+        id: BREAKFAST,
+        name: 'Сніданок',
+        description: 'Сніданок у ресторані',
+        price: '10.10',
+        currency: 'UAH',
+        active: true,
+        createdAt: '2026-10-01T00:00:00.000Z',
+        updatedAt: '2026-10-02T00:00:00.000Z',
+      },
+      {
+        id: DINNER,
+        name: 'Вечеря',
+        description: null,
+        price: '20.00',
+        currency: 'UAH',
+        active: false,
+        createdAt: '2026-10-01T00:00:00.000Z',
+        updatedAt: '2026-10-03T00:00:00.000Z',
+      },
+    ],
+  })
+  assert(managed.length === 2 && managed[1]?.active === false, 'management catalog keeps inactive rows')
+  assert(
+    parseAdminServiceCatalog({
+      items: [
+        { id: BREAKFAST, name: 'Сніданок', description: null, price: '10.10', currency: 'UAH', active: true },
+        { id: DINNER, name: 'Вечеря', description: null, price: '20.00', currency: 'UAH', active: false },
+      ],
+    }).map((item) => item.id).join() === BREAKFAST,
+    'booking picker stays active-only',
+  )
+  const createdBody = buildAdminServiceCreateBody({
+    name: '  Сніданок  ',
+    description: '  ',
+    price: '10.1',
+    active: true,
+  })
+  assert(createdBody.ok && createdBody.body.name === 'Сніданок' && createdBody.body.description === null, 'create trims name and empty description')
+  assert(createdBody.ok && createdBody.body.price === '10.10' && createdBody.body.active === true, 'create sends a decimal price string')
+  assert(createdBody.ok && serviceWriteBodyHasForbiddenFields(createdBody.body as unknown as Record<string, unknown>).length === 0, 'create omits hotelId and currency')
+  assert(!buildAdminServiceCreateBody({ name: '', description: '', price: '10.00', active: true }).ok, 'empty name')
+  assert(!buildAdminServiceCreateBody({ name: 'X'.repeat(101), description: '', price: '10.00', active: true }).ok, 'oversized name')
+  assert(!validateServicePrice(10.1).ok, 'numeric JSON price is rejected')
+  assert(!validateServicePrice('0.00').ok && !validateServicePrice('-1.00').ok, 'zero and negative prices are rejected')
+  const patched = buildAdminServicePatchBody(managed[0]!, {
+    name: 'Сніданок',
+    description: 'Сніданок у ресторані',
+    price: '10.10',
+    active: true,
+  })
+  assert(!patched.ok && 'empty' in patched, 'unchanged edit does not send an empty PATCH')
+  const pricePatch = buildAdminServicePatchBody(managed[0]!, {
+    name: 'Сніданок',
+    description: 'Сніданок у ресторані',
+    price: '99.99',
+    active: true,
+  })
+  assert(pricePatch.ok && pricePatch.body.price === '99.99' && Object.keys(pricePatch.body).join() === 'price', 'patch sends only changed fields')
+  assert(pricePatch.ok && !('unitPrice' in pricePatch.body) && !('totalPrice' in pricePatch.body), 'catalog patch never rewrites booking prices')
+  const duplicateName = { error: 'SERVICE_NAME_CONFLICT' }
+  assert(duplicateName.error === 'SERVICE_NAME_CONFLICT', 'duplicate names surface SERVICE_NAME_CONFLICT')
+  const filtered = filterManagedServices(managed, { query: 'веч', status: 'all' })
+  assert(filtered.map((item) => item.id).join() === DINNER, 'name search')
+  assert(filterManagedServices(managed, { query: '', status: 'inactive' }).every((item) => !item.active), 'inactive filter keeps deactivated rows')
+
+  const loaded = parseManagedAdminService({
+    id: BREAKFAST,
+    name: 'Сніданок',
+    description: null,
+    price: '10.10',
+    currency: 'UAH',
+    active: true,
+    createdAt: '2026-10-01T00:00:00.000Z',
+    updatedAt: '2026-10-02T00:00:00.000Z',
+    hotelId: 'should-be-ignored-if-present',
+  })
+  assert(loaded.currency === 'UAH' && !('hotelId' in loaded), 'GET :id view does not expose hotelId')
+
+  const picker = readFileSync(new URL('../components/bookings/AdminServicePicker.tsx', import.meta.url), 'utf8')
+  assert(picker.includes('savedLine.unitPrice'), 'picker shows saved historical unitPrice')
+  assert(picker.includes('Немає в активному каталозі'), 'inactive saved lines stay on the booking form')
+
   console.log('PASS: admin extra-service catalog uses GET /api/admin/services')
 }
 
