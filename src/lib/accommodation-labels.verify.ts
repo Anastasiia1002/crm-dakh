@@ -132,12 +132,17 @@ assert(!page.includes('value="categories"'), 'no categories tab value')
 assert(!page.includes('Додати категорію'), 'cannot create categories from this screen')
 assert(page.includes('Заблокувати дати'), 'date blocking stays on the unit')
 assert(page.includes('Зняти блокування'), 'unblocking stays on the unit')
-assert(page.includes('sharedRoomTypeNotice'), 'shared room-type editing is explicit')
-assert(page.includes('maxGuests: guests'), 'shared capacity still uses the room-type payload')
-assert(page.includes('Назва для гостей'), 'guest-facing name stays editable on the unit')
-assert(page.includes('Опис'), 'description stays editable on the unit')
-assert(page.includes('Місткість'), 'capacity stays editable on the unit')
-assert(!page.includes('label="Slug"'), 'slug is not a primary field')
+assert(page.includes('/admin/accommodations/new?kind='), 'create opens a full page')
+assert(page.includes('/admin/accommodations/${item.id}/edit'), 'edit opens a full page')
+assert(!page.includes('function UnitDialog'), 'unit editing is no longer a modal')
+const editor = readFileSync(new URL('../pages/accommodations/AccommodationEditorPage.tsx', import.meta.url), 'utf8')
+assert(editor.includes('sharedRoomTypeNotice'), 'shared room-type editing is explicit')
+assert(editor.includes('maxGuests: guests'), 'shared capacity still uses the room-type payload')
+assert(editor.includes('Назва для гостей'), 'guest-facing name stays editable on the unit')
+assert(editor.includes('Опис'), 'description stays editable on the unit')
+assert(editor.includes('Місткість'), 'capacity stays editable on the unit')
+assert(!editor.includes('label="Slug"'), 'slug is not a primary field')
+assert(editor.includes('useBlocker'), 'leaving the editor warns about unsaved changes')
 console.log('PASS: rooms and cottages navigation without a categories tab')
 
 const calendar = readFileSync(new URL('../pages/calendar/CalendarPage.tsx', import.meta.url), 'utf8')
@@ -171,7 +176,20 @@ assert(bookingsPage.includes('bookingRoomFilterLabel'), 'booking filter uses the
 assert(bookingsPage.includes('useAllAdminRooms'), 'booking filter loads every room page')
 assert(!bookingsPage.includes('roomDisplayName'), 'booking filter does not use the raw number helper')
 
-const visible = [page, calendar, chessboard, rates, bookingForm, readFileSync(new URL('./accommodation-labels.ts', import.meta.url), 'utf8')]
+const gallery = readFileSync(
+  new URL('../components/accommodations/AccommodationPhotoGallery.tsx', import.meta.url),
+  'utf8',
+)
+const visible = [
+  page,
+  editor,
+  gallery,
+  calendar,
+  chessboard,
+  rates,
+  bookingForm,
+  readFileSync(new URL('./accommodation-labels.ts', import.meta.url), 'utf8'),
+]
 const legacy = ['Sunny Park', 'sunny-park', 'Сонячний парк', 'BookMeNow']
 for (const source of visible) {
   for (const name of legacy) assert(!source.includes(name), `legacy name ${name} is not user-facing`)

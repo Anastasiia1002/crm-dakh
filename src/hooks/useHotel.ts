@@ -9,6 +9,7 @@ import {
   deleteRoomTypeImage,
   getAccommodations,
   getBlocks,
+  getRoom,
   getRoomType,
   getRoomTypes,
   listRoomBlocks,
@@ -141,6 +142,15 @@ export function useAdminRoomType(id: string | undefined) {
   })
 }
 
+export function useAdminRoom(id: string | undefined) {
+  return useQuery({
+    queryKey: ['admin-room', id],
+    queryFn: () => getRoom(id!),
+    enabled: Boolean(id),
+    staleTime: CATALOG_STALE_TIME,
+  })
+}
+
 export function useAdminRooms(query: RoomListQuery = {}, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['admin-rooms', query],
@@ -202,7 +212,7 @@ export function useCreateAdminRoom() {
   const refresh = useRefresh()
   return useMutation({
     mutationFn: createRoom,
-    onSuccess: () => refresh(['admin-rooms']),
+    onSuccess: () => refresh(['admin-rooms', 'admin-room']),
   })
 }
 
@@ -210,7 +220,7 @@ export function useUpdateAdminRoom() {
   const refresh = useRefresh()
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: Parameters<typeof updateRoom>[1] }) => updateRoom(id, input),
-    onSuccess: () => refresh(['admin-rooms']),
+    onSuccess: () => refresh(['admin-rooms', 'admin-room']),
   })
 }
 

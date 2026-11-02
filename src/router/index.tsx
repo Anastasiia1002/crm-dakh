@@ -14,6 +14,7 @@ const CalendarPage = lazy(async () => ({ default: (await import('@/pages/calenda
 const GuestsPage = lazy(async () => ({ default: (await import('@/pages/guests/GuestsPage')).GuestsPage }))
 const GuestPage = lazy(async () => ({ default: (await import('@/pages/guests/GuestPage')).GuestPage }))
 const AccommodationsPage = lazy(async () => ({ default: (await import('@/pages/accommodations/AccommodationsPage')).AccommodationsPage }))
+const AccommodationEditorPage = lazy(async () => ({ default: (await import('@/pages/accommodations/AccommodationEditorPage')).AccommodationEditorPage }))
 const RatesPage = lazy(async () => ({ default: (await import('@/pages/rates/RatesPage')).RatesPage }))
 const ServicesPage = lazy(async () => ({ default: (await import('@/pages/services/ServicesPage')).ServicesPage }))
 const PromoCodesPage = lazy(async () => ({ default: (await import('@/pages/promo-codes/PromoCodesPage')).PromoCodesPage }))
@@ -68,6 +69,8 @@ export const router = createBrowserRouter(
         { path: 'guests', element: <GuestsPage /> },
         { path: 'guests/:id', element: <GuestPage /> },
         { path: 'accommodations', element: <AccommodationsPage /> },
+        { path: 'accommodations/new', element: <AccommodationEditorPage /> },
+        { path: 'accommodations/:id/edit', element: <AccommodationEditorPage /> },
         { path: 'rates', element: <RatesPage /> },
         { path: 'services', element: <ServicesPage /> },
         { path: 'promo-codes', element: <PromoCodesPage /> },
