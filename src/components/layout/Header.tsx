@@ -1,6 +1,7 @@
-import { Bell, Menu } from 'lucide-react'
+import { Menu } from 'lucide-react'
 import { useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
+import { StaffNoticeMenu } from '@/components/layout/StaffNoticeMenu'
 import { Sidebar } from '@/components/layout/Sidebar'
 import {
   DropdownMenu,
@@ -18,7 +19,6 @@ import { initials } from '@/lib/utils'
 
 export function Header() {
   const location = useLocation()
-  const navigate = useNavigate()
   const { user, logout } = useAuth()
   const [open, setOpen] = useState(false)
 
@@ -39,26 +39,7 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-2 sm:gap-4">
-        <DropdownMenu>
-          <DropdownMenuTrigger className="relative rounded-md p-2 text-foreground outline-none hover:bg-surface-muted" aria-label="Сповіщення">
-            <Bell className="size-[18px]" strokeWidth={1.5} />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80">
-            <DropdownMenuLabel>Сповіщення</DropdownMenuLabel>
-            <DropdownMenuItem onSelect={() => navigate('/admin/bookings')}>
-              <span>
-                <span className="block">Очікують підтвердження</span>
-                <span className="text-xs text-muted-foreground">Відкрити список бронювань</span>
-              </span>
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => navigate('/admin')}>
-              <span>
-                <span className="block">Заїзди сьогодні</span>
-                <span className="text-xs text-muted-foreground">Відкрити головну</span>
-              </span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <StaffNoticeMenu />
 
         {user ? (
           <DropdownMenu>

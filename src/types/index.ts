@@ -770,6 +770,25 @@ export type NotificationItem = {
   description: string
 }
 
+export type StaffNotice = {
+  id: string
+  title: 'Нове бронювання'
+  bookingId: string
+  bookingReference: string
+  guestName: string | null
+  checkIn: string
+  checkOut: string
+  guestCount: number
+  bookingStatus: BookingStatus
+  createdAt: string
+  unread: boolean
+}
+
+export type StaffNoticeList = {
+  unreadCount: number
+  items: StaffNotice[]
+}
+
 /** Backend availability calendar night state. */
 export type CalendarNightState =
   | 'AVAILABLE'
