@@ -380,7 +380,7 @@ export function AccommodationEditorPage() {
           </Field>
         </section>
 
-        <section>
+        <section className="pb-24">
           {item && assignedType.data ? (
             <AccommodationPhotoGallery roomTypeId={assignedType.data.id} canWrite={canWrite} />
           ) : (
