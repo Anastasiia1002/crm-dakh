@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useBlocker, useNavigate, useParams } from 'react-router-dom'
+import { useBlocker, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
+import { BookingDetailActions } from '@/components/bookings/BookingDetailActions'
 import { BookingStatusBadge } from '@/components/bookings/BookingStatusBadge'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Field } from '@/components/ui/field'
 import { PageSkeleton, QueryErrorState } from '@/components/ui/page-status'
 import { PendingOverlay } from '@/components/ui/pending-overlay'
@@ -25,7 +26,7 @@ import {
 } from '@/lib/admin-booking-view'
 import { createSubmitLock } from '@/lib/booking-form'
 import { classifyMutationFailure, type MutationKind, type MutationPhase } from '@/lib/mutation-action'
-import { statusOccupancyImpact } from '@/lib/booking-manage'
+import { bookingStatusDialog } from '@/lib/booking-detail-actions'
 import { ApiError } from '@/lib/api-error'
 import { errorMessage } from '@/lib/errors'
 import { serviceDisplayName } from '@/lib/admin-services'
@@ -46,6 +47,11 @@ export function BookingDetailPage() {
   const [phase, setPhase] = useState<Extract<MutationPhase, 'idle' | 'submitting' | 'uncertain'>>('idle')
   const [kind, setKind] = useState<MutationKind>('status')
   const actionLock = useRef(createSubmitLock())
+  const confirmRef = useRef<HTMLButtonElement>(null)
+  const checkInRef = useRef<HTMLButtonElement>(null)
+  const checkOutRef = useRef<HTMLButtonElement>(null)
+  const noShowRef = useRef<HTMLButtonElement>(null)
+  const cancelRef = useRef<HTMLButtonElement>(null)
   const pending = statusMutation.isPending || phase === 'submitting' || phase === 'uncertain'
   const blocker = useBlocker(phase === 'submitting')
 
@@ -144,37 +150,24 @@ export function BookingDetailPage() {
             <BookingStatusBadge status={booking.status} />
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {canEdit && !closed ? (
-            <Button variant="outline" asChild>
-              <Link to={`/admin/bookings/${booking.id}/edit`}>Редагувати</Link>
-            </Button>
-          ) : null}
-          {canMove ? (
-            <Button variant="outline" asChild>
-              <Link to={`/admin/bookings/${booking.id}/edit`}>Змінити розміщення</Link>
-            </Button>
-          ) : null}
-          {actions.includes('confirm') ? (
-            <Button disabled={pending} onClick={() => setConfirm('confirm')}>Підтвердити</Button>
-          ) : null}
-          {actions.includes('check-in') ? (
-            <Button disabled={pending} onClick={() => setConfirm('check-in')}>Заселити</Button>
-          ) : null}
-          {actions.includes('check-out') ? (
-            <Button disabled={pending} onClick={() => setConfirm('check-out')}>Виселити</Button>
-          ) : null}
-          {actions.includes('no-show') ? (
-            <Button variant="outline" disabled={pending} onClick={() => setConfirm('no-show')}>
-              Не заїхав
-            </Button>
-          ) : null}
-          {actions.includes('cancel') ? (
-            <Button variant="ghost" disabled={pending} onClick={() => setCancelOpen(true)}>
-              Скасувати бронювання
-            </Button>
-          ) : null}
-        </div>
+        <BookingDetailActions
+          editTo={`/admin/bookings/${booking.id}/edit`}
+          canEdit={canEdit && !closed}
+          canMove={canMove}
+          actions={actions}
+          pending={pending}
+          busyAction={pending ? (cancelOpen ? 'cancel' : confirm) : null}
+          confirmRef={confirmRef}
+          checkInRef={checkInRef}
+          checkOutRef={checkOutRef}
+          noShowRef={noShowRef}
+          cancelRef={cancelRef}
+          onConfirm={() => setConfirm('confirm')}
+          onCheckIn={() => setConfirm('check-in')}
+          onCheckOut={() => setConfirm('check-out')}
+          onNoShow={() => setConfirm('no-show')}
+          onCancel={() => setCancelOpen(true)}
+        />
       </div>
 
       <div className="grid gap-10 md:grid-cols-2">
@@ -253,21 +246,47 @@ export function BookingDetailPage() {
         До списку бронювань
       </button>
 
-      <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
-        <DialogContent>
+      <Dialog
+        open={cancelOpen}
+        onOpenChange={(open) => {
+          if (!open && pending) return
+          setCancelOpen(open)
+        }}
+      >
+        <DialogContent
+          onEscapeKeyDown={(event) => {
+            if (pending) event.preventDefault()
+          }}
+          onPointerDownOutside={(event) => {
+            if (pending) event.preventDefault()
+          }}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault()
+            cancelRef.current?.focus()
+          }}
+        >
           <DialogHeader>
-            <DialogTitle>Скасувати бронювання</DialogTitle>
+            <DialogTitle>{bookingStatusDialog('cancel', adminBookingRef(booking.id)).title}</DialogTitle>
+            <DialogDescription>
+              {bookingStatusDialog('cancel', adminBookingRef(booking.id)).description}
+            </DialogDescription>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">{statusOccupancyImpact('cancel')}</p>
           <Field label="Причина">
-            <Textarea value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Необовʼязково" />
+            <Textarea
+              value={reason}
+              disabled={pending}
+              onChange={(event) => setReason(event.target.value)}
+              placeholder="Необовʼязково"
+            />
           </Field>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCancelOpen(false)}>
-              Закрити
+            <Button variant="outline" size="lg" className="min-h-11" onClick={() => setCancelOpen(false)} disabled={pending}>
+              Не скасовувати
             </Button>
             <Button
               variant="destructive"
+              size="lg"
+              className="min-h-11"
               disabled={pending}
               loading={pending && kind === 'cancel'}
               onClick={() => void runAction('cancel', reason)}
@@ -278,43 +297,24 @@ export function BookingDetailPage() {
         </DialogContent>
       </Dialog>
 
-      <ConfirmDialog
-        open={confirm === 'confirm'}
-        title="Підтвердити бронювання"
-        description={statusOccupancyImpact('confirm')}
-        confirmLabel="Підтвердити"
-        pending={pending}
-        onOpenChange={(open) => !open && setConfirm(null)}
-        onConfirm={() => void runAction('confirm')}
-      />
-      <ConfirmDialog
-        open={confirm === 'check-in'}
-        title="Заселити гостя"
-        description={statusOccupancyImpact('check-in')}
-        confirmLabel="Заселити"
-        pending={pending}
-        onOpenChange={(open) => !open && setConfirm(null)}
-        onConfirm={() => void runAction('check-in')}
-      />
-      <ConfirmDialog
-        open={confirm === 'check-out'}
-        title="Виселити гостя"
-        description={statusOccupancyImpact('check-out')}
-        confirmLabel="Виселити"
-        pending={pending}
-        onOpenChange={(open) => !open && setConfirm(null)}
-        onConfirm={() => void runAction('check-out')}
-      />
-      <ConfirmDialog
-        open={confirm === 'no-show'}
-        title="Позначити як не заїхав"
-        description={statusOccupancyImpact('no-show')}
-        confirmLabel="Не заїхав"
-        destructive
-        pending={pending}
-        onOpenChange={(open) => !open && setConfirm(null)}
-        onConfirm={() => void runAction('no-show')}
-      />
+      {(['confirm', 'check-in', 'check-out', 'no-show'] as const).map((action) => {
+        const dialog = bookingStatusDialog(action, adminBookingRef(booking.id))
+        const returnFocusRef =
+          action === 'confirm' ? confirmRef : action === 'check-in' ? checkInRef : action === 'check-out' ? checkOutRef : noShowRef
+        return (
+          <ConfirmDialog
+            key={action}
+            open={confirm === action}
+            title={dialog.title}
+            description={dialog.description}
+            confirmLabel={dialog.confirmLabel}
+            pending={pending}
+            returnFocusRef={returnFocusRef}
+            onOpenChange={(open) => !open && setConfirm(null)}
+            onConfirm={() => void runAction(action)}
+          />
+        )
+      })}
     </div>
   )
 }
