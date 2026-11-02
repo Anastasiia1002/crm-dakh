@@ -1,5 +1,5 @@
 import { ImageOff, Star } from 'lucide-react'
-import { useEffect, useMemo, useState, type DragEvent } from 'react'
+import { useMemo, useState, type DragEvent } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
@@ -10,19 +10,17 @@ import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import {
   useAdminRoomTypeImages,
-  useCreateAdminRoomTypeImage,
   useDeleteAdminRoomTypeImage,
   useReorderAdminRoomTypeImages,
   useUpdateAdminRoomTypeImage,
 } from '@/hooks/useHotel'
 import {
-  ACCOMMODATION_UPLOAD_UNAVAILABLE,
+  ACCOMMODATION_UPLOAD_BLOCKED,
   accommodationErrorMessage,
   accommodationImageRejection,
   isSafeAccommodationImageUrl,
   makeImageMain,
   moveImage,
-  nextImageSortOrder,
   sortRoomTypeImages,
   validateAccommodationImageFile,
 } from '@/lib/accommodation-editor'
@@ -40,12 +38,6 @@ const imageSchema = z.object({
   alt: z.string().max(300, 'Alt задовгий'),
 })
 
-type LocalPreview = {
-  id: string
-  name: string
-  url: string
-}
-
 export function AccommodationPhotoGallery({
   roomTypeId,
   canWrite,
@@ -54,7 +46,6 @@ export function AccommodationPhotoGallery({
   canWrite: boolean
 }) {
   const images = useAdminRoomTypeImages(roomTypeId)
-  const create = useCreateAdminRoomTypeImage()
   const update = useUpdateAdminRoomTypeImage()
   const reorder = useReorderAdminRoomTypeImages()
   const remove = useDeleteAdminRoomTypeImage()
@@ -63,12 +54,8 @@ export function AccommodationPhotoGallery({
   const [brokenIds, setBrokenIds] = useState<Record<string, boolean>>({})
   const [dragging, setDragging] = useState(false)
   const [fileErrors, setFileErrors] = useState<string[]>([])
-  const [previews, setPreviews] = useState<LocalPreview[]>([])
+  const [blockedFiles, setBlockedFiles] = useState<string[]>([])
   const [busyId, setBusyId] = useState<string | null>(null)
-  const form = useForm<z.infer<typeof imageSchema>>({
-    resolver: zodResolver(imageSchema),
-    defaultValues: { url: '', alt: '' },
-  })
   const replaceForm = useForm<z.infer<typeof imageSchema>>({
     resolver: zodResolver(imageSchema),
     defaultValues: { url: '', alt: '' },
@@ -76,28 +63,19 @@ export function AccommodationPhotoGallery({
 
   const items = useMemo(() => sortRoomTypeImages(images.data ?? []), [images.data])
 
-  useEffect(() => {
-    return () => {
-      for (const preview of previews) URL.revokeObjectURL(preview.url)
-    }
-  }, [previews])
-
   function reviewFiles(list: FileList | File[]) {
-    const accepted: LocalPreview[] = []
     const rejected: string[] = []
+    const blocked: string[] = []
     for (const file of Array.from(list)) {
       const result = validateAccommodationImageFile(file)
       if (!result.ok) {
         rejected.push(accommodationImageRejection(result.reason, file.name))
         continue
       }
-      accepted.push({ id: crypto.randomUUID(), name: file.name, url: URL.createObjectURL(file) })
+      blocked.push(file.name.trim() || 'Файл')
     }
-    setPreviews((current) => {
-      for (const preview of current) URL.revokeObjectURL(preview.url)
-      return accepted
-    })
     setFileErrors(rejected)
+    setBlockedFiles(blocked)
   }
 
   async function persistOrder(imageIds: string[]) {
@@ -349,8 +327,11 @@ export function AccommodationPhotoGallery({
               reviewFiles(event.dataTransfer.files)
             }}
           >
-            <p className="font-medium">Перетягніть фото сюди або оберіть файли</p>
-            <p className="mt-1 text-muted-foreground">JPG, PNG або WebP, до 8 МБ кожне. Можна вибрати кілька.</p>
+            <p className="font-medium">Завантаження фото заблоковане</p>
+            <p className="mt-1 text-muted-foreground">
+              JPG, PNG або WebP, до 8 МБ. Можна вибрати кілька файлів, але вони не зберігаються і не з’являються в
+              галереї.
+            </p>
             <Input
               className="mt-3"
               type="file"
@@ -361,58 +342,23 @@ export function AccommodationPhotoGallery({
                 event.target.value = ''
               }}
             />
-            <p className="mt-3 text-muted-foreground">{ACCOMMODATION_UPLOAD_UNAVAILABLE}</p>
           </div>
           {fileErrors.length > 0 ? (
-            <ul className="space-y-1 text-sm text-destructive" data-photo-file-errors>
+            <ul className="space-y-1 text-sm text-destructive" data-photo-file-errors role="alert">
               {fileErrors.map((error) => (
                 <li key={error}>{error}</li>
               ))}
             </ul>
           ) : null}
-          {previews.length > 0 ? (
-            <div className="space-y-2" data-photo-local-preview>
-              <p className="text-sm font-medium">Попередній перегляд, не збережено</p>
-              <ul className="grid grid-cols-1 gap-3 min-[390px]:grid-cols-2">
-                {previews.map((preview) => (
-                  <li key={preview.id} className="border border-border">
-                    <img src={preview.url} alt="" className="aspect-[4/3] w-full object-cover" />
-                    <p className="p-3 text-sm">{preview.name}</p>
-                    <p className="px-3 pb-3 text-sm text-muted-foreground">{ACCOMMODATION_UPLOAD_UNAVAILABLE}</p>
-                  </li>
-                ))}
-              </ul>
-            </div>
+          {blockedFiles.length > 0 ? (
+            <ul className="space-y-1 text-sm" data-photo-upload-blocked role="alert">
+              {blockedFiles.map((name) => (
+                <li key={name}>
+                  {name}: {ACCOMMODATION_UPLOAD_BLOCKED}
+                </li>
+              ))}
+            </ul>
           ) : null}
-          <form
-            className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end"
-            onSubmit={form.handleSubmit(async (values) => {
-              try {
-                await create.mutateAsync({
-                  roomTypeId,
-                  input: {
-                    url: values.url,
-                    alt: values.alt.trim() ? values.alt.trim() : null,
-                    sortOrder: nextImageSortOrder(items),
-                  },
-                })
-                form.reset({ url: '', alt: '' })
-                toast.success('Фото додано')
-              } catch (error) {
-                toast.error(accommodationErrorMessage(error))
-              }
-            })}
-          >
-            <Field label="Посилання на фото" error={form.formState.errors.url?.message}>
-              <Input {...form.register('url')} placeholder="https://…" />
-            </Field>
-            <Field label="Підпис" error={form.formState.errors.alt?.message}>
-              <Input {...form.register('alt')} />
-            </Field>
-            <Button type="submit" className="min-h-11 sm:col-span-2 sm:w-fit" disabled={create.isPending} loading={create.isPending}>
-              Додати за посиланням
-            </Button>
-          </form>
         </div>
       ) : null}
 

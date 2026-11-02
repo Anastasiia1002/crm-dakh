@@ -7,8 +7,8 @@ export const ACCOMMODATION_IMAGE_MAX_BYTES = 8 * 1024 * 1024
 
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 
-export const ACCOMMODATION_UPLOAD_UNAVAILABLE =
-  'Файл перевірено, але сховище фото ще не підключене. Зображення не збережено. Додайте фото за https-посиланням.'
+export const ACCOMMODATION_UPLOAD_BLOCKED =
+  'Завантаження заблоковане. Файл не збережено: сховище фото ще не підключене.'
 
 export type AccommodationImageRejection = 'empty' | 'type' | 'size'
 
