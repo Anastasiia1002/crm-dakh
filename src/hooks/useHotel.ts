@@ -5,6 +5,7 @@ import {
   createRoomBlock,
   createRoomType,
   createRoomTypeImage,
+  uploadRoomTypeImage,
   deleteRoomBlock,
   deleteRoomTypeImage,
   getAccommodations,
@@ -254,6 +255,22 @@ export function useDeleteAdminRoomBlock() {
   return useMutation({
     mutationFn: ({ roomId, blockId }: { roomId: string; blockId: string }) => deleteRoomBlock(roomId, blockId),
     onSuccess: () => refresh(['admin-room-blocks', 'admin-rooms']),
+  })
+}
+
+export function useUploadAdminRoomTypeImage() {
+  const refresh = useRefresh()
+  return useMutation({
+    mutationFn: ({
+      roomTypeId,
+      file,
+      onProgress,
+    }: {
+      roomTypeId: string
+      file: File
+      onProgress?: (percent: number) => void
+    }) => uploadRoomTypeImage(roomTypeId, file, onProgress),
+    onSuccess: () => refresh(['admin-room-type-images']),
   })
 }
 

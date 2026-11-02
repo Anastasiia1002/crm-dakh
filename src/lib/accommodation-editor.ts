@@ -7,8 +7,14 @@ export const ACCOMMODATION_IMAGE_MAX_BYTES = 8 * 1024 * 1024
 
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 
-export const ACCOMMODATION_UPLOAD_BLOCKED =
-  'Завантаження заблоковане. Файл не збережено: сховище фото ще не підключене.'
+export function accommodationUploadFailure(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.code === 'IMAGE_STORAGE_UNAVAILABLE') return 'Сховище фото не підключене. Файл не збережено.'
+    if (error.code === 'IMAGE_TOO_LARGE') return 'Файл більший за 8 МБ'
+    if (error.code === 'IMAGE_STORAGE_FAILED') return 'Не вдалося зберегти фото. Спробуйте ще раз.'
+  }
+  return accommodationErrorMessage(error)
+}
 
 export type AccommodationImageRejection = 'empty' | 'type' | 'size'
 

@@ -115,6 +115,50 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   return readSuccess<T>(response)
 }
 
+export function authorizedFormUpload<T>(
+  path: string,
+  body: FormData,
+  onProgress?: (percent: number) => void,
+): Promise<T> {
+  return sendForm<T>(path, body, onProgress, true)
+}
+
+function sendForm<T>(path: string, body: FormData, onProgress: ((percent: number) => void) | undefined, retry: boolean): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', resolveUrl(path))
+    xhr.setRequestHeader('Accept', 'application/json')
+    xhr.timeout = 60_000
+    if (accessToken) xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`)
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable || event.total <= 0) return
+      onProgress?.(Math.min(100, Math.round((event.loaded / event.total) * 100)))
+    }
+    xhr.onerror = () => reject(new ApiError('Сервер тимчасово недоступний. Спробуйте пізніше.', 0, 'NETWORK'))
+    xhr.ontimeout = () => reject(new ApiError('Сервер відповідає занадто довго. Спробуйте ще раз.', 0, 'TIMEOUT'))
+    xhr.onload = () => {
+      const response = new Response(xhr.responseText, { status: xhr.status })
+      void (async () => {
+        if (xhr.status === 401 && retry) {
+          const refreshed = await refreshAccessToken()
+          if (refreshed === 'ok') {
+            resolve(await sendForm(path, body, onProgress, false))
+            return
+          }
+          reject(new ApiError('Сесія недійсна', 401, 'INVALID_SESSION'))
+          return
+        }
+        if (xhr.status < 200 || xhr.status >= 300) {
+          reject(await readError(response))
+          return
+        }
+        resolve(await readSuccess<T>(response))
+      })().catch(reject)
+    }
+    xhr.send(body)
+  })
+}
+
 function resolveUrl(path: string) {
   const suffix = path.startsWith('/') ? path : `/${path}`
   return `${apiBaseUrl()}${suffix}`

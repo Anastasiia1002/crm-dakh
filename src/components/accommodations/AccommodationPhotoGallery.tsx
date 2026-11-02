@@ -13,11 +13,12 @@ import {
   useDeleteAdminRoomTypeImage,
   useReorderAdminRoomTypeImages,
   useUpdateAdminRoomTypeImage,
+  useUploadAdminRoomTypeImage,
 } from '@/hooks/useHotel'
 import {
-  ACCOMMODATION_UPLOAD_BLOCKED,
   accommodationErrorMessage,
   accommodationImageRejection,
+  accommodationUploadFailure,
   isSafeAccommodationImageUrl,
   makeImageMain,
   moveImage,
@@ -46,6 +47,7 @@ export function AccommodationPhotoGallery({
   canWrite: boolean
 }) {
   const images = useAdminRoomTypeImages(roomTypeId)
+  const upload = useUploadAdminRoomTypeImage()
   const update = useUpdateAdminRoomTypeImage()
   const reorder = useReorderAdminRoomTypeImages()
   const remove = useDeleteAdminRoomTypeImage()
@@ -54,7 +56,7 @@ export function AccommodationPhotoGallery({
   const [brokenIds, setBrokenIds] = useState<Record<string, boolean>>({})
   const [dragging, setDragging] = useState(false)
   const [fileErrors, setFileErrors] = useState<string[]>([])
-  const [blockedFiles, setBlockedFiles] = useState<string[]>([])
+  const [uploads, setUploads] = useState<{ id: string; name: string; progress: number; error: string | null; file: File }[]>([])
   const [busyId, setBusyId] = useState<string | null>(null)
   const replaceForm = useForm<z.infer<typeof imageSchema>>({
     resolver: zodResolver(imageSchema),
@@ -63,19 +65,41 @@ export function AccommodationPhotoGallery({
 
   const items = useMemo(() => sortRoomTypeImages(images.data ?? []), [images.data])
 
-  function reviewFiles(list: FileList | File[]) {
+  async function sendFile(file: File, jobId: string) {
+    try {
+      await upload.mutateAsync({
+        roomTypeId,
+        file,
+        onProgress: (progress) => {
+          setUploads((current) => current.map((job) => (job.id === jobId ? { ...job, progress, error: null } : job)))
+        },
+      })
+      setUploads((current) => current.filter((job) => job.id !== jobId))
+    } catch (error) {
+      const message = accommodationUploadFailure(error)
+      setUploads((current) => current.map((job) => (job.id === jobId ? { ...job, error: message } : job)))
+    }
+  }
+
+  async function uploadFiles(list: FileList | File[]) {
     const rejected: string[] = []
-    const blocked: string[] = []
+    const accepted: { id: string; file: File }[] = []
     for (const file of Array.from(list)) {
       const result = validateAccommodationImageFile(file)
       if (!result.ok) {
         rejected.push(accommodationImageRejection(result.reason, file.name))
         continue
       }
-      blocked.push(file.name.trim() || 'Файл')
+      accepted.push({ id: crypto.randomUUID(), file })
     }
     setFileErrors(rejected)
-    setBlockedFiles(blocked)
+    setUploads((current) => [
+      ...current,
+      ...accepted.map(({ id, file }) => ({ id, name: file.name.trim() || 'Фото', progress: 0, error: null, file })),
+    ])
+    for (const item of accepted) {
+      await sendFile(item.file, item.id)
+    }
   }
 
   async function persistOrder(imageIds: string[]) {
@@ -324,21 +348,19 @@ export function AccommodationPhotoGallery({
               if (!Array.from(event.dataTransfer.types).includes('Files')) return
               event.preventDefault()
               setDragging(false)
-              reviewFiles(event.dataTransfer.files)
+              void uploadFiles(event.dataTransfer.files)
             }}
           >
-            <p className="font-medium">Завантаження фото заблоковане</p>
-            <p className="mt-1 text-muted-foreground">
-              JPG, PNG або WebP, до 8 МБ. Можна вибрати кілька файлів, але вони не зберігаються і не з’являються в
-              галереї.
-            </p>
+            <p className="font-medium">Додати фото</p>
+            <p className="mt-1 text-muted-foreground">JPG, PNG або WebP, до 8 МБ. Можна вибрати кілька.</p>
             <Input
               className="mt-3"
               type="file"
               accept="image/jpeg,image/png,image/webp"
               multiple
+              disabled={upload.isPending}
               onChange={(event) => {
-                if (event.target.files) reviewFiles(event.target.files)
+                if (event.target.files) void uploadFiles(event.target.files)
                 event.target.value = ''
               }}
             />
@@ -350,11 +372,29 @@ export function AccommodationPhotoGallery({
               ))}
             </ul>
           ) : null}
-          {blockedFiles.length > 0 ? (
-            <ul className="space-y-1 text-sm" data-photo-upload-blocked role="alert">
-              {blockedFiles.map((name) => (
-                <li key={name}>
-                  {name}: {ACCOMMODATION_UPLOAD_BLOCKED}
+          {uploads.length > 0 ? (
+            <ul className="space-y-2 text-sm" data-photo-upload-progress>
+              {uploads.map((job) => (
+                <li key={job.id} className="border border-border p-3">
+                  <p>{job.name}</p>
+                  {job.error ? (
+                    <p className="mt-1 text-destructive" role="alert">
+                      {job.error}
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-muted-foreground">Завантаження… {job.progress}%</p>
+                  )}
+                  {job.error ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="mt-2 min-h-11"
+                      onClick={() => void sendFile(job.file, job.id)}
+                    >
+                      Повторити
+                    </Button>
+                  ) : null}
                 </li>
               ))}
             </ul>
@@ -365,7 +405,7 @@ export function AccommodationPhotoGallery({
       <ConfirmDialog
         open={pendingDelete !== null}
         title="Прибрати фото?"
-        description="Посилання зникне з цього розміщення. Файл за посиланням не видаляється."
+        description="Зовнішнє посилання лише зникне зі списку. Фото, завантажене для цього розміщення, також видаляється зі сховища."
         confirmLabel="Прибрати"
         destructive
         pending={remove.isPending}

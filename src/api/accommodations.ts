@@ -1,4 +1,4 @@
-import { apiRequest } from '@/lib/api-client'
+import { apiRequest, authorizedFormUpload } from '@/lib/api-client'
 import { ApiError } from '@/lib/api-error'
 import { collectPagedRooms, RoomPageError } from '@/lib/room-pages'
 import { delay } from '@/mocks/delay'
@@ -237,6 +237,20 @@ export async function deleteRoomBlock(roomId: string, blockId: string) {
 
 export async function listRoomTypeImages(roomTypeId: string): Promise<RoomTypeImage[]> {
   return apiRequest(`/api/admin/accommodations/types/${roomTypeId}/images`)
+}
+
+export function uploadRoomTypeImage(
+  roomTypeId: string,
+  file: File,
+  onProgress?: (percent: number) => void,
+): Promise<RoomTypeImage> {
+  const body = new FormData()
+  body.append('file', file, file.name)
+  return authorizedFormUpload<RoomTypeImage>(
+    `/api/admin/accommodations/types/${roomTypeId}/images/upload`,
+    body,
+    onProgress,
+  )
 }
 
 export async function createRoomTypeImage(

@@ -8,8 +8,10 @@ import {
   moveImage,
   nextImageSortOrder,
   sortRoomTypeImages,
+  accommodationUploadFailure,
   validateAccommodationImageFile,
 } from './accommodation-editor.ts'
+import { ApiError } from './api-error.ts'
 
 const jpeg = validateAccommodationImageFile({ type: 'image/jpeg', size: 1200 })
 const png = validateAccommodationImageFile({ type: 'image/png', size: 1200 })
@@ -25,6 +27,15 @@ assert(!empty.ok && empty.reason === 'empty', 'empty files are rejected')
 const huge = validateAccommodationImageFile({ type: 'image/webp', size: ACCOMMODATION_IMAGE_MAX_BYTES + 1 })
 assert(!huge.ok && huge.reason === 'size', 'files over 8 MB are rejected')
 assert(accommodationImageRejection('type', 'plan.gif').includes('JPG, PNG і WebP'), 'type errors name the allowed formats')
+assert(
+  accommodationUploadFailure(new ApiError('ignored', 503, 'IMAGE_STORAGE_UNAVAILABLE')) ===
+    'Сховище фото не підключене. Файл не збережено.',
+  'missing storage is not described as a saved upload',
+)
+assert(
+  accommodationUploadFailure(new ApiError('ignored', 502, 'IMAGE_STORAGE_FAILED')).includes('Спробуйте ще раз'),
+  'a storage failure can be retried',
+)
 
 assert(isSafeAccommodationImageUrl('https://cdn.example/photo.webp'), 'https images can render')
 assert(isSafeAccommodationImageUrl('http://cdn.example/photo.jpg'), 'http images can render')
@@ -55,6 +66,7 @@ assert(router.includes("path: 'bookings/:id/edit'"), 'booking edit route is unch
 
 const editor = readFileSync(new URL('../pages/accommodations/AccommodationEditorPage.tsx', import.meta.url), 'utf8')
 const gallery = readFileSync(new URL('../components/accommodations/AccommodationPhotoGallery.tsx', import.meta.url), 'utf8')
+const imageApi = readFileSync(new URL('../api/accommodations.ts', import.meta.url), 'utf8')
 const bookings = readFileSync(new URL('../pages/bookings/BookingFormPage.tsx', import.meta.url), 'utf8')
 assert(editor.includes('Основна інформація'), 'basic information is a separate section')
 assert(editor.includes('Місткість і стан'), 'capacity and status are a separate section')
@@ -68,17 +80,19 @@ assert(gallery.includes('data-photo-card'), 'photos render as cards')
 assert(gallery.includes('Головне'), 'the main photo is labeled')
 assert(gallery.includes('Зробити головним'), 'a photo can be set as the main one')
 assert(gallery.includes('Прибрати фото?'), 'removal asks for confirmation')
-assert(gallery.includes('Файл за посиланням не видаляється'), 'external files are not deleted')
+assert(gallery.includes('Зовнішнє посилання лише зникне зі списку'), 'external files are not deleted')
 assert(gallery.includes('accept="image/jpeg,image/png,image/webp"'), 'the picker limits file types')
 assert(gallery.includes('multiple'), 'several files can be selected')
 assert(gallery.includes('data-photo-drop'), 'files can be dropped')
-assert(gallery.includes('data-photo-upload-blocked'), 'a selected file is reported as not uploaded')
-assert(gallery.includes('Завантаження фото заблоковане'), 'upload stays visibly blocked')
+assert(gallery.includes('data-photo-upload-progress'), 'an upload shows progress before it is saved')
+assert(gallery.includes('Повторити'), 'a failed upload can be retried')
+assert(gallery.includes('useUploadAdminRoomTypeImage'), 'the picker uses the upload mutation')
+assert(imageApi.includes('/images/upload'), 'the picker posts to the staff upload endpoint')
+assert(imageApi.includes('new FormData()'), 'the upload sends the file as multipart')
 assert(!gallery.includes('data-photo-local-preview'), 'selected files are not shown as gallery previews')
 assert(!gallery.includes('createObjectURL'), 'selected files are not kept as local image urls')
 assert(!gallery.includes('Додати за посиланням'), 'file upload does not fall back to pasting a url')
 assert(!gallery.includes('readAsDataURL'), 'photos are not stored as base64')
-assert(!gallery.includes('FormData'), 'the browser does not post files to an unconfigured store')
 assert(gallery.includes('url: values.url'), 'an existing image reference can still be replaced')
 assert(gallery.includes('Спробувати ще раз'), 'a failed photo list can be retried')
 
