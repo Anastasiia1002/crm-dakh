@@ -1,7 +1,7 @@
 import { Slot, Slottable } from '@radix-ui/react-slot'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { Loader2 } from 'lucide-react'
-import type { ButtonHTMLAttributes, MouseEvent } from 'react'
+import type { ButtonHTMLAttributes, MouseEvent, Ref } from 'react'
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
@@ -44,8 +44,9 @@ export function Button({
   disabled,
   children,
   onClick,
+  ref,
   ...props
-}: ButtonProps) {
+}: ButtonProps & { ref?: Ref<HTMLButtonElement> }) {
   const inactive = Boolean(disabled || loading)
   const classes = cn(buttonVariants({ variant, size }), className)
   const spinner = loading ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null
@@ -55,6 +56,7 @@ export function Button({
     // Slottable keeps one element and composes the spinner inside it.
     return (
       <Slot
+        ref={ref}
         className={classes}
         aria-busy={loading || undefined}
         aria-disabled={inactive || undefined}
@@ -79,6 +81,7 @@ export function Button({
 
   return (
     <button
+      ref={ref}
       className={classes}
       disabled={inactive}
       aria-busy={loading || undefined}
