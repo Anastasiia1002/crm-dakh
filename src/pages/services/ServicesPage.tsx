@@ -29,6 +29,9 @@ import {
   buildAdminServicePatchBody,
   filterManagedServices,
   formatCatalogPrice,
+  isPubliclyBookableService,
+  parseOptionalServiceQuantity,
+  validateServiceQuantityBounds,
   type AdminManagedService,
   type ServiceStatusFilter,
 } from '@/lib/admin-services'
@@ -47,10 +50,25 @@ const schema = z
     description: z.string().max(ADMIN_SERVICE_DESCRIPTION_MAX, `Опис має бути до ${ADMIN_SERVICE_DESCRIPTION_MAX} символів.`),
     price: z.string().trim().min(1, 'Вкажіть ціну.'),
     active: z.enum(['yes', 'no']),
+    bookable: z.boolean(),
+    minQuantity: z.string(),
+    maxQuantity: z.string(),
   })
   .superRefine((values, ctx) => {
     if (values.price === '0' || values.price === '0.0' || values.price === '0.00') {
       ctx.addIssue({ code: 'custom', path: ['price'], message: 'Ціна має бути щонайменше 0.01 ₴.' })
+    }
+    const minQuantity = parseOptionalServiceQuantity(values.minQuantity)
+    if (!minQuantity.ok) {
+      ctx.addIssue({ code: 'custom', path: ['minQuantity'], message: minQuantity.error })
+    }
+    const maxQuantity = parseOptionalServiceQuantity(values.maxQuantity)
+    if (!maxQuantity.ok) {
+      ctx.addIssue({ code: 'custom', path: ['maxQuantity'], message: maxQuantity.error })
+    }
+    if (minQuantity.ok && maxQuantity.ok) {
+      const bounds = validateServiceQuantityBounds(minQuantity.quantity, maxQuantity.quantity)
+      if (bounds) ctx.addIssue({ code: 'custom', path: ['maxQuantity'], message: bounds })
     }
   })
 
@@ -76,7 +94,7 @@ export function ServicesPage() {
       />
       <p className="mb-4 max-w-2xl text-sm text-muted-foreground">
         Каталог цього готелю, включно з вимкненими послугами. Ціни в гривнях. Нова ціна не змінює вже збережені рядки в
-        бронюваннях. Вимкнену послугу не можна додати до нового бронювання.
+        бронюваннях. На сайті гість бачить лише активну послугу, яку окремо дозволено для онлайн-бронювання.
       </p>
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
         <Input
@@ -127,7 +145,12 @@ export function ServicesPage() {
                 <TableCell>{item.description || '—'}</TableCell>
                 <TableCell className="tabular-nums">{formatCatalogPrice(item.price)}</TableCell>
                 <TableCell>
-                  <Badge tone={item.active ? 'success' : 'neutral'}>{item.active ? 'Активна' : 'Вимкнена'}</Badge>
+                  <div className="flex flex-wrap gap-1">
+                    <Badge tone={item.active ? 'success' : 'neutral'}>{item.active ? 'Активна' : 'Вимкнена'}</Badge>
+                    <Badge tone={isPubliclyBookableService(item) ? 'confirmed' : 'neutral'}>
+                      {isPubliclyBookableService(item) ? 'На сайті' : 'Лише в CRM'}
+                    </Badge>
+                  </div>
                 </TableCell>
                 <TableCell className="whitespace-nowrap text-muted-foreground">{formatDateTime(item.updatedAt)}</TableCell>
                 <TableCell className="text-right">
@@ -222,6 +245,9 @@ function ServiceDialog({
       description: current?.description ?? '',
       price: current?.price ?? '',
       active: current?.active === false ? 'no' : 'yes',
+      bookable: current?.bookable ?? false,
+      minQuantity: current?.minQuantity == null ? '' : String(current.minQuantity),
+      maxQuantity: current?.maxQuantity == null ? '' : String(current.maxQuantity),
     },
   })
   const watchedPrice = form.watch('price')
@@ -243,6 +269,9 @@ function ServiceDialog({
               description: values.description,
               price: values.price,
               active: values.active === 'yes',
+              bookable: values.bookable,
+              minQuantity: values.minQuantity,
+              maxQuantity: values.maxQuantity,
             }
             if (!item) {
               const created = buildAdminServiceCreateBody(formValues)
@@ -327,6 +356,66 @@ function ServiceDialog({
             </SelectContent>
           </Select>
         </Field>
+        <div className="space-y-1.5">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={form.watch('bookable')}
+            aria-describedby="service-bookable-hint"
+            disabled={!canWrite}
+            onClick={() => form.setValue('bookable', !form.getValues('bookable'), { shouldDirty: true })}
+            className="flex min-h-11 w-full items-center justify-between gap-3 rounded-md border border-border bg-surface px-3 text-left outline-none hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-40"
+          >
+            <span className="text-sm">Доступна для онлайн-бронювання</span>
+            <span
+              className={`relative h-6 w-11 shrink-0 rounded-full ${form.watch('bookable') ? 'bg-primary' : 'bg-[#ddd4c6]'}`}
+              aria-hidden
+            >
+              <span
+                className={`absolute top-0.5 size-5 rounded-full bg-surface ${form.watch('bookable') ? 'left-5' : 'left-0.5'}`}
+              />
+            </span>
+          </button>
+          <p id="service-bookable-hint" className="text-xs text-muted-foreground">
+            Увімкніть, щоб гість міг додати послугу під час онлайн-бронювання. Вимкнена послуга на сайті не з’являється.
+          </p>
+          {form.watch('active') === 'no' && form.watch('bookable') ? (
+            <p className="text-xs text-muted-foreground">На сайті послуга не з’явиться, доки вона вимкнена.</p>
+          ) : null}
+        </div>
+        <Field label="Нарахування" hint="Вартість додається один раз до всього бронювання. Інші способи нарахування не підтримуються.">
+          <p className="flex min-h-11 items-center rounded-md border border-border bg-surface-muted px-3 text-sm">За бронювання</p>
+        </Field>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field
+            label="Мінімальна кількість"
+            htmlFor="service-min-quantity"
+            error={form.formState.errors.minQuantity?.message}
+            hint="Необов’язково. Якщо порожньо, гість може обрати від 1."
+          >
+            <Input
+              id="service-min-quantity"
+              inputMode="numeric"
+              disabled={!canWrite}
+              placeholder="1"
+              {...form.register('minQuantity')}
+            />
+          </Field>
+          <Field
+            label="Максимальна кількість"
+            htmlFor="service-max-quantity"
+            error={form.formState.errors.maxQuantity?.message}
+            hint="Необов’язково. Якщо порожньо, максимум 99."
+          >
+            <Input
+              id="service-max-quantity"
+              inputMode="numeric"
+              disabled={!canWrite}
+              placeholder="99"
+              {...form.register('maxQuantity')}
+            />
+          </Field>
+        </div>
       </ScrollableFormDialog>
     </Dialog>
   )

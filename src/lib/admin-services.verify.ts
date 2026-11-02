@@ -23,12 +23,15 @@ import {
   parseAdminServiceCatalog,
   parseManagedAdminService,
   parseManagedAdminServiceCatalog,
+  parseOptionalServiceQuantity,
   serviceDisplayName,
   serviceWriteBodyHasForbiddenFields,
   setServiceQuantity,
   toggleServiceSelection,
   validateServicePrice,
   validateServiceQuantity,
+  validateServiceQuantityBounds,
+  isPubliclyBookableService,
 } from './admin-services'
 import { canManageAdminServices } from './roles'
 import type { AdminBookingDetail } from '@/types'
@@ -386,6 +389,132 @@ function main() {
     hotelId: 'should-be-ignored-if-present',
   })
   assert(loaded.currency === 'UAH' && !('hotelId' in loaded), 'GET :id view does not expose hotelId')
+  assert(loaded.bookable === false && loaded.chargeBasis === 'PER_STAY', 'a response without bookable stays private')
+  assert(loaded.minQuantity === null && loaded.maxQuantity === null, 'missing quantity limits use the public defaults')
+
+  const published = parseManagedAdminService({
+    id: BREAKFAST,
+    name: 'Сніданок',
+    description: null,
+    price: '10.10',
+    currency: 'UAH',
+    active: true,
+    bookable: true,
+    chargeBasis: 'PER_STAY',
+    minQuantity: 2,
+    maxQuantity: 4,
+    createdAt: '2026-10-01T00:00:00.000Z',
+    updatedAt: '2026-10-02T00:00:00.000Z',
+  })
+  assert(published.bookable === true && published.minQuantity === 2 && published.maxQuantity === 4, 'public limits load from the admin service')
+  assert(isPubliclyBookableService(published), 'an active bookable service is offered online')
+  assert(!isPubliclyBookableService({ active: false, bookable: true }), 'an inactive service stays off the public catalog')
+  assert(!isPubliclyBookableService({ active: true, bookable: false }), 'a private service stays off the public catalog')
+  let rejectedBasis = false
+  try {
+    parseManagedAdminService({
+      id: BREAKFAST,
+      name: 'Сніданок',
+      description: null,
+      price: '10.10',
+      currency: 'UAH',
+      active: true,
+      bookable: true,
+      chargeBasis: 'PER_NIGHT',
+      minQuantity: null,
+      maxQuantity: null,
+      createdAt: '2026-10-01T00:00:00.000Z',
+      updatedAt: '2026-10-02T00:00:00.000Z',
+    })
+  } catch {
+    rejectedBasis = true
+  }
+  assert(rejectedBasis, 'unsupported charge bases are rejected')
+
+  const privateCreate = buildAdminServiceCreateBody({
+    name: 'Трансфер',
+    description: '',
+    price: '100',
+    active: true,
+  })
+  assert(
+    privateCreate.ok && privateCreate.body.bookable === false && privateCreate.body.chargeBasis === 'PER_STAY',
+    'a new service stays private and is charged once per stay',
+  )
+  assert(privateCreate.ok && !('minQuantity' in privateCreate.body) && !('maxQuantity' in privateCreate.body), 'blank quantities keep the 1 and 99 defaults')
+  const publicCreate = buildAdminServiceCreateBody({
+    name: 'Сніданок',
+    description: '',
+    price: '150.00',
+    active: true,
+    bookable: true,
+    minQuantity: '2',
+    maxQuantity: '4',
+  })
+  assert(
+    publicCreate.ok &&
+      publicCreate.body.bookable === true &&
+      publicCreate.body.minQuantity === 2 &&
+      publicCreate.body.maxQuantity === 4,
+    'enabling online booking sends bookable and the quantity limits',
+  )
+  assert(!buildAdminServiceCreateBody({ name: 'Сніданок', description: '', price: '10', active: true, minQuantity: '0' }).ok, 'quantity below 1 is rejected')
+  assert(!buildAdminServiceCreateBody({ name: 'Сніданок', description: '', price: '10', active: true, maxQuantity: '100' }).ok, 'quantity above 99 is rejected')
+  assert(!buildAdminServiceCreateBody({ name: 'Сніданок', description: '', price: '10', active: true, minQuantity: '1.5' }).ok, 'fractional quantity is rejected')
+  const crossed = buildAdminServiceCreateBody({
+    name: 'Сніданок',
+    description: '',
+    price: '10',
+    active: true,
+    minQuantity: '5',
+    maxQuantity: '2',
+  })
+  assert(!crossed.ok && crossed.field === 'maxQuantity', 'minimum cannot exceed maximum')
+  assert(parseOptionalServiceQuantity('').ok && parseOptionalServiceQuantity('').quantity === null, 'an empty quantity is optional')
+  assert(validateServiceQuantityBounds(1, 99) === null && validateServiceQuantityBounds(2, 2) === null, 'equal bounds are allowed')
+
+  const enabled = buildAdminServicePatchBody(loaded, {
+    name: loaded.name,
+    description: '',
+    price: loaded.price,
+    active: true,
+    bookable: true,
+  })
+  assert(enabled.ok && enabled.body.bookable === true && Object.keys(enabled.body).join() === 'bookable', 'enabling public availability sends only bookable')
+  const disabled = buildAdminServicePatchBody(published, {
+    name: published.name,
+    description: '',
+    price: published.price,
+    active: true,
+    bookable: false,
+    minQuantity: '2',
+    maxQuantity: '4',
+  })
+  assert(disabled.ok && disabled.body.bookable === false && Object.keys(disabled.body).join() === 'bookable', 'disabling public availability sends only bookable')
+  const clearedLimit = buildAdminServicePatchBody(published, {
+    name: published.name,
+    description: '',
+    price: published.price,
+    active: true,
+    bookable: true,
+    minQuantity: '',
+    maxQuantity: '4',
+  })
+  assert(clearedLimit.ok && clearedLimit.body.minQuantity === null && !('bookable' in clearedLimit.body), 'clearing a limit sends null and keeps bookable')
+  assert(
+    parseAdminServiceCatalog({
+      items: [
+        { id: BREAKFAST, name: 'Сніданок', description: null, price: '10.10', currency: 'UAH', active: true, bookable: false },
+      ],
+    })[0]?.id === BREAKFAST,
+    'the staff booking picker still lists an active private service',
+  )
+
+  assert(page.includes('Доступна для онлайн-бронювання'), 'the form names the public switch')
+  assert(page.includes('За бронювання'), 'the form shows the only supported charge basis')
+  assert(page.includes('role="switch"'), 'public availability is a switch')
+  assert(!page.includes('PER_NIGHT') && !page.includes('PER_PERSON'), 'the form does not offer unsupported charge bases')
+  assert(page.includes('На сайті') && page.includes('Лише в CRM'), 'the catalog shows whether a service is public')
 
   const picker = readFileSync(new URL('../components/bookings/AdminServicePicker.tsx', import.meta.url), 'utf8')
   assert(picker.includes('savedLine.unitPrice'), 'picker shows saved historical unitPrice')

@@ -24,6 +24,8 @@ export type AdminServiceCatalogItem = {
   active: true
 }
 
+export type AdminServiceChargeBasis = 'PER_STAY'
+
 export type AdminManagedService = {
   id: string
   name: string
@@ -31,6 +33,10 @@ export type AdminManagedService = {
   price: string
   currency: 'UAH'
   active: boolean
+  bookable: boolean
+  chargeBasis: AdminServiceChargeBasis
+  minQuantity: number | null
+  maxQuantity: number | null
   createdAt: string
   updatedAt: string
 }
@@ -40,6 +46,10 @@ export type AdminServiceCreateInput = {
   description?: string | null
   price: string
   active?: boolean
+  bookable: boolean
+  chargeBasis: AdminServiceChargeBasis
+  minQuantity?: number | null
+  maxQuantity?: number | null
 }
 
 export type AdminServicePatchInput = {
@@ -47,6 +57,10 @@ export type AdminServicePatchInput = {
   description?: string | null
   price?: string
   active?: boolean
+  bookable?: boolean
+  chargeBasis?: AdminServiceChargeBasis
+  minQuantity?: number | null
+  maxQuantity?: number | null
 }
 
 export type ServiceStatusFilter = 'all' | 'active' | 'inactive'
@@ -56,6 +70,10 @@ export type AdminServiceFormValues = {
   description: string
   price: string
   active: boolean
+  /** Omitted stays private. Existing callers do not send this field. */
+  bookable?: boolean
+  minQuantity?: string
+  maxQuantity?: string
 }
 
 export type AdminServiceSelection = {
@@ -234,9 +252,62 @@ export function parseManagedAdminService(raw: unknown): AdminManagedService {
     price,
     currency: 'UAH',
     active: record.active,
+    bookable: parseServiceBookable(record.bookable),
+    chargeBasis: parseServiceChargeBasis(record.chargeBasis),
+    minQuantity: parseServiceQuantityLimit(record.minQuantity),
+    maxQuantity: parseServiceQuantityLimit(record.maxQuantity),
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
   }
+}
+
+/** A missing flag stays private so older catalog rows are not exposed on the site. */
+function parseServiceBookable(value: unknown): boolean {
+  if (value === undefined) return false
+  if (typeof value !== 'boolean') {
+    throw new ApiError('Каталог послуг має некоректну публічну доступність.', 0, 'SERVICE_CATALOG_INVALID')
+  }
+  return value
+}
+
+function parseServiceChargeBasis(value: unknown): AdminServiceChargeBasis {
+  if (value === undefined || value === 'PER_STAY') return 'PER_STAY'
+  throw new ApiError('Каталог послуг має непідтримуване нарахування.', 0, 'SERVICE_CATALOG_INVALID')
+}
+
+function parseServiceQuantityLimit(value: unknown): number | null {
+  if (value === undefined || value === null) return null
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > ADMIN_SERVICE_QUANTITY_MAX) {
+    throw new ApiError('Каталог послуг має некоректну кількість.', 0, 'SERVICE_CATALOG_INVALID')
+  }
+  return value
+}
+
+/** Public checkout lists a service only when it is both active and explicitly bookable. */
+export function isPubliclyBookableService(service: { active: boolean; bookable: boolean }) {
+  return service.active && service.bookable
+}
+
+export function parseOptionalServiceQuantity(
+  value: string | undefined,
+): { ok: true; quantity: number | null } | { ok: false; error: string } {
+  const trimmed = value?.trim() ?? ''
+  if (!trimmed) return { ok: true, quantity: null }
+  if (!/^\d+$/.test(trimmed)) {
+    return { ok: false, error: 'Кількість має бути цілим числом від 1 до 99.' }
+  }
+  const quantity = Number(trimmed)
+  if (quantity < 1 || quantity > ADMIN_SERVICE_QUANTITY_MAX) {
+    return { ok: false, error: 'Кількість має бути цілим числом від 1 до 99.' }
+  }
+  return { ok: true, quantity }
+}
+
+export function validateServiceQuantityBounds(minQuantity: number | null, maxQuantity: number | null): string | null {
+  if (minQuantity !== null && maxQuantity !== null && minQuantity > maxQuantity) {
+    return 'Максимальна кількість має бути не меншою за мінімальну.'
+  }
+  return null
 }
 
 export function parseManagedAdminServiceCatalog(raw: unknown): AdminManagedService[] {
@@ -296,12 +367,22 @@ export function buildAdminServiceCreateBody(
   if (descriptionError) return { ok: false, error: descriptionError, field: 'description' }
   const price = validateServicePrice(input.price)
   if (!price.ok) return { ok: false, error: price.error, field: 'price' }
+  const minQuantity = parseOptionalServiceQuantity(input.minQuantity)
+  if (!minQuantity.ok) return { ok: false, error: minQuantity.error, field: 'minQuantity' }
+  const maxQuantity = parseOptionalServiceQuantity(input.maxQuantity)
+  if (!maxQuantity.ok) return { ok: false, error: maxQuantity.error, field: 'maxQuantity' }
+  const bounds = validateServiceQuantityBounds(minQuantity.quantity, maxQuantity.quantity)
+  if (bounds) return { ok: false, error: bounds, field: 'maxQuantity' }
   const body: AdminServiceCreateInput = {
     name: input.name.trim(),
     description: cleanServiceDescription(input.description),
     price: price.price,
     active: input.active,
+    bookable: input.bookable ?? false,
+    chargeBasis: 'PER_STAY',
   }
+  if (minQuantity.quantity !== null) body.minQuantity = minQuantity.quantity
+  if (maxQuantity.quantity !== null) body.maxQuantity = maxQuantity.quantity
   if (serviceWriteBodyHasForbiddenFields(body as unknown as Record<string, unknown>).length > 0) {
     return { ok: false, error: 'Некоректні дані запиту.' }
   }
@@ -321,12 +402,22 @@ export function buildAdminServicePatchBody(
   if (descriptionError) return { ok: false, error: descriptionError, field: 'description' }
   const price = validateServicePrice(input.price)
   if (!price.ok) return { ok: false, error: price.error, field: 'price' }
+  const minQuantity = parseOptionalServiceQuantity(input.minQuantity)
+  if (!minQuantity.ok) return { ok: false, error: minQuantity.error, field: 'minQuantity' }
+  const maxQuantity = parseOptionalServiceQuantity(input.maxQuantity)
+  if (!maxQuantity.ok) return { ok: false, error: maxQuantity.error, field: 'maxQuantity' }
+  const bounds = validateServiceQuantityBounds(minQuantity.quantity, maxQuantity.quantity)
+  if (bounds) return { ok: false, error: bounds, field: 'maxQuantity' }
   const description = cleanServiceDescription(input.description)
+  const bookable = input.bookable ?? false
   const body: AdminServicePatchInput = {}
   if (input.name.trim() !== current.name) body.name = input.name.trim()
   if (description !== current.description) body.description = description
   if (price.price !== current.price) body.price = price.price
   if (input.active !== current.active) body.active = input.active
+  if (bookable !== current.bookable) body.bookable = bookable
+  if (minQuantity.quantity !== current.minQuantity) body.minQuantity = minQuantity.quantity
+  if (maxQuantity.quantity !== current.maxQuantity) body.maxQuantity = maxQuantity.quantity
   if (Object.keys(body).length === 0) return { ok: false, empty: true }
   if (serviceWriteBodyHasForbiddenFields(body as unknown as Record<string, unknown>).length > 0) {
     return { ok: false, error: 'Некоректні дані запиту.' }
