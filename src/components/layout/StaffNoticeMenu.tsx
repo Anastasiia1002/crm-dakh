@@ -1,4 +1,5 @@
 import { Bell } from 'lucide-react'
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   DropdownMenu,
@@ -15,6 +16,7 @@ import type { StaffNotice } from '@/types'
 
 export function StaffNoticeMenu() {
   const navigate = useNavigate()
+  const [open, setOpen] = useState(false)
   const notices = useStaffNotices()
   const markRead = useMarkStaffNoticeRead()
   const markAll = useMarkAllStaffNoticesRead()
@@ -27,7 +29,7 @@ export function StaffNoticeMenu() {
       : ({ status: 'ready', items: notices.data?.items ?? [] } as const)
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger
         className="relative rounded-md p-2 text-foreground outline-none hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-ring/50"
         aria-label={label}
@@ -54,10 +56,17 @@ export function StaffNoticeMenu() {
             markAll.mutate()
           }}
           onOpen={(id) => {
+            setOpen(false)
             void markRead.mutate(id)
           }}
-          onPending={() => navigate('/admin/bookings')}
-          onToday={() => navigate('/admin')}
+          onPending={() => {
+            setOpen(false)
+            navigate('/admin/bookings')
+          }}
+          onToday={() => {
+            setOpen(false)
+            navigate('/admin')
+          }}
         />
       </DropdownMenuContent>
     </DropdownMenu>

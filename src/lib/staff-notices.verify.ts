@@ -55,6 +55,22 @@ assert.match(menu, /min-h-0/)
 assert.match(menu, /max-h-\[min\(440px,calc\(100dvh-160px\)\)\]/)
 assert.match(menu, /if \(unread === 0 \|\| markAll\.isPending\) return/)
 assert.match(menu, /markAll\.mutate\(\)/)
+assert.match(menu, /const \[open, setOpen\] = useState\(false\)/)
+assert.match(menu, /<DropdownMenu open=\{open\} onOpenChange=\{setOpen\}>/)
+assert.match(
+  menu,
+  /onOpen=\{\(id\) => \{\s*setOpen\(false\)\s*void markRead\.mutate\(id\)/,
+)
+assert.match(
+  menu,
+  /onPending=\{\(\) => \{\s*setOpen\(false\)\s*navigate\('\/admin\/bookings'\)/,
+)
+assert.match(
+  menu,
+  /onToday=\{\(\) => \{\s*setOpen\(false\)\s*navigate\('\/admin'\)/,
+)
+assert.equal(menu.includes('setTimeout'), false)
+assert.equal(menu.includes('setInterval'), false)
 assert.equal(menu.includes('onMutate'), false)
 assert.match(hook, /retry: false/)
 assert.match(hook, /onSuccess: \(list\) => \{\s*commitStaffNoticeReadAll\(queryClient, list\)/)
