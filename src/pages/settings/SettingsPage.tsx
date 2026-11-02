@@ -60,6 +60,13 @@ const hotelSchema = z.object({
     .string()
     .max(320, 'Електронна пошта задовга')
     .refine((value) => value.trim() === '' || z.string().email().safeParse(value.trim()).success, 'Вкажіть коректну електронну пошту'),
+  contactInboxEmail: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .min(1, 'Вкажіть електронну пошту')
+    .max(320, 'Електронна пошта задовга')
+    .email('Вкажіть коректну електронну пошту'),
   phone: z.string().max(40, 'Телефон задовгий'),
   address: z.string().max(300, 'Адреса задовга'),
   city: z.string().max(120, 'Місто задовге'),
@@ -222,6 +229,7 @@ function HotelForm({ hotel, canEdit }: { hotel: HotelSettings; canEdit: boolean 
       slug: hotel.slug,
       description: hotel.description ?? '',
       email: hotel.email ?? '',
+      contactInboxEmail: hotel.contactInboxEmail ?? '',
       phone: hotel.phone ?? '',
       address: hotel.address ?? '',
       city: hotel.city ?? '',
@@ -267,8 +275,24 @@ function HotelForm({ hotel, canEdit }: { hotel: HotelSettings; canEdit: boolean 
           </Field>
         </div>
         <Field label="Електронна пошта" error={form.formState.errors.email?.message}>
-          <Input type="email" disabled={!canEdit} {...form.register('email')} />
+          <Input type="email" autoComplete="email" disabled={!canEdit} {...form.register('email')} />
         </Field>
+        <div className="sm:col-span-2">
+          <h3 className="font-serif text-2xl font-medium">Контактна інформація</h3>
+          <Field
+            label="Email для звернень із сайту"
+            hint="На цю адресу надходитимуть повідомлення, які гості надсилають через контактну форму сайту DAKH."
+            error={form.formState.errors.contactInboxEmail?.message}
+          >
+            <Input
+              type="email"
+              inputMode="email"
+              autoComplete="off"
+              disabled={!canEdit}
+              {...form.register('contactInboxEmail')}
+            />
+          </Field>
+        </div>
         <Field label="Телефон" error={form.formState.errors.phone?.message}>
           <Input disabled={!canEdit} {...form.register('phone')} />
         </Field>
@@ -421,6 +445,10 @@ function hotelPatch(current: HotelSettings, values: HotelFormValues): HotelSetti
   if (slug !== current.slug) patch.slug = slug
   assignText(patch, 'description', current.description, values.description)
   assignText(patch, 'email', current.email, values.email.trim().toLowerCase())
+  const contactInboxEmail = values.contactInboxEmail.trim().toLowerCase()
+  if (contactInboxEmail !== (current.contactInboxEmail ?? '').trim().toLowerCase()) {
+    patch.contactInboxEmail = contactInboxEmail
+  }
   assignText(patch, 'phone', current.phone, values.phone)
   assignText(patch, 'address', current.address, values.address)
   assignText(patch, 'city', current.city, values.city)

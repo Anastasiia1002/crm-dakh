@@ -657,6 +657,7 @@ export type HotelSettings = {
   slug: string
   description: string | null
   email: string | null
+  contactInboxEmail: string | null
   phone: string | null
   address: string | null
   city: string | null
@@ -674,6 +675,7 @@ export type HotelSettingsUpdate = {
   slug?: string
   description?: string | null
   email?: string | null
+  contactInboxEmail?: string
   phone?: string | null
   address?: string | null
   city?: string | null
