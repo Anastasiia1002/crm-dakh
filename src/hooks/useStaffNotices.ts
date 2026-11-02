@@ -1,5 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { getStaffNotices, markAllStaffNoticesRead, markStaffNoticeRead } from '@/api/notifications'
+import type { StaffNoticeList } from '@/types'
 
 export const STAFF_NOTICE_POLL_MS = 25_000
 export const staffNoticeQueryKey = ['staff-notices'] as const
@@ -25,12 +26,17 @@ export function useMarkStaffNoticeRead() {
   })
 }
 
+export function commitStaffNoticeReadAll(queryClient: QueryClient, list: StaffNoticeList) {
+  queryClient.setQueryData(staffNoticeQueryKey, list)
+}
+
 export function useMarkAllStaffNoticesRead() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: markAllStaffNoticesRead,
+    retry: false,
     onSuccess: (list) => {
-      queryClient.setQueryData(staffNoticeQueryKey, list)
+      commitStaffNoticeReadAll(queryClient, list)
     },
   })
 }
