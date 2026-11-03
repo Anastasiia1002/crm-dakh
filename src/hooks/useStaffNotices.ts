@@ -49,6 +49,17 @@ export function commitStaffNoticeReadAll(queryClient: QueryClient, list: StaffNo
   queryClient.setQueryData(staffNoticeQueryKey, unreadStaffNotices(list))
 }
 
+export function optimisticStaffNoticeReadAll(queryClient: QueryClient) {
+  beginStaffNoticeMutation()
+  const previous = queryClient.getQueryData<StaffNoticeList>(staffNoticeQueryKey)
+  queryClient.setQueryData<StaffNoticeList>(staffNoticeQueryKey, { unreadCount: 0, items: [] })
+  return { previous }
+}
+
+export function restoreStaffNoticeList(queryClient: QueryClient, previous: StaffNoticeList | undefined) {
+  if (previous) queryClient.setQueryData(staffNoticeQueryKey, previous)
+}
+
 export function useStaffNotices() {
   const queryClient = useQueryClient()
   return useQuery({
@@ -103,14 +114,11 @@ export function useMarkAllStaffNoticesRead() {
     mutationFn: markAllStaffNoticesRead,
     retry: false,
     onMutate: async () => {
-      beginStaffNoticeMutation()
       await queryClient.cancelQueries({ queryKey: staffNoticeQueryKey })
-      const previous = queryClient.getQueryData<StaffNoticeList>(staffNoticeQueryKey)
-      queryClient.setQueryData<StaffNoticeList>(staffNoticeQueryKey, { unreadCount: 0, items: [] })
-      return { previous }
+      return optimisticStaffNoticeReadAll(queryClient)
     },
     onError: (_error, _variables, context) => {
-      if (context?.previous) queryClient.setQueryData(staffNoticeQueryKey, context.previous)
+      restoreStaffNoticeList(queryClient, context?.previous)
     },
     onSuccess: (list) => {
       commitStaffNoticeReadAll(queryClient, list)

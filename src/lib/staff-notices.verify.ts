@@ -7,6 +7,8 @@ import { MemoryRouter } from 'react-router-dom'
 import { StaffNoticePanel } from '../components/layout/StaffNoticeMenu.tsx'
 import {
   commitStaffNoticeReadAll,
+  optimisticStaffNoticeReadAll,
+  restoreStaffNoticeList,
   selectStaffNoticeList,
   staffNoticeQueryKey,
   unreadStaffNotices,
@@ -88,9 +90,12 @@ assert.equal(menu.includes('setInterval'), false)
 assert.equal(menu.includes('onMutate'), false)
 assert.match(hook, /retry: false/)
 assert.match(hook, /onSuccess: \(list\) => \{\s*commitStaffNoticeReadAll\(queryClient, list\)/)
-assert.match(hook, /onMutate:/)
+assert.match(hook, /optimisticStaffNoticeReadAll\(queryClient\)/)
+assert.match(hook, /restoreStaffNoticeList\(queryClient, context\?\.previous\)/)
+assert.match(hook, /mutationFn: markAllStaffNoticesRead/)
 assert.match(hook, /cancelQueries\(\{ queryKey: staffNoticeQueryKey \}\)/)
-assert.match(hook, /onError:/)
+assert.match(api, /export function markAllStaffNoticesRead\(\) \{\s*return apiRequest<StaffNoticeList>\('\/api\/admin\/notifications\/read-all', \{ method: 'POST' \}\)\s*\}/)
+assert.match(menu, /errorMessage\(markAll\.error\)/)
 
 function render(node: ReactNode) {
   return renderToStaticMarkup(node as ReactElement)
@@ -202,28 +207,32 @@ assert.match(broken, /Не вдалося завантажити сповіще�
 assert.match(broken.slice(broken.indexOf('data-notice-footer')), /Заїзди сьогодні/)
 
 const current: StaffNoticeList = {
-  unreadCount: 2,
-  items: [notice('a', true), notice('b', true)],
+  unreadCount: 3,
+  items: [notice('a', true), notice('b', true), notice('c', true)],
 }
 const cache = new QueryClient()
 cache.setQueryData(staffNoticeQueryKey, current)
-assert.deepEqual(cache.getQueryData(staffNoticeQueryKey), current, 'a failed mark-all leaves the unread cache unchanged')
+const attempt = optimisticStaffNoticeReadAll(cache)
+assert.equal(cache.getQueryData<StaffNoticeList>(staffNoticeQueryKey)?.unreadCount, 0)
+assert.deepEqual(cache.getQueryData<StaffNoticeList>(staffNoticeQueryKey)?.items, [])
+restoreStaffNoticeList(cache, attempt.previous)
+assert.deepEqual(cache.getQueryData(staffNoticeQueryKey), current, 'a failed mark-all restores every unread notice')
+optimisticStaffNoticeReadAll(cache)
 const partial: StaffNoticeList = {
-  unreadCount: 1,
-  items: [{ ...current.items[0], unread: false }, current.items[1]],
+  unreadCount: 2,
+  items: [{ ...current.items[0]!, unread: false }, current.items[1]!, current.items[2]!],
 }
 commitStaffNoticeReadAll(cache, partial)
 const stored = cache.getQueryData<StaffNoticeList>(staffNoticeQueryKey)
-assert.equal(stored?.unreadCount, 1, 'the badge uses the server unread count')
-assert.equal(stored?.items.length, 1)
-assert.equal(stored?.items[0]?.id, 'b')
-assert.equal(stored?.items[0]?.unread, true, 'a read row is not kept in the dropdown cache')
+assert.equal(stored?.unreadCount, 2, 'the badge uses the server unread count')
+assert.deepEqual(stored?.items.map((item) => item.id), ['b', 'c'])
+assert.equal(stored?.items.every((item) => item.unread), true, 'a read row is not kept in the dropdown cache')
 const cleared: StaffNoticeList = {
   unreadCount: 0,
   items: current.items.map((item) => ({ ...item, unread: false })),
 }
 commitStaffNoticeReadAll(cache, cleared)
-assert.equal(cache.getQueryData<StaffNoticeList>(staffNoticeQueryKey)?.unreadCount, 0)
+assert.equal(cache.getQueryData<StaffNoticeList>(staffNoticeQueryKey)?.unreadCount, 0, 'the bell count is zero after every notice is read')
 assert.deepEqual(cache.getQueryData<StaffNoticeList>(staffNoticeQueryKey)?.items, [])
 
 const mixed = unreadStaffNotices({
@@ -250,5 +259,12 @@ const fresh = selectStaffNoticeList(undefined, { unreadCount: 1, items: [notice(
   mutations: 0,
 })
 assert.deepEqual(fresh.items.map((item) => item.id), ['live'])
+const refreshed = selectStaffNoticeList(
+  undefined,
+  { unreadCount: 0, items: [notice('already-read', false)] },
+  { seenGeneration: 4, activeGeneration: 4, mutations: 0 },
+)
+assert.equal(refreshed.unreadCount, 0, 'a refresh after read-all keeps the bell at zero')
+assert.deepEqual(refreshed.items, [])
 
 console.log('staff notices verified')
