@@ -107,7 +107,7 @@ export function formatGuests(adults: number, children: number) {
   const adultLabel = adults === 1 ? '1 дорослий' : `${adults} дорослих`
   if (children <= 0) return adultLabel
   const childLabel = children === 1 ? '1 дитина' : `${children} дітей`
-  return `${adultLabel}, ${childLabel}`
+  return `${adultLabel} · ${childLabel}`
 }
 
 export function guestCount(adults: number, children: number) {

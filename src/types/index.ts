@@ -779,6 +779,8 @@ export type StaffNotice = {
   checkIn: string
   checkOut: string
   guestCount: number
+  adults: number | null
+  children: number | null
   bookingStatus: BookingStatus
   createdAt: string
   unread: boolean

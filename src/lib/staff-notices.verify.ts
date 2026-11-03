@@ -15,7 +15,13 @@ import {
   withoutStaffNotice,
 } from '../hooks/useStaffNotices.ts'
 import type { StaffNotice, StaffNoticeList } from '../types/index.ts'
+import { formatGuests } from './format.ts'
 import { noticeTimeLabel } from './notice-time.ts'
+
+assert.equal(formatGuests(2, 0), '2 дорослих')
+assert.equal(formatGuests(2, 1), '2 дорослих · 1 дитина')
+assert.equal(formatGuests(3, 2), '3 дорослих · 2 дітей')
+assert.equal(formatGuests(1, 3), '1 дорослий · 3 дітей')
 
 const menu = readFileSync(new URL('../components/layout/StaffNoticeMenu.tsx', import.meta.url), 'utf8')
 const hook = readFileSync(new URL('../hooks/useStaffNotices.ts', import.meta.url), 'utf8')
@@ -111,6 +117,8 @@ function notice(id: string, unread: boolean): StaffNotice {
     checkIn: '2026-11-10',
     checkOut: '2026-11-12',
     guestCount: 2,
+    adults: 2,
+    children: 0,
     bookingStatus: 'PENDING',
     createdAt: '2026-12-20T11:00:00.000Z',
     unread,
@@ -179,6 +187,21 @@ assert.equal(open.match(/data-unread="true"/g)?.length, 3)
 assert.equal(open.includes('data-unread="false"'), false, 'read notices stay out of the dropdown')
 assert.match(open, /aria-label="Позначити як прочитане"/)
 assert.match(open, /title="Позначити як прочитане"/)
+assert.match(open, /2 дорослих/)
+assert.equal(open.includes('гостей 2'), false)
+
+const family = panel({
+  items: [{ ...notice('family', true), adults: 2, children: 1, guestCount: 3 }],
+  unread: 1,
+})
+assert.match(family, /2 дорослих · 1 дитина/)
+
+const legacy = panel({
+  items: [{ ...notice('legacy', true), adults: null, children: null, guestCount: 3 }],
+  unread: 1,
+})
+assert.match(legacy, /гостей 3/)
+assert.equal(legacy.includes('доросл'), false)
 
 const none = panel({ items: [notice('read', false)], unread: 0 })
 assert.equal(markAllButton(none), '', 'mark-all is hidden when nothing is unread')

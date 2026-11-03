@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { BookingStatusBadge } from '@/components/bookings/BookingStatusBadge'
 import { EmptyState } from '@/components/ui/states'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { formatDate, formatGuests, formatMoney, guestCount } from '@/lib/format'
+import { formatDate, formatGuests, formatMoney } from '@/lib/format'
 import type { Accommodation, Booking, Guest } from '@/types'
 
 type Variant = 'full' | 'upcoming' | 'arrivals' | 'departures'
@@ -76,7 +76,7 @@ export function BookingTable({
               ) : null}
               {variant === 'full' ? <TableCell>{formatGuests(booking.adults, booking.children)}</TableCell> : null}
               {variant === 'arrivals' || variant === 'departures' ? (
-                <TableCell>{guestCount(booking.adults, booking.children)}</TableCell>
+                <TableCell>{formatGuests(booking.adults, booking.children)}</TableCell>
               ) : null}
               <TableCell>
                 <BookingStatusBadge status={booking.status} />

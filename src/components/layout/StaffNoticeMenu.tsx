@@ -10,7 +10,7 @@ import {
 import { useMarkAllStaffNoticesRead, useMarkStaffNoticeRead, useStaffNotices } from '@/hooks/useStaffNotices'
 import { adminBookingRef } from '@/lib/admin-booking-view'
 import { errorMessage } from '@/lib/errors'
-import { formatDate } from '@/lib/format'
+import { formatDate, formatGuests } from '@/lib/format'
 import { bookingStatusLabel } from '@/lib/labels'
 import { noticeTimeLabel } from '@/lib/notice-time'
 import type { StaffNotice } from '@/types'
@@ -208,6 +208,13 @@ export function StaffNoticePanel({
   )
 }
 
+function noticeGuests(item: StaffNotice) {
+  if (item.adults != null && item.children != null && item.adults + item.children === item.guestCount) {
+    return formatGuests(item.adults, item.children)
+  }
+  return `гостей ${item.guestCount}`
+}
+
 function NoticeCopy({ item }: { item: StaffNotice }) {
   return (
     <span className="block min-w-0 py-1 break-words">
@@ -217,8 +224,8 @@ function NoticeCopy({ item }: { item: StaffNotice }) {
       </span>
       <span className="mt-1 block text-xs font-normal break-words text-muted-foreground">
         {adminBookingRef(item.bookingReference)}
-        {item.guestName ? ` · ${item.guestName}` : ''} · {formatDate(item.checkIn)} — {formatDate(item.checkOut)} · гостей{' '}
-        {item.guestCount}
+        {item.guestName ? ` · ${item.guestName}` : ''} · {formatDate(item.checkIn)} — {formatDate(item.checkOut)} ·{' '}
+        {noticeGuests(item)}
       </span>
       <span className="mt-1 block text-xs font-normal text-muted-foreground">{bookingStatusLabel[item.bookingStatus]}</span>
     </span>
