@@ -5,7 +5,6 @@ import { Link, useBlocker, useNavigate, useParams, useSearchParams } from 'react
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { AccommodationPhotoGallery } from '@/components/accommodations/AccommodationPhotoGallery'
-import { RoomTypePicker } from '@/components/accommodations/RoomTypePicker'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Field } from '@/components/ui/field'
@@ -19,13 +18,15 @@ import {
   useAdminRooms,
   useAdminRoomType,
   useCreateAdminRoom,
+  useCreateAdminRoomType,
   useUpdateAdminRoom,
   useUpdateAdminRoomType,
 } from '@/hooks/useHotel'
-import { accommodationErrorMessage } from '@/lib/accommodation-editor'
+import { accommodationErrorMessage, accommodationTypeSlug } from '@/lib/accommodation-editor'
 import { sharedRoomTypeNotice } from '@/lib/accommodation-labels'
-import { roomStatusLabel, roomTypeKindLabel } from '@/lib/labels'
+import { roomStatusLabel } from '@/lib/labels'
 import { canManageAccommodations } from '@/lib/roles'
+import { cn } from '@/lib/utils'
 import type { RoomStatus, RoomTypeKind } from '@/types'
 
 const ROOM_STATUSES = ['AVAILABLE', 'MAINTENANCE', 'OUT_OF_ORDER', 'INACTIVE'] as const
@@ -33,7 +34,7 @@ const ROOM_STATUSES = ['AVAILABLE', 'MAINTENANCE', 'OUT_OF_ORDER', 'INACTIVE'] a
 const unitSchema = z.object({
   name: z.string().max(200, 'Назва задовга'),
   number: z.string().trim().min(1, 'Вкажіть номер').max(50, 'Номер задовгий'),
-  roomTypeId: z.string().min(1, 'Оберіть тип розміщення'),
+  roomTypeId: z.string(),
   floor: z.string(),
   status: z.enum(ROOM_STATUSES),
   active: z.enum(['yes', 'no']),
@@ -52,6 +53,11 @@ function listPath(kind: RoomTypeKind | null) {
   return kind === 'COTTAGE' ? '/admin/accommodations?tab=cottages' : '/admin/accommodations'
 }
 
+const KIND_CHOICES: { id: RoomTypeKind; label: string }[] = [
+  { id: 'ROOM', label: 'Номер' },
+  { id: 'COTTAGE', label: 'Котедж' },
+]
+
 function parseKind(value: string | null): RoomTypeKind | null {
   if (value === 'ROOM' || value === 'COTTAGE') return value
   return null
@@ -59,7 +65,7 @@ function parseKind(value: string | null): RoomTypeKind | null {
 
 export function AccommodationEditorPage() {
   const { id } = useParams()
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
   const navigate = useNavigate()
   const isNew = !id
   const requestedKind = parseKind(params.get('kind'))
@@ -67,9 +73,10 @@ export function AccommodationEditorPage() {
   const { user } = useAuth()
   const canWrite = canManageAccommodations(user?.role)
   const create = useCreateAdminRoom()
+  const createType = useCreateAdminRoomType()
   const update = useUpdateAdminRoom()
   const updateType = useUpdateAdminRoomType()
-  const pending = create.isPending || update.isPending || updateType.isPending
+  const pending = create.isPending || createType.isPending || update.isPending || updateType.isPending
   const [guestName, setGuestName] = useState('')
   const [description, setDescription] = useState('')
   const [maxGuests, setMaxGuests] = useState('2')
@@ -83,24 +90,21 @@ export function AccommodationEditorPage() {
 
   const item = room.data
   const assignedType = useAdminRoomType(item?.roomTypeId)
-  const selectedTypeId = form.watch('roomTypeId')
-  const selectedType = useAdminRoomType(!item ? selectedTypeId || undefined : undefined)
   const sharedUnits = useAdminRooms(
     { page: 1, limit: 1, roomTypeId: item?.roomTypeId },
     { enabled: Boolean(item?.roomTypeId) },
   )
   const sharedUnitCount = sharedUnits.isSuccess ? sharedUnits.data.pagination.total : null
   const kind = item ? (assignedType.data?.kind ?? requestedKind) : requestedKind
-  const categoryPending = isNew && Boolean(selectedTypeId) && (selectedType.isLoading || selectedType.isFetching)
-  const kindMismatch = Boolean(isNew && selectedType.data && kind && selectedType.data.kind !== kind)
-  const categoryMissing = Boolean(isNew && selectedTypeId && !categoryPending && !selectedType.data)
-  const createTypeReady = Boolean(selectedTypeId) && !categoryPending && !kindMismatch && !categoryMissing
-  const typeDirty = Boolean(
-    typeBaseline &&
-      (guestName !== typeBaseline.name ||
-        description !== typeBaseline.description ||
-        maxGuests !== typeBaseline.maxGuests),
-  )
+  const createTypeReady = Boolean(kind)
+  const typeDirty = item
+    ? Boolean(
+        typeBaseline &&
+          (guestName !== typeBaseline.name ||
+            description !== typeBaseline.description ||
+            maxGuests !== typeBaseline.maxGuests),
+      )
+    : guestName !== '' || description !== '' || maxGuests !== '2'
   const dirty = form.formState.isDirty || typeDirty
   const dirtyRef = useRef(dirty)
   dirtyRef.current = dirty
@@ -200,10 +204,8 @@ export function AccommodationEditorPage() {
             toast.error('Недостатньо прав для цієї дії')
             return
           }
-          if (isNew && !createTypeReady) {
-            form.setError('roomTypeId', {
-              message: kind ? `Оберіть тип «${roomTypeKindLabel[kind]}»` : 'Оберіть тип розміщення',
-            })
+          if (isNew && !kind) {
+            setTypeError('Оберіть тип розміщення')
             return
           }
           const floorTrimmed = values.floor.trim()
@@ -217,16 +219,14 @@ export function AccommodationEditorPage() {
             floorValue = parsed
           }
           const type = item ? assignedType.data : undefined
-          let guests = type?.maxGuests
-          let nextDescription = type?.description ?? null
-          let nextGuestName = type?.name
-          if (item && type) {
-            guests = Number(maxGuests)
+          const editingType = Boolean(item && type)
+          const guests = Number(maxGuests)
+          if (!item || editingType) {
             if (!Number.isInteger(guests) || guests < 1) {
               setTypeError('Місткість має бути цілим числом від 1')
               return
             }
-            if (!guestName.trim()) {
+            if (editingType && !guestName.trim()) {
               setTypeError('Вкажіть назву для гостей')
               return
             }
@@ -238,15 +238,15 @@ export function AccommodationEditorPage() {
               setTypeError('Опис задовгий')
               return
             }
-            nextGuestName = guestName.trim()
-            nextDescription = description.trim() ? description.trim() : null
-            setTypeError(null)
           }
+          const nextGuestName = guestName.trim()
+          const nextDescription = description.trim() ? description.trim() : null
+          setTypeError(null)
           try {
             const payload = {
               name: values.name.trim() ? values.name.trim() : null,
               number: values.number,
-              roomTypeId: item?.roomTypeId ?? values.roomTypeId,
+              roomTypeId: item?.roomTypeId ?? '',
               floor: floorValue,
               status: values.status,
               active: values.active === 'yes',
@@ -256,7 +256,6 @@ export function AccommodationEditorPage() {
               if (
                 type &&
                 nextGuestName &&
-                guests !== undefined &&
                 (nextGuestName !== type.name ||
                   nextDescription !== (type.description ?? null) ||
                   guests !== type.maxGuests)
@@ -273,8 +272,16 @@ export function AccommodationEditorPage() {
               toast.success('Збережено')
               leaveReadyRef.current = true
               navigate(listPath(kind))
-            } else {
-              const created = await create.mutateAsync(payload)
+            } else if (kind) {
+              const createdType = await createType.mutateAsync({
+                name: nextGuestName || payload.name || `${kind === 'COTTAGE' ? 'Котедж' : 'Номер'} ${values.number.trim()}`,
+                slug: accommodationTypeSlug(kind, values.number),
+                description: nextDescription,
+                kind,
+                maxGuests: guests,
+                active: values.active === 'yes',
+              })
+              const created = await create.mutateAsync({ ...payload, roomTypeId: createdType.id })
               toast.success('Збережено')
               leaveReadyRef.current = true
               navigate(`/admin/accommodations/${created.id}/edit`)
@@ -291,6 +298,39 @@ export function AccommodationEditorPage() {
           </Field>
           <Field label="Номер / код" error={form.formState.errors.number?.message}>
             <Input disabled={!canWrite} {...form.register('number')} />
+          </Field>
+          <Field label="Тип розміщення">
+            <div role="radiogroup" aria-label="Тип розміщення" data-accommodation-kind className="grid grid-cols-2 gap-2">
+              {KIND_CHOICES.map((choice) => {
+                const selected = kind === choice.id
+                return (
+                  <button
+                    key={choice.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    disabled={!canWrite || !isNew}
+                    className={cn(
+                      'min-h-11 border px-3 text-sm',
+                      selected ? 'border-foreground bg-foreground text-background' : 'border-border bg-background',
+                    )}
+                    onClick={() => {
+                      if (!isNew) return
+                      const next = new URLSearchParams(params)
+                      next.set('kind', choice.id)
+                      setParams(next, { replace: true })
+                    }}
+                  >
+                    {choice.label}
+                  </button>
+                )
+              })}
+            </div>
+            {item ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Тип береться з категорії цього розміщення. Інші розміщення тут не вибираються.
+              </p>
+            ) : null}
           </Field>
           {item ? (
             <>
@@ -311,31 +351,23 @@ export function AccommodationEditorPage() {
               </Field>
             </>
           ) : (
-            <Field label="Тип розміщення" error={form.formState.errors.roomTypeId?.message}>
-              <RoomTypePicker
-                value={form.watch('roomTypeId')}
-                kind={kind ?? 'ROOM'}
-                activeOnly
-                disabled={!canWrite}
-                onChange={(value) => form.setValue('roomTypeId', value, { shouldValidate: true, shouldDirty: true })}
-              />
+            <Field label="Назва для гостей" hint="Як розміщення видно гостям. Якщо порожнє, використовується назва або номер.">
+              <Input disabled={!canWrite} value={guestName} onChange={(event) => setGuestName(event.target.value)} />
             </Field>
           )}
         </section>
 
         <section className="space-y-4">
           <h2 className="font-serif text-2xl font-medium">Місткість і стан</h2>
-          {item ? (
-            <Field label="Місткість" hint="Спільний максимум гостей для всіх розміщень цього типу">
-              <Input
-                type="number"
-                min={1}
-                disabled={!canWrite || !assignedType.data}
-                value={maxGuests}
-                onChange={(event) => setMaxGuests(event.target.value)}
-              />
-            </Field>
-          ) : null}
+          <Field label="Місткість" hint={item ? 'Спільний максимум гостей для всіх розміщень цього типу' : 'Максимум гостей'}>
+            <Input
+              type="number"
+              min={1}
+              disabled={!canWrite || Boolean(item && !assignedType.data)}
+              value={maxGuests}
+              onChange={(event) => setMaxGuests(event.target.value)}
+            />
+          </Field>
           {typeError ? <p className="text-sm text-destructive">{typeError}</p> : null}
           {item && assignedType.isError ? (
             <p className="text-sm text-muted-foreground">

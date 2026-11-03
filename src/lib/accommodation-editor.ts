@@ -1,7 +1,7 @@
 import { ApiError } from '@/lib/api-error'
 import { blockConflictMessage } from '@/lib/room-block'
 import { errorMessage } from '@/lib/errors'
-import type { RoomTypeImage } from '@/types'
+import type { RoomTypeImage, RoomTypeKind } from '@/types'
 
 export const ACCOMMODATION_IMAGE_MAX_BYTES = 50 * 1024 * 1024
 
@@ -74,6 +74,18 @@ export function makeImageMain(ids: readonly string[], imageId: string): string[]
   const index = ids.indexOf(imageId)
   if (index <= 0) return null
   return [imageId, ...ids.filter((id) => id !== imageId)]
+}
+
+export function accommodationTypeSlug(kind: RoomTypeKind, number: string): string {
+  const prefix = kind === 'COTTAGE' ? 'cottage' : 'room'
+  const body = number
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40)
+  const suffix = crypto.randomUUID().replace(/-/g, '').slice(0, 8)
+  return `${prefix}-${body || 'unit'}-${suffix}`.slice(0, 80)
 }
 
 export function accommodationErrorMessage(error: unknown) {

@@ -8,6 +8,7 @@ import {
   moveImage,
   nextImageSortOrder,
   sortRoomTypeImages,
+  accommodationTypeSlug,
   accommodationUploadFailure,
   validateAccommodationImageFile,
 } from './accommodation-editor.ts'
@@ -77,6 +78,15 @@ const bookings = readFileSync(new URL('../pages/bookings/BookingFormPage.tsx', i
 assert(editor.includes('Основна інформація'), 'basic information is a separate section')
 assert(editor.includes('Місткість і стан'), 'capacity and status are a separate section')
 assert(editor.includes('AccommodationPhotoGallery'), 'edit page includes the photo gallery')
+assert(editor.includes('data-accommodation-kind'), 'the editor chooses a kind')
+assert(editor.includes("'Номер'") && editor.includes("'Котедж'"), 'kind choices are room and cottage')
+assert(!editor.includes('RoomTypePicker'), 'the editor does not list other accommodation names')
+assert(editor.includes('accommodationTypeSlug'), 'a new unit gets its own room type')
+const slug = accommodationTypeSlug('COTTAGE', '14/3')
+assert(/^cottage-[a-z0-9-]+$/.test(slug) && slug.length <= 80, 'generated slugs stay within the room-type contract')
+assert(gallery.includes('data-photo-toolbar'), 'photo actions sit on the thumbnail')
+assert(gallery.includes('aria-label="Перемістити вище"'), 'move earlier is an accessible icon')
+assert(gallery.includes('aria-label="Видалити фото"'), 'delete is an accessible icon')
 assert(editor.includes('useBlocker'), 'unsaved navigation is blocked')
 assert(editor.includes('beforeunload'), 'unsaved refresh is warned')
 assert(editor.includes('Зберегти') && editor.includes('Скасувати'), 'save and cancel stay available')

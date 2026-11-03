@@ -1,4 +1,4 @@
-import { ImageOff, Star } from 'lucide-react'
+import { ArrowDown, ArrowUp, ImageOff, RefreshCw, Star, Trash2 } from 'lucide-react'
 import { useMemo, useState, type DragEvent } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import {
@@ -64,6 +65,7 @@ export function AccommodationPhotoGallery({
   })
 
   const items = useMemo(() => sortRoomTypeImages(images.data ?? []), [images.data])
+  const replacing = items.find((image) => image.id === replacingId) ?? null
 
   async function sendFile(file: File, jobId: string) {
     try {
@@ -165,11 +167,10 @@ export function AccommodationPhotoGallery({
       ) : null}
 
       {items.length > 0 ? (
-        <ul className="grid grid-cols-1 gap-3 min-[390px]:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
           {items.map((image, index) => {
             const safe = isSafeAccommodationImageUrl(image.url)
             const broken = !safe || brokenIds[image.id]
-            const replacing = replacingId === image.id
             return (
               <li
                 key={image.id}
@@ -185,7 +186,7 @@ export function AccommodationPhotoGallery({
                   event.preventDefault()
                 }}
                 onDrop={(event) => onCardDrop(image.id, event)}
-                className="flex min-w-0 flex-col border border-border bg-card"
+                className="group @container relative min-w-0 overflow-hidden border border-border bg-card"
               >
                 <div className="relative aspect-[4/3] bg-muted">
                   {broken ? (
@@ -202,40 +203,45 @@ export function AccommodationPhotoGallery({
                     />
                   )}
                   {index === 0 ? (
-                    <span className="absolute top-2 left-2 inline-flex items-center gap-1 bg-background px-2 py-1 text-xs">
-                      <Star className="size-3" aria-hidden />
-                      Головне
+                    <span
+                      className="absolute top-2 left-2 inline-flex size-7 items-center justify-center rounded-md bg-background/80 backdrop-blur-sm"
+                      aria-label="Головне"
+                      title="Головне"
+                    >
+                      <Star className="size-3.5 fill-current" aria-hidden />
                     </span>
                   ) : null}
-                </div>
-                <div className="flex flex-1 flex-col gap-3 p-3">
-                  <p className="text-sm">{image.alt?.trim() ? image.alt : 'Без підпису'}</p>
                   {canWrite ? (
-                    <div className="mt-auto flex flex-wrap gap-2">
-                      {index > 0 ? (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="min-h-11"
-                          disabled={busyId !== null}
-                          onClick={() => {
-                            const next = makeImageMain(
-                              items.map((item) => item.id),
-                              image.id,
-                            )
-                            if (next) void persistOrder(next)
-                          }}
-                        >
-                          Зробити головним
-                        </Button>
-                      ) : null}
+                    <div
+                      data-photo-toolbar
+                      className="absolute top-2 right-2 grid w-max grid-cols-5 gap-0.5 rounded-md bg-background/80 p-0.5 opacity-100 backdrop-blur-sm transition-opacity @max-[12.5rem]:grid-cols-3 [@media(hover:hover)_and_(pointer:fine)]:opacity-0 [@media(hover:hover)_and_(pointer:fine)]:group-focus-within:opacity-100 [@media(hover:hover)_and_(pointer:fine)]:group-hover:opacity-100"
+                    >
                       <Button
                         type="button"
-                        size="sm"
+                        size="icon"
                         variant="ghost"
-                        className="min-h-11"
+                        className="size-7"
                         disabled={index === 0 || busyId !== null}
+                        aria-label="Зробити головним"
+                        title="Зробити головним"
+                        onClick={() => {
+                          const next = makeImageMain(
+                            items.map((item) => item.id),
+                            image.id,
+                          )
+                          if (next) void persistOrder(next)
+                        }}
+                      >
+                        <Star className="size-4" aria-hidden />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="size-7"
+                        disabled={index === 0 || busyId !== null}
+                        aria-label="Перемістити вище"
+                        title="Перемістити вище"
                         onClick={() => {
                           const next = moveImage(
                             items.map((item) => item.id),
@@ -245,14 +251,16 @@ export function AccommodationPhotoGallery({
                           if (next) void persistOrder(next)
                         }}
                       >
-                        Вище
+                        <ArrowUp className="size-4" aria-hidden />
                       </Button>
                       <Button
                         type="button"
-                        size="sm"
+                        size="icon"
                         variant="ghost"
-                        className="min-h-11"
+                        className="size-7"
                         disabled={index === items.length - 1 || busyId !== null}
+                        aria-label="Перемістити нижче"
+                        title="Перемістити нижче"
                         onClick={() => {
                           const next = moveImage(
                             items.map((item) => item.id),
@@ -262,66 +270,34 @@ export function AccommodationPhotoGallery({
                           if (next) void persistOrder(next)
                         }}
                       >
-                        Нижче
+                        <ArrowDown className="size-4" aria-hidden />
                       </Button>
                       <Button
                         type="button"
-                        size="sm"
+                        size="icon"
                         variant="ghost"
-                        className="min-h-11"
+                        className="size-7"
+                        aria-label="Замінити фото"
+                        title="Замінити фото"
                         onClick={() => {
-                          setReplacingId(replacing ? null : image.id)
+                          setReplacingId(image.id)
                           replaceForm.reset({ url: image.url, alt: image.alt ?? '' })
                         }}
                       >
-                        Замінити
+                        <RefreshCw className="size-4" aria-hidden />
                       </Button>
                       <Button
                         type="button"
-                        size="sm"
+                        size="icon"
                         variant="ghost"
-                        className="min-h-11"
+                        className="size-7"
+                        aria-label="Видалити фото"
+                        title="Видалити фото"
                         onClick={() => setPendingDelete(image)}
                       >
-                        Видалити
+                        <Trash2 className="size-4" aria-hidden />
                       </Button>
                     </div>
-                  ) : null}
-                  {replacing ? (
-                    <form
-                      className="space-y-3"
-                      onSubmit={replaceForm.handleSubmit(async (values) => {
-                        if (!canWrite) {
-                          toast.error('Недостатньо прав для цієї дії')
-                          return
-                        }
-                        try {
-                          await update.mutateAsync({
-                            roomTypeId,
-                            imageId: image.id,
-                            input: {
-                              url: values.url,
-                              alt: values.alt.trim() ? values.alt.trim() : null,
-                            },
-                          })
-                          setBrokenIds((current) => ({ ...current, [image.id]: false }))
-                          setReplacingId(null)
-                          toast.success('Фото оновлено')
-                        } catch (error) {
-                          toast.error(accommodationErrorMessage(error))
-                        }
-                      })}
-                    >
-                      <Field label="Нове посилання" error={replaceForm.formState.errors.url?.message}>
-                        <Input {...replaceForm.register('url')} />
-                      </Field>
-                      <Field label="Підпис" error={replaceForm.formState.errors.alt?.message}>
-                        <Input {...replaceForm.register('alt')} />
-                      </Field>
-                      <Button type="submit" size="sm" className="min-h-11" disabled={update.isPending} loading={update.isPending}>
-                        Зберегти заміну
-                      </Button>
-                    </form>
                   ) : null}
                 </div>
               </li>
@@ -401,6 +377,55 @@ export function AccommodationPhotoGallery({
           ) : null}
         </div>
       ) : null}
+
+      <Dialog
+        open={replacing !== null}
+        onOpenChange={(open) => {
+          if (!open) setReplacingId(null)
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Замінити фото</DialogTitle>
+          </DialogHeader>
+          {replacing ? (
+            <form
+              className="space-y-3"
+              onSubmit={replaceForm.handleSubmit(async (values) => {
+                if (!canWrite) {
+                  toast.error('Недостатньо прав для цієї дії')
+                  return
+                }
+                try {
+                  await update.mutateAsync({
+                    roomTypeId,
+                    imageId: replacing.id,
+                    input: {
+                      url: values.url,
+                      alt: values.alt.trim() ? values.alt.trim() : null,
+                    },
+                  })
+                  setBrokenIds((current) => ({ ...current, [replacing.id]: false }))
+                  setReplacingId(null)
+                  toast.success('Фото оновлено')
+                } catch (error) {
+                  toast.error(accommodationErrorMessage(error))
+                }
+              })}
+            >
+              <Field label="Нове посилання" error={replaceForm.formState.errors.url?.message}>
+                <Input {...replaceForm.register('url')} />
+              </Field>
+              <Field label="Підпис" error={replaceForm.formState.errors.alt?.message}>
+                <Input {...replaceForm.register('alt')} />
+              </Field>
+              <Button type="submit" size="sm" className="min-h-11" disabled={update.isPending} loading={update.isPending}>
+                Зберегти заміну
+              </Button>
+            </form>
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={pendingDelete !== null}
