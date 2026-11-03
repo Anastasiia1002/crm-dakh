@@ -5,7 +5,13 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { QueryClient } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { StaffNoticePanel } from '../components/layout/StaffNoticeMenu.tsx'
-import { commitStaffNoticeReadAll, staffNoticeQueryKey } from '../hooks/useStaffNotices.ts'
+import {
+  commitStaffNoticeReadAll,
+  selectStaffNoticeList,
+  staffNoticeQueryKey,
+  unreadStaffNotices,
+  withoutStaffNotice,
+} from '../hooks/useStaffNotices.ts'
 import type { StaffNotice, StaffNoticeList } from '../types/index.ts'
 import { noticeTimeLabel } from './notice-time.ts'
 
@@ -18,7 +24,8 @@ assert.match(menu, /Нове бронювання|item\.title/)
 assert.match(menu, /Очікують підтвердження/)
 assert.match(menu, /Заїзди сьогодні/)
 assert.match(menu, /Позначити всі як прочитані/)
-assert.match(menu, /Немає нових сповіщень/)
+assert.match(menu, /Немає непрочитаних сповіщень/)
+assert.equal(menu.includes('Немає нових сповіщень'), false)
 assert.match(menu, /Завантажуємо сповіщення…/)
 assert.match(menu, /Не вдалося завантажити сповіщення/)
 assert.match(menu, /role="alert"/)
@@ -39,6 +46,8 @@ assert.equal(hook.match(/useQuery\(/g)?.length, 1)
 
 assert.match(header, /<StaffNoticeMenu \/>/)
 assert.match(api, /\/api\/admin\/notifications/)
+assert.match(api, /unread=true/)
+assert.match(api, /NOTICE_LIMIT = 50/)
 assert.match(api, /\/read-all/)
 assert.match(api, /method: 'POST'/)
 assert.match(menu, /Не вдалося завантажити сповіщення[\s\S]*Очікують підтвердження/)
@@ -59,8 +68,13 @@ assert.match(menu, /const \[open, setOpen\] = useState\(false\)/)
 assert.match(menu, /<DropdownMenu open=\{open\} onOpenChange=\{setOpen\}>/)
 assert.match(
   menu,
-  /onOpen=\{\(id\) => \{\s*setOpen\(false\)\s*void markRead\.mutate\(id\)/,
+  /onOpen=\{\(id\) => \{\s*setOpen\(false\)\s*markOne\(id\)/,
 )
+assert.match(menu, /Позначити як прочитане/)
+assert.match(menu, /event\.stopPropagation\(\)/)
+assert.match(menu, /pendingNoticeReads/)
+assert.match(menu, /toast\.error\(errorMessage\(error\)\)/)
+assert.equal(menu.includes('bookingStatus:'), false)
 assert.match(
   menu,
   /onPending=\{\(\) => \{\s*setOpen\(false\)\s*navigate\('\/admin\/bookings'\)/,
@@ -74,7 +88,9 @@ assert.equal(menu.includes('setInterval'), false)
 assert.equal(menu.includes('onMutate'), false)
 assert.match(hook, /retry: false/)
 assert.match(hook, /onSuccess: \(list\) => \{\s*commitStaffNoticeReadAll\(queryClient, list\)/)
-assert.equal(hook.includes('onMutate'), false)
+assert.match(hook, /onMutate:/)
+assert.match(hook, /cancelQueries\(\{ queryKey: staffNoticeQueryKey \}\)/)
+assert.match(hook, /onError:/)
 
 function render(node: ReactNode) {
   return renderToStaticMarkup(node as ReactElement)
@@ -120,6 +136,8 @@ function panel(options: {
         onRetry: () => undefined,
         onMarkAll: () => undefined,
         onOpen: () => undefined,
+        onMarkRead: () => undefined,
+        pendingReadId: options.pending ? 'n0' : null,
         onPending: () => undefined,
         onToday: () => undefined,
       }),
@@ -151,15 +169,17 @@ assert.match(open.slice(footerAt), /Очікують підтвердження/
 assert.match(open.slice(footerAt), /Заїзди сьогодні/)
 assert.match(open, /Позначити всі як прочитані/)
 assert.equal(isDisabled(markAllButton(open)), false, 'mark-all stays available while notices are unread')
-const unreadRow = open.match(/<a[^>]*data-unread="true"[^>]*>/)?.[0] ?? ''
-const readRow = open.match(/<a[^>]*data-unread="false"[^>]*>/)?.[0] ?? ''
-assert.match(unreadRow, /bg-secondary/)
-assert.match(readRow, /bg-surface/)
-assert.equal(readRow.includes('bg-secondary'), false)
+assert.equal(markAllButton(open).includes('border'), false, 'mark-all is text, not a bordered button')
+assert.equal(open.match(/data-unread="true"/g)?.length, 3)
+assert.equal(open.includes('data-unread="false"'), false, 'read notices stay out of the dropdown')
+assert.match(open, /aria-label="Позначити як прочитане"/)
+assert.match(open, /title="Позначити як прочитане"/)
 
 const none = panel({ items: [notice('read', false)], unread: 0 })
-assert.equal(isDisabled(markAllButton(none)), true, 'mark-all is disabled when nothing is unread')
-assert.match(none, /Позначити всі як прочитані/)
+assert.equal(markAllButton(none), '', 'mark-all is hidden when nothing is unread')
+assert.match(none, /Немає непрочитаних сповіщень/)
+assert.equal(none.includes('data-notice-id'), false)
+assert.equal(none.includes('data-unread="false"'), false)
 
 const pending = panel({ items: many, unread: 3, pending: true })
 assert.equal(isDisabled(markAllButton(pending)), true, 'mark-all cannot be submitted twice')
@@ -195,14 +215,40 @@ const partial: StaffNoticeList = {
 commitStaffNoticeReadAll(cache, partial)
 const stored = cache.getQueryData<StaffNoticeList>(staffNoticeQueryKey)
 assert.equal(stored?.unreadCount, 1, 'the badge uses the server unread count')
-assert.equal(stored?.items[0]?.unread, false)
-assert.equal(stored?.items[1]?.unread, true, 'a row stays unread until the server says it is read')
+assert.equal(stored?.items.length, 1)
+assert.equal(stored?.items[0]?.id, 'b')
+assert.equal(stored?.items[0]?.unread, true, 'a read row is not kept in the dropdown cache')
 const cleared: StaffNoticeList = {
   unreadCount: 0,
   items: current.items.map((item) => ({ ...item, unread: false })),
 }
 commitStaffNoticeReadAll(cache, cleared)
 assert.equal(cache.getQueryData<StaffNoticeList>(staffNoticeQueryKey)?.unreadCount, 0)
-assert.ok(cache.getQueryData<StaffNoticeList>(staffNoticeQueryKey)?.items.every((item) => item.unread === false))
+assert.deepEqual(cache.getQueryData<StaffNoticeList>(staffNoticeQueryKey)?.items, [])
+
+const mixed = unreadStaffNotices({
+  unreadCount: 4,
+  items: [notice('old-unread', true), notice('read', false), notice('new-unread', true)],
+})
+assert.deepEqual(mixed.items.map((item) => item.id), ['old-unread', 'new-unread'])
+assert.equal(mixed.unreadCount, 4)
+const removed = withoutStaffNotice(mixed, 'old-unread')
+assert.deepEqual(removed.items.map((item) => item.id), ['new-unread'])
+assert.equal(removed.unreadCount, 3)
+const stale = selectStaffNoticeList(
+  cache.getQueryData<StaffNoticeList>(staffNoticeQueryKey),
+  { unreadCount: 2, items: [notice('stale', true)] },
+  {
+  seenGeneration: 1,
+  activeGeneration: 2,
+  mutations: 0,
+})
+assert.deepEqual(stale.items, [], 'a stale refetch does not restore notices marked read')
+const fresh = selectStaffNoticeList(undefined, { unreadCount: 1, items: [notice('live', true), notice('done', false)] }, {
+  seenGeneration: 2,
+  activeGeneration: 2,
+  mutations: 0,
+})
+assert.deepEqual(fresh.items.map((item) => item.id), ['live'])
 
 console.log('staff notices verified')

@@ -1,6 +1,7 @@
-import { Bell } from 'lucide-react'
-import { useState } from 'react'
+import { Bell, Check } from 'lucide-react'
+import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,13 +21,22 @@ export function StaffNoticeMenu() {
   const notices = useStaffNotices()
   const markRead = useMarkStaffNoticeRead()
   const markAll = useMarkAllStaffNoticesRead()
+  const pendingNoticeReads = useRef(new Set<string>())
   const unread = notices.data?.unreadCount ?? 0
   const label = unread > 0 ? `Сповіщення, непрочитаних: ${unread}` : 'Сповіщення'
   const listState = notices.isLoading
     ? ({ status: 'loading' } as const)
     : notices.isError
       ? ({ status: 'error' } as const)
-      : ({ status: 'ready', items: notices.data?.items ?? [] } as const)
+      : ({ status: 'ready', items: (notices.data?.items ?? []).filter((item) => item.unread) } as const)
+  const markOne = (id: string) => {
+    if (pendingNoticeReads.current.has(id) || markAll.isPending) return
+    pendingNoticeReads.current.add(id)
+    markRead.mutate(id, {
+      onError: (error) => toast.error(errorMessage(error)),
+      onSettled: () => pendingNoticeReads.current.delete(id),
+    })
+  }
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -55,10 +65,12 @@ export function StaffNoticeMenu() {
             if (unread === 0 || markAll.isPending) return
             markAll.mutate()
           }}
+          pendingReadId={markRead.isPending ? markRead.variables : null}
           onOpen={(id) => {
             setOpen(false)
-            void markRead.mutate(id)
+            markOne(id)
           }}
+          onMarkRead={markOne}
           onPending={() => {
             setOpen(false)
             navigate('/admin/bookings')
@@ -81,6 +93,8 @@ export function StaffNoticePanel({
   onRetry,
   onMarkAll,
   onOpen,
+  onMarkRead,
+  pendingReadId,
   onPending,
   onToday,
 }: {
@@ -88,28 +102,35 @@ export function StaffNoticePanel({
   unread: number
   markAllPending: boolean
   markAllError: string | null
+  pendingReadId: string | null
   onRetry: () => void
   onMarkAll: () => void
   onOpen: (id: string) => void
+  onMarkRead: (id: string) => void
   onPending: () => void
   onToday: () => void
 }) {
-  const markAllDisabled = unread === 0 || markAllPending
+  const showMarkAll = unread > 0 || markAllPending
+  const visible = state.status === 'ready' ? state.items.filter((item) => item.unread) : []
 
   return (
     <div className="flex min-h-0 flex-col">
       <div data-notice-header className="shrink-0 space-y-2 border-b border-border px-3 py-2">
-        <p className="text-xs text-muted-foreground">Сповіщення</p>
-        <button
-          type="button"
-          data-mark-all
-          className="min-h-11 w-full rounded-md border border-border bg-surface px-3 py-2 text-left text-sm whitespace-normal hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-40"
-          disabled={markAllDisabled}
-          aria-busy={markAllPending || undefined}
-          onClick={onMarkAll}
-        >
-          {markAllPending ? 'Позначаємо…' : 'Позначити всі як прочитані'}
-        </button>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-muted-foreground">Сповіщення</p>
+          {showMarkAll ? (
+            <button
+              type="button"
+              data-mark-all
+              className="max-w-[70%] bg-transparent p-0 text-right text-xs whitespace-normal text-muted-foreground underline-offset-2 shadow-none hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-40"
+              disabled={markAllPending}
+              aria-busy={markAllPending || undefined}
+              onClick={onMarkAll}
+            >
+              {markAllPending ? 'Позначаємо…' : 'Позначити всі як прочитані'}
+            </button>
+          ) : null}
+        </div>
         {markAllError ? (
           <p role="alert" className="text-xs text-destructive">
             {markAllError}
@@ -130,21 +151,37 @@ export function StaffNoticePanel({
             </button>
           </div>
         ) : null}
-        {state.status === 'ready' && state.items.length === 0 ? (
-          <p className="px-3 py-2 text-sm text-muted-foreground">Немає нових сповіщень.</p>
+        {state.status === 'ready' && visible.length === 0 ? (
+          <p className="px-3 py-2 text-sm text-muted-foreground">Немає непрочитаних сповіщень</p>
         ) : null}
         {state.status === 'ready'
-          ? state.items.map((item) => (
-              <Link
-                key={item.id}
-                to={`/admin/bookings/${item.bookingId}`}
-                data-notice-id={item.id}
-                data-unread={item.unread ? 'true' : 'false'}
-                className={`block rounded-sm px-3 py-2 outline-none hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-ring/50 ${item.unread ? 'bg-secondary font-medium' : 'bg-surface'}`}
-                onClick={() => onOpen(item.id)}
-              >
-                <NoticeCopy item={item} />
-              </Link>
+          ? visible.map((item) => (
+              <div key={item.id} className="flex items-start bg-secondary">
+                <Link
+                  to={`/admin/bookings/${item.bookingId}`}
+                  data-notice-id={item.id}
+                  data-unread="true"
+                  className="block min-w-0 flex-1 rounded-sm px-3 py-2 font-medium outline-none hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-ring/50"
+                  onClick={() => onOpen(item.id)}
+                >
+                  <NoticeCopy item={item} />
+                </Link>
+                <button
+                  type="button"
+                  data-mark-read={item.id}
+                  className="mt-2 mr-2 grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-40"
+                  aria-label="Позначити як прочитане"
+                  title="Позначити як прочитане"
+                  disabled={pendingReadId === item.id}
+                  onClick={(event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    onMarkRead(item.id)
+                  }}
+                >
+                  <Check className="size-4" aria-hidden />
+                </button>
+              </div>
             ))
           : null}
       </div>
