@@ -3,14 +3,14 @@ import { blockConflictMessage } from '@/lib/room-block'
 import { errorMessage } from '@/lib/errors'
 import type { RoomTypeImage } from '@/types'
 
-export const ACCOMMODATION_IMAGE_MAX_BYTES = 8 * 1024 * 1024
+export const ACCOMMODATION_IMAGE_MAX_BYTES = 50 * 1024 * 1024
 
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 
 export function accommodationUploadFailure(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.code === 'IMAGE_STORAGE_UNAVAILABLE') return 'Сховище фото не підключене. Файл не збережено.'
-    if (error.code === 'IMAGE_TOO_LARGE') return 'Файл більший за 8 МБ'
+    if (error.code === 'IMAGE_TOO_LARGE') return 'Файл більший за 50 МБ'
     if (error.code === 'IMAGE_STORAGE_FAILED') return 'Не вдалося зберегти фото. Спробуйте ще раз.'
   }
   return accommodationErrorMessage(error)
@@ -31,7 +31,7 @@ export function validateAccommodationImageFile(file: {
 export function accommodationImageRejection(reason: AccommodationImageRejection, name: string): string {
   const label = name.trim() || 'Файл'
   if (reason === 'empty') return `${label}: файл порожній`
-  if (reason === 'size') return `${label}: файл більший за 8 МБ`
+  if (reason === 'size') return `${label}: файл більший за 50 МБ`
   return `${label}: дозволені лише JPG, PNG і WebP`
 }
 

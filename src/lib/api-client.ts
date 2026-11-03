@@ -128,7 +128,7 @@ function sendForm<T>(path: string, body: FormData, onProgress: ((percent: number
     const xhr = new XMLHttpRequest()
     xhr.open('POST', resolveUrl(path))
     xhr.setRequestHeader('Accept', 'application/json')
-    xhr.timeout = 60_000
+    xhr.timeout = 100_000
     if (accessToken) xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`)
     xhr.upload.onprogress = (event) => {
       if (!event.lengthComputable || event.total <= 0) return

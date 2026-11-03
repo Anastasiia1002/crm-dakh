@@ -352,7 +352,7 @@ export function AccommodationPhotoGallery({
             }}
           >
             <p className="font-medium">Додати фото</p>
-            <p className="mt-1 text-muted-foreground">JPG, PNG або WebP, до 8 МБ. Можна вибрати кілька.</p>
+            <p className="mt-1 text-muted-foreground">JPG, PNG або WebP, до 50 МБ. Можна вибрати кілька.</p>
             <Input
               className="mt-3"
               type="file"
