@@ -10,6 +10,9 @@ import {
   sortRoomTypeImages,
   accommodationTypeSlug,
   accommodationUploadFailure,
+  readPendingAccommodationTypeId,
+  rememberPendingAccommodationTypeId,
+  sameAccommodationNumber,
   validateAccommodationImageFile,
 } from './accommodation-editor.ts'
 import { ApiError } from './api-error.ts'
@@ -82,6 +85,24 @@ assert(editor.includes('data-accommodation-kind'), 'the editor chooses a kind')
 assert(editor.includes("'Номер'") && editor.includes("'Котедж'"), 'kind choices are room and cottage')
 assert(!editor.includes('RoomTypePicker'), 'the editor does not list other accommodation names')
 assert(editor.includes('accommodationTypeSlug'), 'a new unit gets its own room type')
+assert(editor.includes('listAllRooms'), 'create checks existing units before writing a room type')
+assert(editor.includes('rememberPendingAccommodationTypeId'), 'a failed save reuses the same room type')
+assert(sameAccommodationNumber([{ number: '14/3' }], ' 14/3 '), 'unit codes match after trimming')
+assert(!sameAccommodationNumber([{ number: '14/1' }], '14/3'), 'a different unit code is not a duplicate')
+const memory = new Map<string, string>()
+const storage = {
+  getItem: (key: string) => memory.get(key) ?? null,
+  setItem: (key: string, value: string) => {
+    memory.set(key, value)
+  },
+  removeItem: (key: string) => {
+    memory.delete(key)
+  },
+}
+rememberPendingAccommodationTypeId(storage, 'type-1')
+assert(readPendingAccommodationTypeId(storage) === 'type-1', 'the unfinished room type is remembered')
+rememberPendingAccommodationTypeId(storage, null)
+assert(readPendingAccommodationTypeId(storage) === null, 'a finished save clears the unfinished room type')
 const slug = accommodationTypeSlug('COTTAGE', '14/3')
 assert(/^cottage-[a-z0-9-]+$/.test(slug) && slug.length <= 80, 'generated slugs stay within the room-type contract')
 assert(gallery.includes('data-photo-toolbar'), 'photo actions sit on the thumbnail')

@@ -76,6 +76,34 @@ export function makeImageMain(ids: readonly string[], imageId: string): string[]
   return [imageId, ...ids.filter((id) => id !== imageId)]
 }
 
+export const PENDING_ACCOMMODATION_TYPE_KEY = 'dakh.pendingAccommodationTypeId'
+
+export function readPendingAccommodationTypeId(storage: Pick<Storage, 'getItem'>): string | null {
+  try {
+    const value = storage.getItem(PENDING_ACCOMMODATION_TYPE_KEY)?.trim() ?? ''
+    return value || null
+  } catch {
+    return null
+  }
+}
+
+export function rememberPendingAccommodationTypeId(
+  storage: Pick<Storage, 'setItem' | 'removeItem'>,
+  id: string | null,
+) {
+  try {
+    if (id) storage.setItem(PENDING_ACCOMMODATION_TYPE_KEY, id)
+    else storage.removeItem(PENDING_ACCOMMODATION_TYPE_KEY)
+  } catch {
+    // The page still keeps the id in memory for this visit.
+  }
+}
+
+export function sameAccommodationNumber(rooms: readonly { number: string }[], number: string): boolean {
+  const target = number.trim()
+  return target.length > 0 && rooms.some((room) => room.number.trim() === target)
+}
+
 export function accommodationTypeSlug(kind: RoomTypeKind, number: string): string {
   const prefix = kind === 'COTTAGE' ? 'cottage' : 'room'
   const body = number

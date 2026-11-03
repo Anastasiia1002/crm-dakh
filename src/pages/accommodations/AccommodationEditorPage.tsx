@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { Link, useBlocker, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { z } from 'zod'
+import { listAllRooms } from '@/api/accommodations'
 import { AccommodationPhotoGallery } from '@/components/accommodations/AccommodationPhotoGallery'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -22,7 +23,13 @@ import {
   useUpdateAdminRoom,
   useUpdateAdminRoomType,
 } from '@/hooks/useHotel'
-import { accommodationErrorMessage, accommodationTypeSlug } from '@/lib/accommodation-editor'
+import {
+  accommodationErrorMessage,
+  accommodationTypeSlug,
+  readPendingAccommodationTypeId,
+  rememberPendingAccommodationTypeId,
+  sameAccommodationNumber,
+} from '@/lib/accommodation-editor'
 import { sharedRoomTypeNotice } from '@/lib/accommodation-labels'
 import { roomStatusLabel } from '@/lib/labels'
 import { canManageAccommodations } from '@/lib/roles'
@@ -83,6 +90,7 @@ export function AccommodationEditorPage() {
   const [typeBaseline, setTypeBaseline] = useState<{ name: string; description: string; maxGuests: string } | null>(null)
   const [typeError, setTypeError] = useState<string | null>(null)
   const leaveReadyRef = useRef(false)
+  const pendingTypeId = useRef<string | null>(isNew ? readPendingAccommodationTypeId(sessionStorage) : null)
   const form = useForm<z.infer<typeof unitSchema>>({
     resolver: zodResolver(unitSchema),
     defaultValues: emptyUnit,
@@ -273,15 +281,50 @@ export function AccommodationEditorPage() {
               leaveReadyRef.current = true
               navigate(listPath(kind))
             } else if (kind) {
-              const createdType = await createType.mutateAsync({
-                name: nextGuestName || payload.name || `${kind === 'COTTAGE' ? 'Котедж' : 'Номер'} ${values.number.trim()}`,
-                slug: accommodationTypeSlug(kind, values.number),
-                description: nextDescription,
-                kind,
-                maxGuests: guests,
-                active: values.active === 'yes',
-              })
-              const created = await create.mutateAsync({ ...payload, roomTypeId: createdType.id })
+              const typeName =
+                nextGuestName || payload.name || `${kind === 'COTTAGE' ? 'Котедж' : 'Номер'} ${values.number.trim()}`
+              const rooms = await listAllRooms()
+              const rememberedId = pendingTypeId.current
+              const linked = rememberedId ? rooms.find((room) => room.roomTypeId === rememberedId) : undefined
+              if (linked) {
+                pendingTypeId.current = null
+                rememberPendingAccommodationTypeId(sessionStorage, null)
+                leaveReadyRef.current = true
+                navigate(`/admin/accommodations/${linked.id}/edit`)
+                return
+              }
+              if (sameAccommodationNumber(rooms, values.number)) {
+                form.setError('number', { message: 'Такий номер уже існує' })
+                return
+              }
+              let typeId = rememberedId
+              if (!typeId) {
+                const createdType = await createType.mutateAsync({
+                  name: typeName,
+                  slug: accommodationTypeSlug(kind, values.number),
+                  description: nextDescription,
+                  kind,
+                  maxGuests: guests,
+                  active: values.active === 'yes',
+                })
+                typeId = createdType.id
+                pendingTypeId.current = typeId
+                rememberPendingAccommodationTypeId(sessionStorage, typeId)
+              } else {
+                await updateType.mutateAsync({
+                  id: typeId,
+                  input: {
+                    name: typeName,
+                    description: nextDescription,
+                    kind,
+                    maxGuests: guests,
+                    active: values.active === 'yes',
+                  },
+                })
+              }
+              const created = await create.mutateAsync({ ...payload, roomTypeId: typeId })
+              pendingTypeId.current = null
+              rememberPendingAccommodationTypeId(sessionStorage, null)
               toast.success('Збережено')
               leaveReadyRef.current = true
               navigate(`/admin/accommodations/${created.id}/edit`)
