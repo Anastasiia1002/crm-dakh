@@ -1,8 +1,23 @@
-import { Outlet } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Outlet, useLocation } from 'react-router-dom'
 import { Header } from '@/components/layout/Header'
 import { Sidebar } from '@/components/layout/Sidebar'
+import { clearStaleChunkReload } from '@/lib/chunk-load'
 
 export function AdminLayout() {
+  const { pathname, search } = useLocation()
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      try {
+        clearStaleChunkReload(window.sessionStorage)
+      } catch {
+        /* A blocked session store must not stop the booking page. */
+      }
+    }, 4000)
+    return () => window.clearTimeout(timer)
+  }, [pathname, search])
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-sidebar-border pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] lg:block">

@@ -15,7 +15,7 @@ const vercel = JSON.parse(readFileSync(new URL('../../vercel.json', import.meta.
 
 assert(Array.isArray(vercel.rewrites) && vercel.rewrites.length === 1, 'one SPA rewrite')
 const rewrite = vercel.rewrites[0]
-assert(rewrite?.source === '/((?!api/).*)', 'rewrite skips /api/')
+assert(rewrite?.source === '/((?!api/|assets/).*)', 'rewrite skips /api/ and hashed assets')
 assert(rewrite?.destination === '/index.html', 'frontend routes serve index.html')
 
 const route = new RegExp(`^${rewrite.source}$`)
@@ -31,6 +31,7 @@ assert(fallsBack('/admin/calendar'), 'direct /admin/calendar')
 assert(fallsBack('/admin/bookings/11111111-1111-4111-8111-111111111111'), 'direct booking detail')
 assert(!fallsBack('/api/auth/login'), 'API paths are not rewritten')
 assert(!fallsBack('/api/admin/bookings'), 'admin API paths are not rewritten')
+assert(!fallsBack('/assets/BookingDetailPage-missing.js'), 'a missing chunk is not rewritten to index.html')
 
 const viteConfig = readFileSync(new URL('../../vite.config.ts', import.meta.url), 'utf8')
 assert(viteConfig.includes("process.env.GITHUB_PAGES === 'true'"), 'GitHub Pages build is explicit')

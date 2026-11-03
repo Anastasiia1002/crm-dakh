@@ -3,6 +3,7 @@ import { Navigate, createBrowserRouter, useLocation } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { AdminLayout } from '@/layouts/AdminLayout'
 import { LoginPage } from '@/pages/auth/LoginPage'
+import { RouteErrorPage } from '@/components/RouteErrorPage'
 import { AuthRestoreState, PageSkeleton } from '@/components/ui/page-status'
 import { SLOW_AUTH_MS } from '@/lib/session-policy'
 
@@ -59,6 +60,7 @@ export const router = createBrowserRouter(
     {
       path: '/admin',
       element: <RequireAuth />,
+      errorElement: <RouteErrorPage />,
       children: [
         { index: true, element: <DashboardPage /> },
         { path: 'bookings', element: <BookingsPage /> },

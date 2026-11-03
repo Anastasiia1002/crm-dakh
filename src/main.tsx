@@ -4,9 +4,21 @@ import { createRoot } from 'react-dom/client'
 import { RouterProvider } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { AuthProvider } from '@/hooks/useAuth'
+import { claimStaleChunkReload } from '@/lib/chunk-load'
 import { queryClient } from '@/lib/queryClient'
 import { router } from '@/router'
 import './index.css'
+
+window.addEventListener('vite:preloadError', (event) => {
+  const path = `${window.location.pathname}${window.location.search}`
+  try {
+    if (!claimStaleChunkReload(event, path, window.sessionStorage)) return
+  } catch {
+    return
+  }
+  event.preventDefault()
+  window.location.reload()
+})
 
 const root = document.getElementById('root')
 if (!root) throw new Error('Root element missing')
