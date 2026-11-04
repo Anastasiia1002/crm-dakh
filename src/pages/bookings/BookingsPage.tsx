@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useDeferredValue, useMemo, useState, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { listAllRoomTypes } from '@/api/accommodations'
 import { AdminBookingTable } from '@/components/bookings/AdminBookingTable'
 import { Button } from '@/components/ui/button'
@@ -20,14 +20,28 @@ import type { AdminBookingListFilters, AdminBookingSource, BookingStatus } from 
 
 const PAGE_SIZE = 20
 
+const STATUSES: BookingStatus[] = ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT', 'CANCELLED', 'NO_SHOW']
+
+function dateParam(value: string | null) {
+  return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : ''
+}
+
 export function BookingsPage() {
+  const [searchParams] = useSearchParams()
   const [search, setSearch] = useState('')
   const deferredSearch = useDeferredValue(search)
-  const [status, setStatus] = useState<BookingStatus | 'all'>('all')
-  const [roomId, setRoomId] = useState<string>('all')
+  const [status, setStatus] = useState<BookingStatus | 'all'>(() => {
+    const value = searchParams.get('status')
+    return value && STATUSES.includes(value as BookingStatus) ? (value as BookingStatus) : 'all'
+  })
+  const [roomId, setRoomId] = useState<string>(() => searchParams.get('roomId') || 'all')
   const [source, setSource] = useState<AdminBookingSource | 'all'>('all')
-  const [checkIn, setCheckIn] = useState('')
-  const [checkOut, setCheckOut] = useState('')
+  const [checkIn, setCheckIn] = useState(() => dateParam(searchParams.get('checkIn')))
+  const [checkOut, setCheckOut] = useState(() => dateParam(searchParams.get('checkOut')))
+  const [createdLocalFrom] = useState(() => dateParam(searchParams.get('createdLocalFrom')))
+  const [createdLocalTo] = useState(() => dateParam(searchParams.get('createdLocalTo')))
+  const [cancelledFrom] = useState(() => dateParam(searchParams.get('cancelledFrom')))
+  const [cancelledTo] = useState(() => dateParam(searchParams.get('cancelledTo')))
   const [page, setPage] = useState(1)
 
   const dateGuard = adminBookingDateFilterReady(checkIn, checkOut)
@@ -41,8 +55,12 @@ export function BookingsPage() {
       roomId,
       checkIn: dateGuard.ok ? checkIn : '',
       checkOut: dateGuard.ok ? checkOut : '',
+      createdLocalFrom,
+      createdLocalTo,
+      cancelledFrom,
+      cancelledTo,
     }),
-    [checkIn, checkOut, dateGuard.ok, deferredSearch, page, roomId, source, status],
+    [cancelledFrom, cancelledTo, checkIn, checkOut, createdLocalFrom, createdLocalTo, dateGuard.ok, deferredSearch, page, roomId, source, status],
   )
 
   const bookings = useAdminBookings(filters, { enabled: dateGuard.ok || (!checkIn && !checkOut) })

@@ -95,6 +95,7 @@ export const adminBookingInvalidationKeys = [
   ['admin-guest'],
   ['admin-guest-bookings'],
   ['admin-dashboard-summary'],
+  ['admin-analytics-summary'],
   ['admin-operations-board'],
 ] as const
 
