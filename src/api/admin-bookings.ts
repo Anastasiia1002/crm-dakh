@@ -45,6 +45,8 @@ export async function listAdminBookings(
       checkOut: query.checkOut,
       createdFrom: query.createdFrom,
       createdTo: query.createdTo,
+      cancelledFrom: query.cancelledFrom,
+      cancelledTo: query.cancelledTo,
       search: query.search?.trim() || undefined,
     })}`,
     { signal },

@@ -868,6 +868,8 @@ export type AdminBookingListItem = {
   guestCount: number
   promoCodeId: string | null
   createdAt: string
+  /** Present once the booking list includes the stored cancellation time. */
+  cancelledAt?: string | null
   guest: AdminBookingGuest
   rooms: AdminBookingRoom[]
   totalAmount: string
@@ -923,6 +925,9 @@ export type AdminBookingListQuery = {
   checkOut?: string
   createdFrom?: string
   createdTo?: string
+  /** UTC-midnight window. The operations board widens it and keeps the hotel date. */
+  cancelledFrom?: string
+  cancelledTo?: string
   search?: string
 }
 

@@ -36,7 +36,11 @@ function main() {
   assert(emptyView.kind === 'empty' && emptyView.message === DASHBOARD_EMPTY_MESSAGE, 'empty copy is unused for zeros')
   assert(resolveDashboardView({ summaryEndpoint: true, phase: 'ready' }).kind === 'ready', 'ready includes a 200 with zeros')
 
-  const page = readFileSync(new URL('../pages/dashboard/DashboardPage.tsx', import.meta.url), 'utf8')
+  const page = [
+    readFileSync(new URL('../pages/dashboard/DashboardPage.tsx', import.meta.url), 'utf8'),
+    readFileSync(new URL('../components/dashboard/OperationsBoard.tsx', import.meta.url), 'utf8'),
+    readFileSync(new URL('./operations-board.ts', import.meta.url), 'utf8'),
+  ].join('\n')
   assert(!page.includes('getDashboard') && !page.includes('mocks/db') && !page.includes('useDashboard'), 'dashboard page does not read the mock summary')
   assert(page.includes('useAdminDashboardSummary'), 'dashboard page reads the admin summary hook')
   assert(page.includes('summaryEndpoint: true'), 'page treats the summary endpoint as present')
@@ -55,7 +59,8 @@ function main() {
   assert(page.includes('No chart until that series exists'), 'a missing daily series is not drawn as a trend')
   assert(page.includes('setPreset(null)'), 'a hand-edited range does not keep the month preset pressed')
   assert(page.includes('Часовий пояс готелю'), 'the hotel timezone used for the period stays visible')
-  assert(page.includes('summary.occupancy.percent === null'), 'a null occupancy percent is explained from the server value')
+  assert(page.includes('sellablePercent') && page.includes('Немає продаваних місць.'), 'a null occupancy percent is explained from the night snapshot')
+  assert(page.includes('useOperationsBoard') && page.includes('occupancyForNight') && !page.includes('summary.occupancy'), 'selected-date occupancy comes from the calendar night, not the today summary')
 
   const keys = adminBookingInvalidationKeys.map((key) => key[0])
   assert(new Set(keys).size === keys.length, 'booking invalidation does not repeat a query key')

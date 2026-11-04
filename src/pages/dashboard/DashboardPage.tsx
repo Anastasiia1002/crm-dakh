@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { OperationsBoard } from '@/components/dashboard/OperationsBoard'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { QueryErrorState } from '@/components/ui/page-status'
@@ -12,7 +12,6 @@ import {
   bookingValueLabel,
   defaultDashboardPeriod,
   isDashboardNotFound,
-  occupancyPercentLabel,
   parseDashboardPeriod,
   type AdminDashboardSummary,
 } from '@/lib/dashboard-summary'
@@ -29,13 +28,16 @@ export function DashboardPage() {
   const [to, setTo] = useState(defaults.to)
   const [edited, setEdited] = useState(false)
   const [preset, setPreset] = useState<Preset>('month')
+  const [operationalDate, setOperationalDate] = useState(defaults.to)
+  const [dateEdited, setDateEdited] = useState(false)
 
   useEffect(() => {
     if (!edited) {
       setFrom(defaults.from)
       setTo(defaults.to)
     }
-  }, [defaults.from, defaults.to, edited])
+    if (!dateEdited) setOperationalDate(defaults.to)
+  }, [defaults.from, defaults.to, edited, dateEdited])
 
   const period = parseDashboardPeriod(from, to)
   const summary = useAdminDashboardSummary(from, to, { enabled: period.ok })
@@ -67,15 +69,29 @@ export function DashboardPage() {
   return (
     <div className="space-y-8">
       {/* Daily booking trend is not in GET /api/admin/dashboard/summary. No chart until that series exists. */}
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h2 className="font-serif text-3xl font-medium tracking-tight">Огляд готелю</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {period.ok ? `${formatDate(from)} — ${formatDate(to)}` : 'Оберіть період'}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">Часовий пояс готелю: {timezoneLabel}</p>
-        </div>
-        <div className="flex flex-wrap items-end gap-2">
+      <header>
+        <h2 className="font-serif text-3xl font-medium tracking-tight">Огляд готелю</h2>
+      </header>
+
+      <OperationsBoard
+        date={operationalDate}
+        timeZone={timezoneLabel}
+        onDate={(next) => {
+          setDateEdited(true)
+          setOperationalDate(next)
+        }}
+      />
+
+      <section className="space-y-4 border-t border-border pt-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h3 className="font-serif text-2xl">Аналітика періоду</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {period.ok ? `${formatDate(from)} — ${formatDate(to)}` : 'Оберіть період'}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">Часовий пояс готелю: {timezoneLabel}</p>
+          </div>
+          <div className="flex flex-wrap items-end gap-2">
           <div className="flex rounded-md border border-border bg-surface p-0.5">
             <PresetButton active={preset === 'month'} onClick={() => applyPreset('month')}>
               Місяць
@@ -122,8 +138,8 @@ export function DashboardPage() {
           >
             {summary.isFetching ? 'Оновлюємо…' : 'Оновити'}
           </Button>
+          </div>
         </div>
-      </header>
 
       {!period.ok ? (
         <p className="text-sm text-destructive" role="alert">
@@ -145,14 +161,14 @@ export function DashboardPage() {
       ) : null}
 
       {period.ok && view.kind === 'ready' && summary.data ? <DashboardBody summary={summary.data} /> : null}
+      </section>
     </div>
   )
 }
 
 function DashboardBody({ summary }: { summary: AdminDashboardSummary }) {
-  const occupiedLabel = `${formatCount(summary.occupancy.occupied)} / ${formatCount(summary.occupancy.sellable)}`
   return (
-    <div className="space-y-8">
+    <div className="space-y-4">
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           label="Бронювання"
@@ -166,55 +182,11 @@ function DashboardBody({ summary }: { summary: AdminDashboardSummary }) {
           hint="Це не отримані оплати."
         />
         <KpiCard
-          label="Зайнято зараз"
-          value={occupiedLabel}
-          detail={`Вільні: ${formatCount(summary.occupancy.available)}`}
-          hint="Заблоковані не входять у продавані місця. Відсоток рахується від зайнятих і вільних."
+          label="Скасовані в періоді"
+          value={formatCount(summary.bookings.cancelled)}
+          hint="Статус «Скасовано» серед бронювань, чиє проживання перетинає період."
         />
-        <KpiCard
-          label="Завантаженість"
-          value={occupancyPercentLabel(summary.occupancy.percent)}
-          detail={summary.occupancy.percent === null ? 'Немає продаваних місць.' : undefined}
-          hint="Знімок на сьогодні, не підсумок за період."
-        />
-      </section>
-
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Metric label="Заїзди сьогодні" value={formatCount(summary.arrivals.checkInsToday)} />
-        <Metric label="Виїзди сьогодні" value={formatCount(summary.departures.checkOutsToday)} />
-        <Metric label="Скасовані" value={formatCount(summary.bookings.cancelled)} />
-        <Metric label="Заблоковані" value={formatCount(summary.occupancy.blocked)} />
-      </section>
-
-      <section className="grid gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(16rem,0.8fr)]">
-        <div className="rounded-md border border-border bg-surface px-5 py-4">
-          <h3 className="font-serif text-xl">Сьогодні</h3>
-          <p className="mt-1 text-sm text-muted-foreground">Знімок на {formatDate(summary.today)}, не підсумок за період.</p>
-          <dl className="mt-4 grid grid-cols-2 gap-4">
-            <div>
-              <dt className="text-xs text-muted-foreground">Заїзди</dt>
-              <dd className="mt-1 font-serif text-3xl tabular-nums">{formatCount(summary.arrivals.checkInsToday)}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-muted-foreground">Виїзди</dt>
-              <dd className="mt-1 font-serif text-3xl tabular-nums">{formatCount(summary.departures.checkOutsToday)}</dd>
-            </div>
-          </dl>
-        </div>
-        <div className="flex flex-col justify-between gap-4 rounded-md border border-border bg-surface px-5 py-4">
-          <div>
-            <h3 className="font-serif text-xl">Дії</h3>
-            <p className="mt-1 text-sm text-muted-foreground">{PAYMENTS_UNAVAILABLE_LABEL}</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" asChild>
-              <Link to="/admin/bookings">Бронювання</Link>
-            </Button>
-            <Button type="button" variant="outline" asChild>
-              <Link to="/admin/calendar">Календар наявності</Link>
-            </Button>
-          </div>
-        </div>
+        <KpiCard label="Оплати" value="—" hint={PAYMENTS_UNAVAILABLE_LABEL} detail={PAYMENTS_UNAVAILABLE_LABEL} />
       </section>
     </div>
   )
@@ -240,15 +212,6 @@ function KpiCard({
       <p className="mt-3 font-serif text-3xl leading-none tabular-nums sm:text-4xl">{value}</p>
       {detail ? <p className="mt-2 text-xs text-muted-foreground">{detail}</p> : null}
     </article>
-  )
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border border-border px-3 py-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-1 font-serif text-2xl tabular-nums">{value}</p>
-    </div>
   )
 }
 

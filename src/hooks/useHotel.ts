@@ -110,6 +110,7 @@ function useRefresh() {
     void queryClient.invalidateQueries({ queryKey: ['admin-booking-quote'] })
     void queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     void queryClient.invalidateQueries({ queryKey: ['admin-dashboard-summary'] })
+    void queryClient.invalidateQueries({ queryKey: ['admin-operations-board'] })
   }
 }
 
