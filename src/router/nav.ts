@@ -20,7 +20,7 @@ export type NavItem = {
 }
 
 export const primaryNav: NavItem[] = [
-  { to: '/admin', label: 'Головна', icon: House, end: true },
+  { to: '/admin', label: 'Огляд', icon: House, end: true },
   { to: '/admin/bookings', label: 'Бронювання', icon: NotebookPen },
   { to: '/admin/calendar', label: 'Шахматка', icon: CalendarDays },
   { to: '/admin/guests', label: 'Гості', icon: ContactRound },
