@@ -4,15 +4,22 @@ import { createRoot } from 'react-dom/client'
 import { RouterProvider } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { AuthProvider } from '@/hooks/useAuth'
-import { claimStaleChunkReload } from '@/lib/chunk-load'
+import { claimStaleChunkReload, currentBuildId, hasUnsavedWork, noteRecoveredBuild } from '@/lib/chunk-load'
 import { queryClient } from '@/lib/queryClient'
 import { router } from '@/router'
 import './index.css'
 
+try {
+  noteRecoveredBuild(currentBuildId(document), window.sessionStorage)
+} catch {
+  /* A blocked session store must not stop the shell from starting. */
+}
+
 window.addEventListener('vite:preloadError', (event) => {
-  const path = `${window.location.pathname}${window.location.search}`
   try {
-    if (!claimStaleChunkReload(event, path, window.sessionStorage)) return
+    if (!claimStaleChunkReload(event, currentBuildId(document), window.sessionStorage, { unsaved: hasUnsavedWork() })) {
+      return
+    }
   } catch {
     return
   }

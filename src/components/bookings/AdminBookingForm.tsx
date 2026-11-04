@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { usePreserveEdits } from '@/lib/unsaved-work'
 import { Link } from 'react-router-dom'
 import { AdminServicePicker } from '@/components/bookings/AdminServicePicker'
 import { StayCalendar } from '@/components/bookings/StayCalendar'
@@ -101,6 +102,8 @@ export function AdminBookingForm({
   const profile = !booking || canEditAdminBookingProfile(booking.status)
   const canReassign = canReassignAdminBookingRoom(user?.role)
 
+  const [edited, setEdited] = useState(false)
+  usePreserveEdits(edited)
   const [guestMode, setGuestMode] = useState<'existing' | 'new'>('new')
   const [guestId, setGuestId] = useState(booking?.guest.id ?? '')
   const [firstName, setFirstName] = useState(booking?.guest.firstName ?? '')
@@ -644,7 +647,9 @@ export function AdminBookingForm({
   return (
     <form
       className="mx-auto max-w-3xl space-y-8 overflow-x-hidden px-1 sm:px-0"
+      data-keep-edits="true"
       aria-busy={submitting || undefined}
+      onInput={() => setEdited(true)}
       onSubmit={(event) => void handleSubmit(event)}
     >
       <fieldset disabled={submitting} className="space-y-8 disabled:opacity-80">

@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useRef, useState } from 'react'
+import { usePreserveEdits } from '@/lib/unsaved-work'
 import { useForm } from 'react-hook-form'
 import { Link, useBlocker, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -114,6 +115,7 @@ export function AccommodationEditorPage() {
       )
     : guestName !== '' || description !== '' || maxGuests !== '2'
   const dirty = form.formState.isDirty || typeDirty
+  usePreserveEdits(dirty)
   const dirtyRef = useRef(dirty)
   dirtyRef.current = dirty
   const blocker = useBlocker(() => !leaveReadyRef.current && dirtyRef.current)

@@ -56,6 +56,9 @@ const basename = import.meta.env.BASE_URL.replace(/\/$/, '')
 
 export const router = createBrowserRouter(
   [
+    {
+      errorElement: <RouteErrorPage />,
+      children: [
     { path: '/login', element: <LoginPage /> },
     {
       path: '/admin',
@@ -84,6 +87,8 @@ export const router = createBrowserRouter(
     },
     { path: '/', element: <Navigate to="/admin" replace /> },
     { path: '*', element: <Navigate to="/admin" replace /> },
+      ],
+    },
   ],
   { basename: basename || undefined },
 )

@@ -11,6 +11,7 @@ function assert(condition: boolean, message: string) {
 
 const vercel = JSON.parse(readFileSync(new URL('../../vercel.json', import.meta.url), 'utf8')) as {
   rewrites?: { source: string; destination: string }[]
+  headers?: { source: string; headers: { key: string; value: string }[] }[]
 }
 
 assert(Array.isArray(vercel.rewrites) && vercel.rewrites.length === 1, 'one SPA rewrite')
@@ -32,6 +33,18 @@ assert(fallsBack('/admin/bookings/11111111-1111-4111-8111-111111111111'), 'direc
 assert(!fallsBack('/api/auth/login'), 'API paths are not rewritten')
 assert(!fallsBack('/api/admin/bookings'), 'admin API paths are not rewritten')
 assert(!fallsBack('/assets/BookingDetailPage-missing.js'), 'a missing chunk is not rewritten to index.html')
+assert(!fallsBack('/assets/DashboardPage-missing.js'), 'a missing dashboard chunk is not rewritten to index.html')
+
+const assetCache = vercel.headers?.find((entry) => entry.source === '/assets/(.*)')
+const documentCache = vercel.headers?.find((entry) => entry.source === '/((?!assets/).*)')
+assert(
+  assetCache?.headers.some((header) => header.key === 'Cache-Control' && header.value.includes('immutable')),
+  'hashed assets stay immutable',
+)
+assert(
+  documentCache?.headers.some((header) => header.key === 'Cache-Control' && header.value.includes('no-store')),
+  'the HTML shell is not stored',
+)
 
 const viteConfig = readFileSync(new URL('../../vite.config.ts', import.meta.url), 'utf8')
 assert(viteConfig.includes("process.env.GITHUB_PAGES === 'true'"), 'GitHub Pages build is explicit')
