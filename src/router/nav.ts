@@ -1,4 +1,5 @@
 import {
+  BarChart3,
   BedDouble,
   CalendarDays,
   ConciergeBell,
@@ -21,6 +22,7 @@ export type NavItem = {
 
 export const primaryNav: NavItem[] = [
   { to: '/admin', label: 'Огляд', icon: House, end: true },
+  { to: '/admin/analytics', label: 'Аналітика', icon: BarChart3 },
   { to: '/admin/bookings', label: 'Бронювання', icon: NotebookPen },
   { to: '/admin/calendar', label: 'Шахматка', icon: CalendarDays },
   { to: '/admin/guests', label: 'Гості', icon: ContactRound },

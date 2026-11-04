@@ -76,6 +76,10 @@ export function toAdminBookingListQuery(filters: AdminBookingListFilters): Admin
     query.checkIn = filters.checkIn
     query.checkOut = filters.checkOut
   }
+  if (filters.createdLocalFrom) query.createdLocalFrom = filters.createdLocalFrom
+  if (filters.createdLocalTo) query.createdLocalTo = filters.createdLocalTo
+  if (filters.cancelledFrom) query.cancelledFrom = filters.cancelledFrom
+  if (filters.cancelledTo) query.cancelledTo = filters.cancelledTo
   return query
 }
 

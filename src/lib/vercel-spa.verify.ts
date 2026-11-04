@@ -28,6 +28,7 @@ function fallsBack(pathname: string): boolean {
 assert(fallsBack('/login'), 'direct /login')
 assert(fallsBack('/admin'), 'direct /admin')
 assert(fallsBack('/admin/bookings'), 'direct /admin/bookings')
+assert(fallsBack('/admin/analytics'), 'direct /admin/analytics')
 assert(fallsBack('/admin/calendar'), 'direct /admin/calendar')
 assert(fallsBack('/admin/bookings/11111111-1111-4111-8111-111111111111'), 'direct booking detail')
 assert(!fallsBack('/api/auth/login'), 'API paths are not rewritten')

@@ -948,6 +948,10 @@ export type AdminBookingListFilters = {
   checkIn: string
   /** Stay overlap window end — requires checkIn. */
   checkOut: string
+  createdLocalFrom?: string
+  createdLocalTo?: string
+  cancelledFrom?: string
+  cancelledTo?: string
 }
 
 export type AdminBookingGuestInput = {

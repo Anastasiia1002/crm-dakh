@@ -8,6 +8,7 @@ import { AuthRestoreState, PageSkeleton } from '@/components/ui/page-status'
 import { SLOW_AUTH_MS } from '@/lib/session-policy'
 
 const DashboardPage = lazy(async () => ({ default: (await import('@/pages/dashboard/DashboardPage')).DashboardPage }))
+const AnalyticsPage = lazy(async () => ({ default: (await import('@/pages/analytics/AnalyticsPage')).AnalyticsPage }))
 const BookingsPage = lazy(async () => ({ default: (await import('@/pages/bookings/BookingsPage')).BookingsPage }))
 const BookingFormPage = lazy(async () => ({ default: (await import('@/pages/bookings/BookingFormPage')).BookingFormPage }))
 const BookingDetailPage = lazy(async () => ({ default: (await import('@/pages/bookings/BookingDetailPage')).BookingDetailPage }))
@@ -66,6 +67,7 @@ export const router = createBrowserRouter(
       errorElement: <RouteErrorPage />,
       children: [
         { index: true, element: <DashboardPage /> },
+        { path: 'analytics', element: <AnalyticsPage /> },
         { path: 'bookings', element: <BookingsPage /> },
         { path: 'bookings/new', element: <BookingFormPage /> },
         { path: 'bookings/:id', element: <BookingDetailPage /> },
