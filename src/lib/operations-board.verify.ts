@@ -86,6 +86,8 @@ function main() {
   const board = readFileSync(new URL('../components/dashboard/OperationsBoard.tsx', import.meta.url), 'utf8')
   assert(hook.includes('complete: false') && !hook.includes('OPERATIONS_WINDOW_TOO_LARGE'), 'a truncated list is returned, not discarded')
   assert(hook.includes('cancelledFrom: date'), 'cancellation filter asks for the selected hotel date')
+  assert(hook.includes('createdLocalFrom: date'), 'new bookings use the hotel-local created day')
+  assert(hook.includes('createdFrom: stamps.from'), 'an older server can still answer through the UTC created window')
   assert(board.includes('Лічильник і пошук неповні'), 'a partial list is labeled incomplete')
   assert(board.includes('occupancyForNight'), 'selected-date occupancy comes from the calendar night')
   console.log('PASS: operations board date rules')

@@ -925,7 +925,10 @@ export type AdminBookingListQuery = {
   checkOut?: string
   createdFrom?: string
   createdTo?: string
-  /** UTC-midnight window. The operations board widens it and keeps the hotel date. */
+  /** Hotel-local created day. createdFrom and createdTo stay UTC midnight. */
+  createdLocalFrom?: string
+  createdLocalTo?: string
+  /** Hotel-local cancellation day. */
   cancelledFrom?: string
   cancelledTo?: string
   search?: string

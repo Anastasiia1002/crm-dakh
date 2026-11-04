@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { listAdminBookings } from '@/api/admin-bookings'
 import { getAdminCalendar } from '@/api/availability'
+import { ApiError } from '@/lib/api-error'
 import { addCalendarDays } from '@/lib/dates'
 import {
   OPERATION_PAGE_LIMIT,
@@ -30,17 +31,29 @@ async function listOperationBookings(query: AdminBookingListQuery, signal: Abort
   }
 }
 
+async function listCreatedOnHotelDate(date: string, signal: AbortSignal): Promise<OperationList> {
+  try {
+    return await listOperationBookings(
+      { createdLocalFrom: date, createdLocalTo: addCalendarDays(date, 1) },
+      signal,
+    )
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status !== 400) throw error
+    const stamps = timestampWindow(date)
+    return listOperationBookings({ createdFrom: stamps.from, createdTo: stamps.to }, signal)
+  }
+}
+
 export function useOperationsBoard(date: string) {
   const stay = movementWindow(date)
-  const stamps = timestampWindow(date)
   const movements = useQuery({
     queryKey: ['admin-operations-board', 'movements', stay.checkIn, stay.checkOut],
     queryFn: ({ signal }) => listOperationBookings({ checkIn: stay.checkIn, checkOut: stay.checkOut }, signal),
     retry: false,
   })
   const created = useQuery({
-    queryKey: ['admin-operations-board', 'created', stamps.from, stamps.to],
-    queryFn: ({ signal }) => listOperationBookings({ createdFrom: stamps.from, createdTo: stamps.to }, signal),
+    queryKey: ['admin-operations-board', 'created', date],
+    queryFn: ({ signal }) => listCreatedOnHotelDate(date, signal),
     retry: false,
   })
   const cancelled = useQuery({
