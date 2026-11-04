@@ -30,6 +30,14 @@ const DEPARTURE_STATUSES = new Set<BookingStatus>(['CONFIRMED', 'CHECKED_IN', 'C
 
 export const OPERATION_PAGE_LIMIT = 100
 export const OPERATION_MAX_PAGES = 5
+export const OPERATION_LIST_CAP = OPERATION_PAGE_LIMIT * OPERATION_MAX_PAGES
+
+/** Stop at a short page. Past the cap, the loaded rows are a partial list. */
+export function operationPageDecision(page: number, totalPages: number, itemCount: number, maxPages = OPERATION_MAX_PAGES) {
+  if (totalPages <= page || itemCount === 0) return 'done' as const
+  if (page >= maxPages) return 'truncated' as const
+  return 'next' as const
+}
 
 /** Half-open stay window that contains arrivals, the selected night, and departures. */
 export function movementWindow(date: string) {

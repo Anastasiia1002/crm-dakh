@@ -1,7 +1,8 @@
 /**
  * Operational date rules. Run: npx --yes tsx src/lib/operations-board.verify.ts
  */
-import { occupancyForNight, sellablePercent, splitStayOperations, bookingsOnHotelDate, stayCoversNight, attentionBookings, matchesOperationSearch, movementWindow, timestampWindow } from './operations-board'
+import { readFileSync } from 'node:fs'
+import { occupancyForNight, sellablePercent, splitStayOperations, bookingsOnHotelDate, stayCoversNight, attentionBookings, matchesOperationSearch, movementWindow, timestampWindow, operationPageDecision } from './operations-board'
 import type { OperationBooking } from './operations-board'
 import type { AdminCalendarView } from '@/types'
 
@@ -75,6 +76,18 @@ function main() {
   assert(occupancy.sellable === 2 && occupancy.percent === '50.00', 'out of order and inactive units are outside sellable occupancy')
   assert(sellablePercent(0, 0) === null, 'no sellable units has no percent')
   assert(matchesOperationSearch(rows[0]!, 'aaaaaaaa'), 'search matches the booking reference prefix')
+  assert(operationPageDecision(1, 1, 20) === 'done', 'a short page is a complete list')
+  assert(operationPageDecision(1, 0, 0) === 'done', 'an empty page is complete')
+  assert(operationPageDecision(4, 8, 100) === 'next', 'pages inside the cap continue')
+  assert(operationPageDecision(5, 8, 100) === 'truncated', 'the cap keeps the loaded rows and marks them partial')
+  assert(operationPageDecision(5, 5, 40) === 'done', 'the last page inside the cap is complete')
+
+  const hook = readFileSync(new URL('../hooks/useOperationsBoard.ts', import.meta.url), 'utf8')
+  const board = readFileSync(new URL('../components/dashboard/OperationsBoard.tsx', import.meta.url), 'utf8')
+  assert(hook.includes('complete: false') && !hook.includes('OPERATIONS_WINDOW_TOO_LARGE'), 'a truncated list is returned, not discarded')
+  assert(hook.includes('cancelledFrom: date'), 'cancellation filter asks for the selected hotel date')
+  assert(board.includes('Лічильник і пошук неповні'), 'a partial list is labeled incomplete')
+  assert(board.includes('occupancyForNight'), 'selected-date occupancy comes from the calendar night')
   console.log('PASS: operations board date rules')
 }
 

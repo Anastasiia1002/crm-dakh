@@ -66,23 +66,24 @@ export function OperationsBoard({
   const [sortKey, setSortKey] = useState<OperationSortKey>('checkIn')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [page, setPage] = useState(1)
-  const stay = board.movements.data ?? []
+  const stay = board.movements.data?.items ?? []
   const split = useMemo(() => splitStayOperations(stay, date), [stay, date])
   const created = useMemo(
-    () => bookingsOnHotelDate(board.created.data ?? [], date, timeZone, 'createdAt'),
+    () => bookingsOnHotelDate(board.created.data?.items ?? [], date, timeZone, 'createdAt'),
     [board.created.data, date, timeZone],
   )
   const cancelledUnsupported = isRejectedQuery(board.cancelled.error)
   const cancelled = useMemo(
-    () => (cancelledUnsupported ? [] : bookingsOnHotelDate(board.cancelled.data ?? [], date, timeZone, 'cancelledAt')),
+    () =>
+      cancelledUnsupported ? [] : bookingsOnHotelDate(board.cancelled.data?.items ?? [], date, timeZone, 'cancelledAt'),
     [board.cancelled.data, cancelledUnsupported, date, timeZone],
   )
-  const counts: Record<OperationTab, number | null> = {
-    inHouse: board.movements.isPending || board.movements.isError ? null : split.inHouse.length,
-    arrivals: board.movements.isPending || board.movements.isError ? null : split.arrivals.length,
-    departures: board.movements.isPending || board.movements.isError ? null : split.departures.length,
-    created: board.created.isPending || board.created.isError ? null : created.length,
-    cancelled: board.cancelled.isPending || board.cancelled.isError ? null : cancelled.length,
+  const counts: Record<OperationTab, { value: number | null; complete: boolean }> = {
+    inHouse: listedCount(board.movements, split.inHouse.length),
+    arrivals: listedCount(board.movements, split.arrivals.length),
+    departures: listedCount(board.movements, split.departures.length),
+    created: listedCount(board.created, created.length),
+    cancelled: listedCount(board.cancelled, cancelled.length),
   }
   const rowsForTab: Record<OperationTab, OperationBooking[]> = {
     inHouse: split.inHouse,
@@ -103,6 +104,7 @@ export function OperationsBoard({
   const attention = attentionBookings(split.inHouse, split.arrivals)
   const activeQuery = queryForTab(tab, board)
   const loading = activeQuery.isPending
+  const incomplete = Boolean(activeQuery.data && !activeQuery.data.complete) && !(tab === 'cancelled' && cancelledUnsupported)
 
   function chooseTab(next: OperationTab) {
     setTab(next)
@@ -159,7 +161,7 @@ export function OperationsBoard({
       <section className="grid grid-cols-2 gap-3 xl:grid-cols-5">
         {TABS.map((item) => {
           const Icon = item.icon
-          const value = counts[item.id]
+          const count = counts[item.id]
           return (
             <button
               key={item.id}
@@ -175,7 +177,7 @@ export function OperationsBoard({
                 <Icon className="size-3.5" aria-hidden />
               </span>
               <span className="mt-2 block font-serif text-3xl leading-none tabular-nums">
-                {value === null ? '—' : formatCount(value)}
+                {count.value === null ? '—' : count.complete ? formatCount(count.value) : `${formatCount(count.value)}+`}
               </span>
               <span className="mt-2 block text-xs text-muted-foreground">{item.hint}</span>
             </button>
@@ -211,6 +213,14 @@ export function OperationsBoard({
             />
           </label>
         </div>
+        {incomplete ? (
+          <p className="border-b border-border px-4 py-3 text-sm text-muted-foreground">
+            Показано перші 500 бронювань. Лічильник і пошук неповні.{' '}
+            <Link to="/admin/bookings" className="underline-offset-4 hover:underline">
+              Відкрити список бронювань
+            </Link>
+          </p>
+        ) : null}
         {loading ? <BoardSkeleton /> : null}
         {activeQuery.isError && !(tab === 'cancelled' && cancelledUnsupported) ? (
           <div className="px-4">
@@ -222,7 +232,7 @@ export function OperationsBoard({
             Список бронювань ще не віддає час скасування. Після оновлення сервера тут будуть скасовані цього дня.
           </p>
         ) : null}
-        {!loading && !activeQuery.isError && visible.length === 0 && !(tab === 'cancelled' && cancelledUnsupported) ? (
+        {!loading && !activeQuery.isError && visible.length === 0 && !incomplete && !(tab === 'cancelled' && cancelledUnsupported) ? (
           <p className="px-4 py-8 text-sm text-muted-foreground">За вибрану дату нічого немає.</p>
         ) : null}
         {!loading && !activeQuery.isError && visible.length > 0 ? (
@@ -455,6 +465,14 @@ function BoardSkeleton() {
 
 function isRejectedQuery(error: unknown) {
   return error instanceof ApiError && error.status === 400
+}
+
+function listedCount(
+  query: { isPending: boolean; isError: boolean; data?: { complete: boolean } },
+  length: number,
+): { value: number | null; complete: boolean } {
+  if (query.isPending || query.isError || !query.data) return { value: null, complete: true }
+  return { value: length, complete: query.data.complete }
 }
 
 function queryForTab(

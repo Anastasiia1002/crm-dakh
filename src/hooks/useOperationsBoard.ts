@@ -1,31 +1,33 @@
 import { useQuery } from '@tanstack/react-query'
 import { listAdminBookings } from '@/api/admin-bookings'
 import { getAdminCalendar } from '@/api/availability'
-import { ApiError } from '@/lib/api-error'
+import { addCalendarDays } from '@/lib/dates'
 import {
-  OPERATION_MAX_PAGES,
   OPERATION_PAGE_LIMIT,
   movementWindow,
+  operationPageDecision,
   timestampWindow,
   toOperationBooking,
   type OperationBooking,
 } from '@/lib/operations-board'
 import type { AdminBookingListQuery } from '@/types'
 
-async function listOperationBookings(query: AdminBookingListQuery, signal: AbortSignal): Promise<OperationBooking[]> {
+export type OperationList = {
+  items: OperationBooking[]
+  complete: boolean
+}
+
+async function listOperationBookings(query: AdminBookingListQuery, signal: AbortSignal): Promise<OperationList> {
   const items: OperationBooking[] = []
   let page = 1
-  while (page <= OPERATION_MAX_PAGES) {
+  while (true) {
     const result = await listAdminBookings({ ...query, page, limit: OPERATION_PAGE_LIMIT }, signal)
     items.push(...result.items.map(toOperationBooking))
-    if (result.pagination.totalPages <= page || result.items.length === 0) return items
+    const decision = operationPageDecision(page, result.pagination.totalPages, result.items.length)
+    if (decision === 'done') return { items, complete: true }
+    if (decision === 'truncated') return { items, complete: false }
     page += 1
   }
-  throw new ApiError(
-    'За вибрану дату занадто багато бронювань. Відкрийте список бронювань.',
-    0,
-    'OPERATIONS_WINDOW_TOO_LARGE',
-  )
 }
 
 export function useOperationsBoard(date: string) {
@@ -42,9 +44,12 @@ export function useOperationsBoard(date: string) {
     retry: false,
   })
   const cancelled = useQuery({
-    queryKey: ['admin-operations-board', 'cancelled', stamps.from, stamps.to],
+    queryKey: ['admin-operations-board', 'cancelled', date],
     queryFn: ({ signal }) =>
-      listOperationBookings({ cancelledFrom: stamps.from, cancelledTo: stamps.to, status: 'CANCELLED' }, signal),
+      listOperationBookings(
+        { cancelledFrom: date, cancelledTo: addCalendarDays(date, 1), status: 'CANCELLED' },
+        signal,
+      ),
     retry: false,
   })
   const calendar = useQuery({
