@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs'
 import { ApiError } from './api-error.js'
 import {
   guestDirectoryPath,
+  guestExportPath,
   guestFailure,
   guestFailureMessage,
   guestHistoryPath,
@@ -34,10 +35,10 @@ const listBody = {
       lastName: 'Коваль',
       email: 'ivan@example.com',
       phone: '+380671112233',
-      country: 'Україна',
-      city: 'Чернівці',
-      bookingsCount: 3,
-      lastCheckIn: '2026-12-10',
+      notes: 'VIP',
+      createdAt: '2026-01-15',
+      visitCount: 1,
+      lastVisit: '2026-10-03',
     },
     {
       id: '55555555-5555-4555-8555-555555555555',
@@ -45,10 +46,10 @@ const listBody = {
       lastName: 'Без контактів',
       email: null,
       phone: null,
-      country: null,
-      city: null,
-      bookingsCount: 0,
-      lastCheckIn: null,
+      notes: null,
+      createdAt: '2026-03-01',
+      visitCount: 0,
+      lastVisit: null,
     },
   ],
   pagination: { page: 2, limit: 20, total: 21, totalPages: 2 },
@@ -100,6 +101,8 @@ const profileBody = {
     bookingsCount: 3,
     lastCheckIn: '2026-12-10',
     completedStays: 1,
+    visitCount: 1,
+    lastVisit: '2026-10-03',
     totalNights: 3,
     totalSpent: '430.00',
     currency: 'UAH',
@@ -114,13 +117,19 @@ const historyBody = {
 
 const listed = parseGuestDirectoryPage(listBody)
 assert(listed.items.length === 2, 'guest list maps both rows')
-assert(listed.items[0]?.bookingsCount === 3, 'booking count stays a number')
-assert(listed.items[0]?.lastCheckIn === '2026-12-10', 'last check-in is the API date')
-assert(listed.items[1]?.email === null && listed.items[1]?.lastCheckIn === null, 'optional contact and date stay null')
+assert(listed.items[0]?.visitCount === 1, 'visit count stays a number')
+assert(listed.items[0]?.lastVisit === '2026-10-03', 'last visit is the API date')
+assert(listed.items[1]?.email === null && listed.items[1]?.lastVisit === null, 'optional contact and date stay null')
 assert(listed.page === 2 && listed.limit === 20 && listed.total === 21 && listed.totalPages === 2, 'pagination is server metadata')
-assert(guestPlaceLabel(listed.items[0]!.country, listed.items[0]!.city) === 'Україна, Чернівці', 'country and city stay together')
+assert(guestPlaceLabel('Україна', 'Чернівці') === 'Україна, Чернівці', 'country and city stay together')
 assert(guestPlaceLabel(null, null) === '—', 'missing place is blank')
+assert(listed.items[0]?.notes === 'VIP', 'hotel notes stay on the list')
 
+assert(
+  guestExportPath({ page: 1, limit: 20, lastVisit: 'never' }, 'csv') ===
+    '/api/admin/guests/export?page=1&limit=20&lastVisit=never&format=csv',
+  'export uses the same hotel filters',
+)
 assert(
   guestDirectoryPath({ page: 1, limit: 20, search: '  Коваль ' }) === '/api/admin/guests?page=1&limit=20&search=%D0%9A%D0%BE%D0%B2%D0%B0%D0%BB%D1%8C',
   'search is trimmed and sent to the server',
@@ -153,7 +162,7 @@ assert(guestStayRoomLabel([]) === '—', 'a stay without rooms has no invented l
 
 let rejected = false
 try {
-  parseGuestDirectoryPage({ items: [{ ...listBody.items[0], bookingsCount: '3' }] })
+  parseGuestDirectoryPage({ items: [{ ...listBody.items[0], visitCount: '3' }] })
 } catch {
   rejected = true
 }
@@ -171,14 +180,14 @@ const directory = readFileSync(new URL('../pages/guests/GuestsPage.tsx', import.
 const profilePage = readFileSync(new URL('../pages/guests/GuestPage.tsx', import.meta.url), 'utf8')
 const hooks = readFileSync(new URL('../hooks/useGuestDirectory.ts', import.meta.url), 'utf8')
 assert(api.includes('/api/admin/guests') === false, 'paths live in the mapper')
-assert(api.includes('listAdminGuests') && api.includes('getAdminGuest') && api.includes('listAdminGuestBookings'), 'three guest reads')
-assert(!api.includes('mocks/db') && !api.includes('saveGuest') && !api.includes('importGuest'), 'guest API has no mock writes')
-assert(!hooks.includes('mocks/db') && !hooks.includes('useSaveGuest') && !hooks.includes('useImportGuests'), 'hooks do not write guests')
-assert(directory.includes('Додавання, редагування, імпорт і експорт тут недоступні'), 'directory explains unsupported actions')
-assert(!directory.includes('Імпортувати') && !directory.includes('Експортувати') && !directory.includes('Додати гостя'), 'write buttons are gone')
+assert(api.includes('listAdminGuests') && api.includes('createAdminGuest') && api.includes('downloadAdminGuests'), 'guest reads and writes')
+assert(!api.includes('mocks/db') && !api.includes('importGuest'), 'guest API has no mock import')
+assert(hooks.includes('useSaveGuest') && hooks.includes('useExportGuests'), 'hooks write and export guests')
+assert(directory.includes('Ваша клієнтська база тут'), 'directory subtitle matches clients copy')
+assert(directory.includes('Додати клієнта') && directory.includes('Експорт'), 'create and export are available')
 assert(directory.includes('guests.data.total'), 'total comes from the page payload')
 assert(!directory.includes('newGuests') && !directory.includes('Постійний'), 'no invented guest categories')
-assert(profilePage.includes('Редагування картки гостя недоступне'), 'profile edit is unavailable')
+assert(profilePage.includes('Редагувати') && profilePage.includes('Створити бронювання'), 'profile can edit and prefill a booking')
 assert(profilePage.includes('useGuestHistory'), 'history uses its own request')
 assert(!profilePage.includes('profile.data.history'), 'profile history slice is not the table')
 assert(!profilePage.includes('Країна і місто') && !profilePage.includes('guestPlaceLabel'), 'guest details do not show city and country')

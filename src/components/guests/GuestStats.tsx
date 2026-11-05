@@ -5,10 +5,10 @@ export function GuestStats({ stats }: { stats: AdminGuestStats }) {
   const spent = stats.currency === 'UAH' ? formatMoneyAmount(stats.totalSpent) : `${stats.totalSpent} ${stats.currency}`
   const items = [
     { label: 'Бронювань', value: formatCount(stats.bookingsCount) },
-    { label: 'Завершених проживань', value: formatCount(stats.completedStays) },
+    { label: 'Завершених візитів', value: formatCount(stats.visitCount) },
     { label: 'Ночей', value: nightsLabel(stats.totalNights) },
     { label: 'Сума бронювань', value: spent },
-    { label: 'Останній заїзд', value: stats.lastCheckIn ? formatDate(stats.lastCheckIn) : '—' },
+    { label: 'Останній візит', value: stats.lastVisit ? formatDate(stats.lastVisit) : '—' },
   ]
 
   return (

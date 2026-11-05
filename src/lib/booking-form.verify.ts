@@ -341,6 +341,7 @@ function main() {
   const formSource = readFileSync(new URL('../components/bookings/AdminBookingForm.tsx', import.meta.url), 'utf8')
   assert(formSource.includes('storedStayDatesUnchanged'), 'the edit form keeps an unchanged stored stay')
   assert(formSource.includes('useAdminServices') && formSource.includes('AdminServicePicker'), 'create form selects live catalog services')
+  assert(formSource.includes('preset?.guestId') && formSource.includes('getAdminGuest'), 'create form can preselect a client')
   assert(!formSource.includes("from '@/api/services'") && !formSource.includes('getServices'), 'create form does not load mock services')
   const guestPage = readFileSync(new URL('../pages/guests/GuestPage.tsx', import.meta.url), 'utf8')
   assert(!guestPage.includes('Країна і місто') && !guestPage.includes('guestPlaceLabel'), 'guest details omit city and country')
