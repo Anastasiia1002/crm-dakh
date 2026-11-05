@@ -9,6 +9,7 @@ import {
   operationPageDecision,
   timestampWindow,
   toOperationBooking,
+  uniqueOperationBookings,
   type OperationBooking,
 } from '@/lib/operations-board'
 import type { AdminBookingListQuery } from '@/types'
@@ -16,17 +17,22 @@ import type { AdminBookingListQuery } from '@/types'
 export type OperationList = {
   items: OperationBooking[]
   complete: boolean
+  total: number
+  hotelLocal: boolean
 }
 
 async function listOperationBookings(query: AdminBookingListQuery, signal: AbortSignal): Promise<OperationList> {
   const items: OperationBooking[] = []
   let page = 1
+  let total = 0
   while (true) {
     const result = await listAdminBookings({ ...query, page, limit: OPERATION_PAGE_LIMIT }, signal)
+    total = result.pagination.total
     items.push(...result.items.map(toOperationBooking))
     const decision = operationPageDecision(page, result.pagination.totalPages, result.items.length)
-    if (decision === 'done') return { items, complete: true }
-    if (decision === 'truncated') return { items, complete: false }
+    if (decision === 'done') {
+      return { items: uniqueOperationBookings(items), complete: true, total, hotelLocal: true }
+    }
     page += 1
   }
 }
@@ -40,7 +46,8 @@ async function listCreatedOnHotelDate(date: string, signal: AbortSignal): Promis
   } catch (error) {
     if (!(error instanceof ApiError) || error.status !== 400) throw error
     const stamps = timestampWindow(date)
-    return listOperationBookings({ createdFrom: stamps.from, createdTo: stamps.to }, signal)
+    const fallback = await listOperationBookings({ createdFrom: stamps.from, createdTo: stamps.to }, signal)
+    return { ...fallback, hotelLocal: false }
   }
 }
 

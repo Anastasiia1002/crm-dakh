@@ -17,6 +17,7 @@ import { BookingStatusBadge } from '@/components/bookings/BookingStatusBadge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { QueryErrorState } from '@/components/ui/page-status'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useOperationsBoard } from '@/hooks/useOperationsBoard'
 import { adminBookingRef } from '@/lib/admin-booking-view'
 import { addCalendarDays, todayIso } from '@/lib/dates'
@@ -68,15 +69,15 @@ export function OperationsBoard({
   const [page, setPage] = useState(1)
   const stay = board.movements.data?.items ?? []
   const split = useMemo(() => splitStayOperations(stay, date), [stay, date])
-  const created = useMemo(
-    () => bookingsOnHotelDate(board.created.data?.items ?? [], date, timeZone, 'createdAt'),
-    [board.created.data, date, timeZone],
-  )
+  const created = useMemo(() => {
+    const items = board.created.data?.items ?? []
+    if (board.created.data?.hotelLocal) return items
+    return bookingsOnHotelDate(items, date, timeZone, 'createdAt')
+  }, [board.created.data, date, timeZone])
   const cancelledUnsupported = isRejectedQuery(board.cancelled.error)
   const cancelled = useMemo(
-    () =>
-      cancelledUnsupported ? [] : bookingsOnHotelDate(board.cancelled.data?.items ?? [], date, timeZone, 'cancelledAt'),
-    [board.cancelled.data, cancelledUnsupported, date, timeZone],
+    () => (cancelledUnsupported ? [] : (board.cancelled.data?.items ?? [])),
+    [board.cancelled.data, cancelledUnsupported],
   )
   const counts: Record<OperationTab, { value: number | null; complete: boolean }> = {
     inHouse: listedCount(board.movements, split.inHouse.length),
@@ -197,25 +198,38 @@ export function OperationsBoard({
       </section>
 
       <section className="rounded-md border border-border bg-surface">
-        <div className="flex flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <h3 className="font-serif text-xl">{TABS.find((item) => item.id === tab)?.label}</h3>
-          <label className="relative block sm:w-72">
-            <span className="sr-only">Пошук гостя або номера бронювання</span>
-            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(event) => {
-                setSearch(event.target.value)
-                setPage(1)
-              }}
-              placeholder="Гість або номер бронювання"
-              className="bg-background pl-8"
-            />
-          </label>
-        </div>
+        <Tabs value={tab} onValueChange={(value) => chooseTab(value as OperationTab)}>
+          <div className="flex flex-col gap-3 border-b border-border px-4 py-3">
+            <TabsList className="flex-wrap gap-x-4 gap-y-1 overflow-x-auto" aria-label="Списки бронювань за день">
+              {TABS.map((item) => {
+                const count = counts[item.id]
+                const label =
+                  count.value === null ? item.label : `${item.label} ${count.complete ? formatCount(count.value) : `${formatCount(count.value)}+`}`
+                return (
+                  <TabsTrigger key={item.id} value={item.id} className="whitespace-nowrap">
+                    {label}
+                  </TabsTrigger>
+                )
+              })}
+            </TabsList>
+            <label className="relative block sm:w-72 sm:self-end">
+              <span className="sr-only">Пошук гостя або номера бронювання</span>
+              <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(event) => {
+                  setSearch(event.target.value)
+                  setPage(1)
+                }}
+                placeholder="Гість або номер бронювання"
+                className="bg-background pl-8"
+              />
+            </label>
+          </div>
+        </Tabs>
         {incomplete ? (
           <p className="border-b border-border px-4 py-3 text-sm text-muted-foreground">
-            Показано перші 500 бронювань. Лічильник і пошук неповні.{' '}
+            Список ще не повний. Лічильник і пошук можуть бути неповні.{' '}
             <Link to="/admin/bookings" className="underline-offset-4 hover:underline">
               Відкрити список бронювань
             </Link>
@@ -246,7 +260,7 @@ export function OperationsBoard({
                     <SortHeader label="Заїзд" active={sortKey === 'checkIn'} onClick={() => toggleSort('checkIn')} />
                     <SortHeader label="Виїзд" active={sortKey === 'checkOut'} onClick={() => toggleSort('checkOut')} />
                     <SortHeader label="Статус" active={sortKey === 'status'} onClick={() => toggleSort('status')} />
-                    <SortHeader label="Номер" active={sortKey === 'reference'} onClick={() => toggleSort('reference')} />
+                    <SortHeader label="Номер бронювання" active={sortKey === 'reference'} onClick={() => toggleSort('reference')} />
                     <th className="px-4 py-2 font-medium">Дія</th>
                   </tr>
                 </thead>
