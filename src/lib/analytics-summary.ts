@@ -215,6 +215,47 @@ export function moneyOrUnavailable(value: AnalyticsMoney | AnalyticsUnavailable)
   return formatMoneyAmount(value.amount)
 }
 
+/** Keep the URL contract: omitted = all, rooms=none = explicit empty, otherwise selected ids. */
+export function nextAnalyticsIdFilter(selected: readonly string[], allIds: readonly string[]) {
+  if (selected.length === 0) return ANALYTICS_NONE
+  if (allIds.length > 0 && selected.length === allIds.length && allIds.every((id) => selected.includes(id))) {
+    return 'all' as const
+  }
+  return [...selected]
+}
+
+export type AnalyticsAccommodationOption = {
+  id: string
+  label: string
+  searchText: string
+  groupId: string
+  groupLabel: string
+}
+
+export function filterAnalyticsAccommodationOptions(
+  options: readonly AnalyticsAccommodationOption[],
+  query: string,
+) {
+  const needle = query.trim().toLocaleLowerCase('uk')
+  if (!needle) return [...options]
+  return options.filter((option) => option.searchText.toLocaleLowerCase('uk').includes(needle))
+}
+
+export function groupAnalyticsAccommodationOptions(options: readonly AnalyticsAccommodationOption[]) {
+  const groups: { id: string; label: string; items: AnalyticsAccommodationOption[] }[] = []
+  const index = new Map<string, number>()
+  for (const option of options) {
+    const existing = index.get(option.groupId)
+    if (existing === undefined) {
+      index.set(option.groupId, groups.length)
+      groups.push({ id: option.groupId, label: option.groupLabel, items: [option] })
+    } else {
+      groups[existing]!.items.push(option)
+    }
+  }
+  return groups
+}
+
 function parseIdFilter(raw: string | null): string[] | typeof ANALYTICS_NONE | 'all' {
   if (raw === null) return 'all'
   if (raw === ANALYTICS_NONE || raw === '') return ANALYTICS_NONE
