@@ -13,6 +13,7 @@ import {
   getRoom,
   getRoomType,
   getRoomTypes,
+  listAmenities,
   listRoomBlocks,
   listAllRooms,
   listRooms,
@@ -132,6 +133,15 @@ export function useAdminRoomTypes(query: RoomTypeListQuery = {}) {
     queryKey: ['admin-room-types', query],
     queryFn: () => listRoomTypes(query),
     staleTime: CATALOG_STALE_TIME,
+  })
+}
+
+export function useAdminAmenities() {
+  return useQuery({
+    queryKey: ['admin-amenities'],
+    queryFn: ({ signal }) => listAmenities(signal),
+    staleTime: CATALOG_STALE_TIME,
+    retry: false,
   })
 }
 

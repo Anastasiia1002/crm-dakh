@@ -11,7 +11,10 @@ import {
   barPercent,
   bookingListHref,
   defaultAnalyticsFilters,
+  filterAnalyticsAccommodationOptions,
+  groupAnalyticsAccommodationOptions,
   moneyOrUnavailable,
+  nextAnalyticsIdFilter,
   parseAdminAnalyticsSummary,
   parseAnalyticsSearch,
 } from './analytics-summary'
@@ -85,7 +88,20 @@ function main() {
   }
   assert(rejected, 'parser rejects invented payments')
 
+  const ids = ['11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222']
+  assert(nextAnalyticsIdFilter(ids, ids) === 'all', 'selecting every unit is the unfiltered contract')
+  assert(nextAnalyticsIdFilter([], ids) === ANALYTICS_NONE, 'clear is an explicit empty selection')
+  const partial = nextAnalyticsIdFilter([ids[0]!], ids)
+  assert(Array.isArray(partial) && partial[0] === ids[0], 'a subset stays a roomIds list')
+  const grouped = groupAnalyticsAccommodationOptions([
+    { id: ids[0]!, label: '101', searchText: 'стандарт 101', groupId: 't1', groupLabel: 'Стандарт (Номер)' },
+    { id: ids[1]!, label: 'A1', searchText: 'котедж a1', groupId: 't2', groupLabel: 'Котедж (Будиночок)' },
+  ])
+  assert(grouped.map((group) => group.label).join('|').includes('Стандарт'), 'rooms and cottages are grouped')
+  assert(filterAnalyticsAccommodationOptions(grouped[0]!.items, '101').length === 1, 'search matches a unit number')
+
   const page = readFileSync(new URL('../pages/analytics/AnalyticsPage.tsx', import.meta.url), 'utf8')
+  assert(page.includes('AccommodationMultiSelect'), 'accommodations use a searchable multi-select')
   assert(page.includes('useAdminAnalyticsSummary'), 'page reads the analytics endpoint')
   assert(!page.includes('mocks/db') && !page.includes('getDashboard'), 'no mock dashboard data')
   assert(page.includes("label=\"Дохід\"") && page.includes('summary.financial.revenue'), 'income kpi is present')

@@ -2,7 +2,7 @@
  * Operational date rules. Run: npx --yes tsx src/lib/operations-board.verify.ts
  */
 import { readFileSync } from 'node:fs'
-import { occupancyForNight, sellablePercent, splitStayOperations, bookingsOnHotelDate, stayCoversNight, attentionBookings, matchesOperationSearch, movementWindow, timestampWindow, operationPageDecision } from './operations-board'
+import { occupancyForNight, sellablePercent, splitStayOperations, bookingsOnHotelDate, stayCoversNight, attentionBookings, matchesOperationSearch, movementWindow, timestampWindow, operationPageDecision, uniqueOperationBookings } from './operations-board'
 import type { OperationBooking } from './operations-board'
 import type { AdminCalendarView } from '@/types'
 
@@ -78,18 +78,24 @@ function main() {
   assert(matchesOperationSearch(rows[0]!, 'aaaaaaaa'), 'search matches the booking reference prefix')
   assert(operationPageDecision(1, 1, 20) === 'done', 'a short page is a complete list')
   assert(operationPageDecision(1, 0, 0) === 'done', 'an empty page is complete')
-  assert(operationPageDecision(4, 8, 100) === 'next', 'pages inside the cap continue')
-  assert(operationPageDecision(5, 8, 100) === 'truncated', 'the cap keeps the loaded rows and marks them partial')
-  assert(operationPageDecision(5, 5, 40) === 'done', 'the last page inside the cap is complete')
+  assert(operationPageDecision(4, 8, 100) === 'next', 'later pages continue until the API last page')
+  assert(operationPageDecision(5, 8, 100) === 'next', 'there is no 500-row cap')
+  assert(operationPageDecision(8, 8, 40) === 'done', 'the last page is complete')
+  const duplicated = uniqueOperationBookings([rows[0]!, { ...rows[0]!, accommodation: '102' }, rows[1]!])
+  assert(duplicated.map((item) => item.id[0]).join('') === 'ab', 'a multi-unit reservation is one booking row')
 
   const hook = readFileSync(new URL('../hooks/useOperationsBoard.ts', import.meta.url), 'utf8')
   const board = readFileSync(new URL('../components/dashboard/OperationsBoard.tsx', import.meta.url), 'utf8')
-  assert(hook.includes('complete: false') && !hook.includes('OPERATIONS_WINDOW_TOO_LARGE'), 'a truncated list is returned, not discarded')
+  assert(!hook.includes('truncated') && hook.includes('uniqueOperationBookings'), 'the operational lists follow the API pages without a client cap')
   assert(hook.includes('cancelledFrom: date'), 'cancellation filter asks for the selected hotel date')
   assert(hook.includes('createdLocalFrom: date'), 'new bookings use the hotel-local created day')
   assert(hook.includes('createdFrom: stamps.from'), 'an older server can still answer through the UTC created window')
-  assert(board.includes('Лічильник і пошук неповні'), 'a partial list is labeled incomplete')
+  assert(hook.includes('hotelLocal: false'), 'UTC created fallback still applies the hotel calendar date')
+  assert(board.includes('TabsList') && board.includes('chooseTab'), 'the booking table is tabbed')
+  assert(board.includes("id: 'inHouse'") && board.includes("id: 'cancelled'"), 'tabs cover in-house through cancelled')
+  assert(!board.includes('onDate(tab') && board.includes('setTab(next)'), 'changing tabs does not change the selected date')
   assert(board.includes('occupancyForNight'), 'selected-date occupancy comes from the calendar night')
+  assert(board.includes('Номер бронювання'), 'booking reference column is labeled')
   console.log('PASS: operations board date rules')
 }
 

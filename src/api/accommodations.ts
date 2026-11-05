@@ -6,6 +6,7 @@ import * as db from '@/mocks/db'
 import type {
   Accommodation,
   AccommodationPage,
+  Amenity,
   Block,
   RoomBlockCreateInput,
   RoomBlockUpdateInput,
@@ -101,6 +102,10 @@ export async function getRoomType(id: string, signal?: AbortSignal): Promise<Roo
   return apiRequest(`/api/admin/accommodations/types/${id}`, { signal })
 }
 
+export async function listAmenities(signal?: AbortSignal): Promise<Amenity[]> {
+  return apiRequest('/api/admin/accommodations/amenities', { signal })
+}
+
 export async function createRoomType(input: RoomTypeCreateInput): Promise<RoomType> {
   return apiRequest('/api/admin/accommodations/types', {
     method: 'POST',
@@ -111,6 +116,7 @@ export async function createRoomType(input: RoomTypeCreateInput): Promise<RoomTy
       kind: input.kind,
       maxGuests: input.maxGuests,
       active: input.active,
+      ...(input.amenityKeys !== undefined ? { amenityKeys: [...input.amenityKeys] } : {}),
     },
   })
 }
@@ -125,6 +131,7 @@ export async function updateRoomType(id: string, input: RoomTypeUpdateInput): Pr
   if (input.kind !== undefined) body.kind = input.kind
   if (input.maxGuests !== undefined) body.maxGuests = input.maxGuests
   if (input.active !== undefined) body.active = input.active
+  if (input.amenityKeys !== undefined) body.amenityKeys = [...input.amenityKeys]
   return apiRequest(`/api/admin/accommodations/types/${id}`, {
     method: 'PATCH',
     body,

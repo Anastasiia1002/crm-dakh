@@ -29,14 +29,20 @@ const ARRIVAL_EXCLUDED = new Set<BookingStatus>(['CANCELLED', 'NO_SHOW'])
 const DEPARTURE_STATUSES = new Set<BookingStatus>(['CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT'])
 
 export const OPERATION_PAGE_LIMIT = 100
-export const OPERATION_MAX_PAGES = 5
-export const OPERATION_LIST_CAP = OPERATION_PAGE_LIMIT * OPERATION_MAX_PAGES
 
-/** Stop at a short page. Past the cap, the loaded rows are a partial list. */
-export function operationPageDecision(page: number, totalPages: number, itemCount: number, maxPages = OPERATION_MAX_PAGES) {
+/** Follow the list API until the last page. Do not cap the operational lists. */
+export function operationPageDecision(page: number, totalPages: number, itemCount: number) {
   if (totalPages <= page || itemCount === 0) return 'done' as const
-  if (page >= maxPages) return 'truncated' as const
   return 'next' as const
+}
+
+/** One row per reservation, even when the booking occupies several units. */
+export function uniqueOperationBookings(bookings: readonly OperationBooking[]) {
+  const seen = new Map<string, OperationBooking>()
+  for (const booking of bookings) {
+    if (!seen.has(booking.id)) seen.set(booking.id, booking)
+  }
+  return [...seen.values()]
 }
 
 /** Half-open stay window that contains arrivals, the selected night, and departures. */

@@ -7,6 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { QueryErrorState } from '@/components/ui/page-status'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { AccommodationMultiSelect } from '@/components/analytics/AccommodationMultiSelect'
 import { useAdminAnalyticsSummary } from '@/hooks/useAdminAnalytics'
 import { useAllAdminRooms, useHotelSettings } from '@/hooks/useHotel'
 import {
@@ -125,12 +126,19 @@ export function AnalyticsPage() {
           loading={roomTypes.isLoading}
           error={roomTypes.isError}
         />
-        <MultiFilter
+        <AccommodationMultiSelect
           label="Номери та будиночки"
-          items={(rooms.data ?? []).map((room) => ({
-            id: room.id,
-            label: bookingRoomFilterLabel(room, roomTypes.data?.find((type) => type.id === room.roomTypeId)?.name),
-          }))}
+          options={(rooms.data ?? []).map((room) => {
+            const type = roomTypes.data?.find((item) => item.id === room.roomTypeId)
+            const typeName = type?.name
+            return {
+              id: room.id,
+              label: bookingRoomFilterLabel(room, typeName),
+              searchText: `${bookingRoomFilterLabel(room, typeName)} ${room.number} ${room.name ?? ''}`,
+              groupId: room.roomTypeId,
+              groupLabel: type ? `${type.name} (${roomTypeKindLabel[type.kind]})` : 'Інше',
+            }
+          })}
           value={filters.roomIds}
           onChange={(roomIds) => patch({ roomIds })}
           loading={rooms.isLoading}
