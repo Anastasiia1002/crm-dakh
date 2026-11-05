@@ -196,6 +196,10 @@ export function runAdminBookingViewChecks(): string[] {
   )
   assert(Boolean(prefill.roomId?.startsWith('11111111')) && prefill.checkIn === '2026-10-10', 'calendar prefill')
   assert(parseCalendarPrefill(new URLSearchParams('roomId=not-a-uuid&checkIn=bad')).roomId === undefined, 'bad prefill ignored')
+  assert(
+    parseCalendarPrefill(new URLSearchParams('guestId=11111111-1111-4111-8111-111111111111')).guestId?.startsWith('11111111'),
+    'client prefill is accepted',
+  )
   results.push('Calendar navigation PASS')
 
   assert(assertAdminBookingListItem(baseListItem).length === 0, 'list shape')

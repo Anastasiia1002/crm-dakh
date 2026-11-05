@@ -70,6 +70,32 @@ export async function refreshAccessToken(): Promise<RefreshOutcome> {
   return refreshInFlight
 }
 
+export async function apiBlob(path: string, accept: string, options: { signal?: AbortSignal; retry?: boolean } = {}): Promise<Blob> {
+  const headers = new Headers({ Accept: accept })
+  if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`)
+  const timed = timeoutSignal(options.signal, REQUEST_TIMEOUT_MS)
+  let response: Response
+  try {
+    response = await fetch(resolveUrl(path), { method: 'GET', headers, signal: timed.signal })
+  } catch (error) {
+    if (options.signal?.aborted) throw error
+    throw new ApiError('Сервер тимчасово недоступний. Спробуйте пізніше.', 0, 'NETWORK')
+  } finally {
+    timed.clear()
+  }
+  if (response.status === 401) {
+    if (options.retry !== false) {
+      const refreshed = await refreshAccessToken()
+      if (refreshed === 'ok') return apiBlob(path, accept, { ...options, retry: false })
+      throw new ApiError('Сесія недійсна', 401, 'INVALID_SESSION')
+    }
+    dropSession('invalid')
+    throw new ApiError('Сесія недійсна', 401, 'INVALID_SESSION')
+  }
+  if (!response.ok) throw await readError(response)
+  return response.blob()
+}
+
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
   const method = options.method ?? 'GET'
   const headers = new Headers({ Accept: 'application/json' })

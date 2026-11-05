@@ -25,7 +25,7 @@ export const primaryNav: NavItem[] = [
   { to: '/admin/analytics', label: 'Аналітика', icon: BarChart3 },
   { to: '/admin/bookings', label: 'Бронювання', icon: NotebookPen },
   { to: '/admin/calendar', label: 'Шахматка', icon: CalendarDays },
-  { to: '/admin/guests', label: 'Гості', icon: ContactRound },
+  { to: '/admin/guests', label: 'Клієнти', icon: ContactRound },
   { to: '/admin/accommodations', label: 'Номери та будиночки', icon: BedDouble },
   { to: '/admin/rates', label: 'Тарифи', icon: Tags },
   { to: '/admin/services', label: 'Послуги', icon: ConciergeBell },
@@ -42,7 +42,7 @@ export function titleForPath(pathname: string) {
   if (/^\/admin\/bookings\/[^/]+\/edit$/.test(pathname)) return 'Редагування бронювання'
   if (pathname.startsWith('/admin/bookings/')) return 'Бронювання'
   if (pathname === '/admin/profile') return 'Мій профіль'
-  if (pathname.startsWith('/admin/guests/')) return 'Гість'
+  if (pathname.startsWith('/admin/guests/')) return 'Клієнт'
   const item = [...primaryNav, ...secondaryNav].find((entry) =>
     entry.end ? pathname === entry.to : pathname === entry.to || pathname.startsWith(`${entry.to}/`),
   )

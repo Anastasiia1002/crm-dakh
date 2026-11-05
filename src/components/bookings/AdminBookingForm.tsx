@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { listAdminBookingGuests, quoteAdminBooking } from '@/api/admin-bookings'
+import { getAdminGuest } from '@/api/guests'
 import { getAdminCalendar } from '@/api/availability'
 import { useAdminBookingQuote } from '@/hooks/useBookings'
 import { useAuth } from '@/hooks/useAuth'
@@ -78,7 +79,7 @@ type Props = {
   rooms: Accommodation[]
   roomTypes: RoomType[]
   ratePlans: RatePlan[]
-  preset?: { roomId?: string; checkIn?: string; checkOut?: string }
+  preset?: { roomId?: string; checkIn?: string; checkOut?: string; guestId?: string }
   submitting: boolean
   onCreateActivity?: (active: boolean) => void
   onSubmit: (input: AdminBookingCreateInput | AdminBookingUpdateInput) => Promise<void>
@@ -104,8 +105,26 @@ export function AdminBookingForm({
 
   const [edited, setEdited] = useState(false)
   usePreserveEdits(edited)
-  const [guestMode, setGuestMode] = useState<'existing' | 'new'>('new')
-  const [guestId, setGuestId] = useState(booking?.guest.id ?? '')
+  const [guestMode, setGuestMode] = useState<'existing' | 'new'>(preset?.guestId ? 'existing' : 'new')
+  const [guestId, setGuestId] = useState(booking?.guest.id ?? preset?.guestId ?? '')
+  const [guestLocked, setGuestLocked] = useState(Boolean(!booking && preset?.guestId))
+
+  useEffect(() => {
+    const presetGuestId = preset?.guestId
+    if (!presetGuestId || booking) return
+    setGuestMode('existing')
+    setGuestId(presetGuestId)
+    setGuestLocked(true)
+    void getAdminGuest(presetGuestId).then(
+      (profile) => {
+        setFirstName(profile.guest.firstName)
+        setLastName(profile.guest.lastName)
+        setPhone(profile.guest.phone ?? '')
+        setEmail(profile.guest.email ?? '')
+      },
+      () => setSearchError('Не вдалося підставити клієнта'),
+    )
+  }, [booking, preset?.guestId])
   const [firstName, setFirstName] = useState(booking?.guest.firstName ?? '')
   const [lastName, setLastName] = useState(booking?.guest.lastName ?? '')
   const [phone, setPhone] = useState(booking?.guest.phone ?? '')
@@ -655,6 +674,9 @@ export function AdminBookingForm({
       <fieldset disabled={submitting} className="space-y-8 disabled:opacity-80">
       <section className="space-y-4 border-t border-border pt-5">
         <h3 className="font-serif text-2xl">Гість</h3>
+        {guestLocked ? (
+          <p className="text-sm text-muted-foreground">Клієнта підставлено з картки. Бронювання буде привʼязане до цієї картки.</p>
+        ) : null}
         {profile ? (
           <>
             <Field label="Телефон" error={visibleErrors.phone}>

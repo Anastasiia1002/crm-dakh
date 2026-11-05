@@ -313,10 +313,12 @@ export function parseCalendarPrefill(params: URLSearchParams) {
   const checkIn = params.get('checkIn')?.trim() || undefined
   const checkOutRaw = params.get('checkOut')?.trim() || undefined
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+  const guestId = params.get('guestId')?.trim() || undefined
   return {
     roomId: roomId && uuid.test(roomId) ? roomId : undefined,
     checkIn: checkIn && isValidStayDate(checkIn) ? checkIn : undefined,
     checkOut: checkOutRaw && isValidStayDate(checkOutRaw) ? checkOutRaw : undefined,
+    guestId: guestId && uuid.test(guestId) ? guestId : undefined,
   }
 }
 
