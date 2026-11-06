@@ -1,5 +1,6 @@
 import { apiRequest, authorizedFormUpload } from '@/lib/api-client'
 import { ApiError } from '@/lib/api-error'
+import { assignedAmenityKeys } from '@/lib/amenities'
 import { collectPagedRooms, RoomPageError } from '@/lib/room-pages'
 import { delay } from '@/mocks/delay'
 import * as db from '@/mocks/db'
@@ -52,11 +53,33 @@ export async function getBlocks() {
   return clone(db.blocks)
 }
 
+function placeholderAmenity(key: string): Amenity {
+  return {
+    id: key,
+    key,
+    category: 'OTHER',
+    labelUk: key,
+    iconKey: key,
+    sortOrder: 0,
+    isActive: true,
+  }
+}
+
+function withAssignedAmenities(type: RoomType): RoomType {
+  const keys = assignedAmenityKeys(type)
+  if (keys === null) return type
+  const byKey = new Map((type.amenities ?? []).map((amenity) => [amenity.key, amenity]))
+  return {
+    ...type,
+    amenities: keys.map((key) => byKey.get(key) ?? placeholderAmenity(key)),
+  }
+}
+
 export async function listRoomTypes(
   query: RoomTypeListQuery = {},
   signal?: AbortSignal,
 ): Promise<AccommodationPage<RoomType>> {
-  return apiRequest(
+  const page = await apiRequest<AccommodationPage<RoomType>>(
     `/api/admin/accommodations/types${querySuffix({
       page: query.page,
       limit: query.limit,
@@ -66,6 +89,7 @@ export async function listRoomTypes(
     })}`,
     { signal },
   )
+  return { ...page, items: page.items.map(withAssignedAmenities) }
 }
 
 /** Paginate through every RoomType page (limit 100). Throws if the result set is truncated by a safety stop. */
@@ -99,7 +123,8 @@ export async function listAllRoomTypes(
 }
 
 export async function getRoomType(id: string, signal?: AbortSignal): Promise<RoomType> {
-  return apiRequest(`/api/admin/accommodations/types/${id}`, { signal })
+  const type = await apiRequest<RoomType>(`/api/admin/accommodations/types/${id}`, { signal })
+  return withAssignedAmenities(type)
 }
 
 export async function listAmenities(signal?: AbortSignal): Promise<Amenity[]> {
@@ -107,7 +132,7 @@ export async function listAmenities(signal?: AbortSignal): Promise<Amenity[]> {
 }
 
 export async function createRoomType(input: RoomTypeCreateInput): Promise<RoomType> {
-  return apiRequest('/api/admin/accommodations/types', {
+  const type = await apiRequest<RoomType>('/api/admin/accommodations/types', {
     method: 'POST',
     body: {
       name: input.name.trim(),
@@ -119,6 +144,7 @@ export async function createRoomType(input: RoomTypeCreateInput): Promise<RoomTy
       ...(input.amenityKeys !== undefined ? { amenityKeys: [...input.amenityKeys] } : {}),
     },
   })
+  return withAssignedAmenities(type)
 }
 
 export async function updateRoomType(id: string, input: RoomTypeUpdateInput): Promise<RoomType> {
@@ -132,10 +158,11 @@ export async function updateRoomType(id: string, input: RoomTypeUpdateInput): Pr
   if (input.maxGuests !== undefined) body.maxGuests = input.maxGuests
   if (input.active !== undefined) body.active = input.active
   if (input.amenityKeys !== undefined) body.amenityKeys = [...input.amenityKeys]
-  return apiRequest(`/api/admin/accommodations/types/${id}`, {
+  const type = await apiRequest<RoomType>(`/api/admin/accommodations/types/${id}`, {
     method: 'PATCH',
     body,
   })
+  return withAssignedAmenities(type)
 }
 
 export async function listRooms(
