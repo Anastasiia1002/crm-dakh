@@ -26,7 +26,7 @@ import {
   useUpdateAdminRoom,
   useUpdateAdminRoomType,
 } from '@/hooks/useHotel'
-import { amenityKeysForSave, sameAmenityKeys } from '@/lib/amenities'
+import { assignedAmenityKeys, amenityKeysForSave, sameAmenityKeys, syncAmenitySelection } from '@/lib/amenities'
 import {
   accommodationErrorMessage,
   accommodationTypeSlug,
@@ -144,6 +144,8 @@ export function AccommodationEditorPage() {
   }, [roomId])
 
   const loadedTypeId = assignedType.data?.id
+  const loadedAmenityKeys = assignedAmenityKeys(assignedType.data)
+  const loadedAmenitySig = loadedAmenityKeys === null ? null : loadedAmenityKeys.slice().sort().join('\u0001')
   useEffect(() => {
     if (!item || !assignedType.data || assignedType.data.id !== item.roomTypeId) return
     const next = {
@@ -160,16 +162,16 @@ export function AccommodationEditorPage() {
 
   useEffect(() => {
     if (!item || !assignedType.data || assignedType.data.id !== item.roomTypeId) return
-    if (!assignedType.data.amenities) {
-      setAmenityBaseline(null)
-      return
-    }
-    const keys = assignedType.data.amenities.map((amenity) => amenity.key)
-    setAmenityBaseline(keys)
-    setSelectedAmenities(keys)
-    // A refetch of the same type must not wipe an unsaved amenity selection.
+    const next = syncAmenitySelection({
+      loadedKeys: loadedAmenityKeys,
+      baseline: amenityBaseline,
+      selected: selectedAmenities,
+    })
+    setAmenityBaseline(next.baseline)
+    setSelectedAmenities(next.selected)
+    // Re-run when the type or persisted keys change. Do not list the draft in deps or a refetch wipes it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadedTypeId])
+  }, [item?.id, loadedTypeId, loadedAmenitySig])
 
   useEffect(() => {
     if (!dirty) return
@@ -451,7 +453,7 @@ export function AccommodationEditorPage() {
           ) : null}
           <AmenityPicker
             catalog={amenityCatalog.data ?? []}
-            selected={selectedAmenities ?? []}
+            selected={selectedAmenities}
             disabled={!canWrite || selectedAmenities === null}
             loading={amenityCatalog.isLoading || Boolean(item && assignedType.isLoading)}
             error={

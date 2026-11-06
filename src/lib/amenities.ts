@@ -36,6 +36,65 @@ export function sameAmenityKeys(left: readonly string[], right: readonly string[
   return right.every((key) => keys.has(key))
 }
 
+function readAmenityKey(value: unknown): string | null {
+  if (typeof value === 'string') {
+    const key = value.trim()
+    return key ? key : null
+  }
+  if (!value || typeof value !== 'object') return null
+  const record = value as Record<string, unknown>
+  for (const field of ['key', 'amenityKey', 'amenity_key'] as const) {
+    if (typeof record[field] === 'string' && record[field].trim()) return record[field].trim()
+  }
+  return null
+}
+
+function readKeyList(value: unknown): string[] | null {
+  if (!Array.isArray(value)) return null
+  const keys: string[] = []
+  const seen = new Set<string>()
+  for (const item of value) {
+    const key = readAmenityKey(item)
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    keys.push(key)
+  }
+  return keys
+}
+
+/**
+ * Keys persisted on a room type. `null` means the assignment list has not arrived yet
+ * and must not be saved as an empty selection.
+ */
+export function assignedAmenityKeys(
+  type: { amenities?: unknown; amenityKeys?: unknown } | null | undefined,
+): string[] | null {
+  if (!type) return null
+  const fromAmenities = readKeyList(type.amenities)
+  const fromKeys = readKeyList(type.amenityKeys)
+  if (fromAmenities && fromAmenities.length > 0) return fromAmenities
+  if (fromKeys) return fromKeys
+  if (fromAmenities) return fromAmenities
+  return null
+}
+
+/** Apply server assignments without wiping an unsaved picker draft. */
+export function syncAmenitySelection(input: {
+  loadedKeys: string[] | null
+  baseline: string[] | null
+  selected: string[] | null
+}): { baseline: string[] | null; selected: string[] | null } {
+  if (input.loadedKeys === null) {
+    return { baseline: null, selected: input.selected }
+  }
+  const dirty =
+    input.baseline !== null &&
+    input.selected !== null &&
+    !sameAmenityKeys(input.baseline, input.selected)
+  if (dirty) return { baseline: input.baseline, selected: input.selected }
+  return { baseline: [...input.loadedKeys], selected: [...input.loadedKeys] }
+}
+
 /**
  * Undefined means the request must omit amenityKeys.
  * An empty array is returned only when the administrator cleared a loaded selection.

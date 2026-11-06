@@ -104,7 +104,7 @@ export function AmenityPicker({
   onChange,
 }: {
   catalog: readonly Amenity[]
-  selected: readonly string[]
+  selected: readonly string[] | null
   disabled?: boolean
   loading?: boolean
   error?: string | null
@@ -112,8 +112,9 @@ export function AmenityPicker({
 }) {
   const [query, setQuery] = useState('')
   const [confirmClear, setConfirmClear] = useState(false)
-  const groups = amenityGroups(catalog, selected, query)
-  const selectedCount = selected.length
+  const selectedKeys = selected ?? []
+  const groups = amenityGroups(catalog, selectedKeys, query)
+  const selectedCount = selectedKeys.length
 
   return (
     <section className="space-y-3 rounded-lg border border-border p-3" aria-labelledby="amenity-heading">
@@ -123,7 +124,9 @@ export function AmenityPicker({
             Зручності
           </h3>
           <p className="text-xs text-muted-foreground">
-            Обрано {selectedCount}. Спільні для всіх розміщень цього типу.
+            {selected === null
+              ? 'Завантажуємо збережені зручності.'
+              : `Обрано ${selectedCount}. Спільні для всіх розміщень цього типу.`}
           </p>
         </div>
         {selectedCount > 0 && !confirmClear ? (
@@ -171,7 +174,7 @@ export function AmenityPicker({
             <h4 className="mb-1.5 text-xs font-medium tracking-wide text-muted-foreground uppercase">{group.label}</h4>
             <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
               {group.items.map((amenity) => {
-                const pressed = selected.includes(amenity.key)
+                const pressed = selectedKeys.includes(amenity.key)
                 const Icon = ICONS[amenity.iconKey] ?? Circle
                 const locked = !amenity.isActive && !pressed
                 return (
@@ -185,7 +188,7 @@ export function AmenityPicker({
                       pressed ? 'border-primary bg-primary/10' : 'border-border bg-background',
                       'focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
                     )}
-                    onClick={() => onChange(toggleAmenityKey(selected, amenity.key))}
+                    onClick={() => onChange(toggleAmenityKey(selectedKeys, amenity.key))}
                   >
                     <Icon className="size-3.5 shrink-0" aria-hidden="true" />
                     <span className="min-w-0 break-words">{amenity.labelUk}</span>
