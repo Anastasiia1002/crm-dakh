@@ -4,6 +4,7 @@ import {
   BedDouble,
   BookOpen,
   Car,
+  Check,
   Circle,
   Coffee,
   Droplets,
@@ -168,34 +169,49 @@ export function AmenityPicker({
       {!loading && !error && groups.length === 0 ? (
         <p className="text-sm text-muted-foreground">Нічого не знайдено. Обрані зручності збережено.</p>
       ) : null}
-      <div className="max-h-80 space-y-3 overflow-y-auto pr-1">
+      <div className="max-h-72 overflow-y-auto overscroll-contain border-t border-border">
         {groups.map((group) => (
-          <div key={group.category}>
-            <h4 className="mb-1.5 text-xs font-medium tracking-wide text-muted-foreground uppercase">{group.label}</h4>
-            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+          <div key={group.category} className="pt-1.5 first:pt-1">
+            <h4 className="sticky top-0 z-[1] bg-background px-1 pb-0.5 text-[0.68rem] font-medium tracking-[0.12em] text-muted-foreground uppercase">
+              {group.label}
+            </h4>
+            <ul className="divide-y divide-border/70">
               {group.items.map((amenity) => {
                 const pressed = selectedKeys.includes(amenity.key)
                 const Icon = ICONS[amenity.iconKey] ?? Circle
                 const locked = !amenity.isActive && !pressed
                 return (
-                  <button
-                    key={amenity.key}
-                    type="button"
-                    aria-pressed={pressed}
-                    disabled={disabled || locked}
-                    className={cn(
-                      'flex min-w-0 items-center gap-2 rounded-md border px-2.5 py-1.5 text-left text-sm',
-                      pressed ? 'border-primary bg-primary/10' : 'border-border bg-background',
-                      'focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-                    )}
-                    onClick={() => onChange(toggleAmenityKey(selectedKeys, amenity.key))}
-                  >
-                    <Icon className="size-3.5 shrink-0" aria-hidden="true" />
-                    <span className="min-w-0 break-words">{amenity.labelUk}</span>
-                  </button>
+                  <li key={amenity.key}>
+                    <button
+                      type="button"
+                      aria-pressed={pressed}
+                      disabled={disabled || locked}
+                      className={cn(
+                        'flex min-h-9 w-full min-w-0 items-center gap-2 px-1.5 py-1 text-left text-[13px] leading-snug',
+                        pressed ? 'bg-primary/10 text-foreground' : 'bg-transparent text-foreground/85',
+                        'hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+                        'disabled:opacity-50',
+                      )}
+                      onClick={() => onChange(toggleAmenityKey(selectedKeys, amenity.key))}
+                    >
+                      <Icon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                      <span className="min-w-0 flex-1 break-words">{amenity.labelUk}</span>
+                      <span
+                        aria-hidden="true"
+                        className={cn(
+                          'flex size-4 shrink-0 items-center justify-center rounded-[3px] border',
+                          pressed
+                            ? 'border-primary bg-primary text-primary-foreground'
+                            : 'border-muted-foreground/35 bg-background',
+                        )}
+                      >
+                        {pressed ? <Check className="size-3" strokeWidth={2.5} /> : null}
+                      </span>
+                    </button>
+                  </li>
                 )
               })}
-            </div>
+            </ul>
           </div>
         ))}
       </div>
