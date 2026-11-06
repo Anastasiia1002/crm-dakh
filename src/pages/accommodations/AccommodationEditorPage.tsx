@@ -6,6 +6,7 @@ import { Link, useBlocker, useNavigate, useParams, useSearchParams } from 'react
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { listAllRooms } from '@/api/accommodations'
+import { AmenityPicker } from '@/components/accommodations/AmenityPicker'
 import { AccommodationPhotoGallery } from '@/components/accommodations/AccommodationPhotoGallery'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -16,6 +17,7 @@ import { LoadingState } from '@/components/ui/states'
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/hooks/useAuth'
 import {
+  useAdminAmenities,
   useAdminRoom,
   useAdminRooms,
   useAdminRoomType,
@@ -24,6 +26,7 @@ import {
   useUpdateAdminRoom,
   useUpdateAdminRoomType,
 } from '@/hooks/useHotel'
+import { amenityKeysForSave, sameAmenityKeys } from '@/lib/amenities'
 import {
   accommodationErrorMessage,
   accommodationTypeSlug,
@@ -80,6 +83,7 @@ export function AccommodationEditorPage() {
   const room = useAdminRoom(id)
   const { user } = useAuth()
   const canWrite = canManageAccommodations(user?.role)
+  const amenityCatalog = useAdminAmenities()
   const create = useCreateAdminRoom()
   const createType = useCreateAdminRoomType()
   const update = useUpdateAdminRoom()
@@ -89,6 +93,8 @@ export function AccommodationEditorPage() {
   const [description, setDescription] = useState('')
   const [maxGuests, setMaxGuests] = useState('2')
   const [typeBaseline, setTypeBaseline] = useState<{ name: string; description: string; maxGuests: string } | null>(null)
+  const [amenityBaseline, setAmenityBaseline] = useState<string[] | null>(isNew ? [] : null)
+  const [selectedAmenities, setSelectedAmenities] = useState<string[] | null>(isNew ? [] : null)
   const [typeError, setTypeError] = useState<string | null>(null)
   const leaveReadyRef = useRef(false)
   const pendingTypeId = useRef<string | null>(isNew ? readPendingAccommodationTypeId(sessionStorage) : null)
@@ -114,7 +120,9 @@ export function AccommodationEditorPage() {
             maxGuests !== typeBaseline.maxGuests),
       )
     : guestName !== '' || description !== '' || maxGuests !== '2'
-  const dirty = form.formState.isDirty || typeDirty
+  const amenitiesDirty =
+    amenityBaseline !== null && selectedAmenities !== null && !sameAmenityKeys(amenityBaseline, selectedAmenities)
+  const dirty = form.formState.isDirty || typeDirty || amenitiesDirty
   usePreserveEdits(dirty)
   const dirtyRef = useRef(dirty)
   dirtyRef.current = dirty
@@ -149,6 +157,19 @@ export function AccommodationEditorPage() {
     setTypeBaseline(next)
     setTypeError(null)
   }, [assignedType.data, item, loadedTypeId])
+
+  useEffect(() => {
+    if (!item || !assignedType.data || assignedType.data.id !== item.roomTypeId) return
+    if (!assignedType.data.amenities) {
+      setAmenityBaseline(null)
+      return
+    }
+    const keys = assignedType.data.amenities.map((amenity) => amenity.key)
+    setAmenityBaseline(keys)
+    setSelectedAmenities(keys)
+    // A refetch of the same type must not wipe an unsaved amenity selection.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadedTypeId])
 
   useEffect(() => {
     if (!dirty) return
@@ -251,6 +272,7 @@ export function AccommodationEditorPage() {
           }
           const nextGuestName = guestName.trim()
           const nextDescription = description.trim() ? description.trim() : null
+          const nextAmenityKeys = amenityKeysForSave(item ? amenityBaseline : amenityBaseline ?? [], selectedAmenities)
           setTypeError(null)
           try {
             const payload = {
@@ -263,19 +285,25 @@ export function AccommodationEditorPage() {
             }
             if (item) {
               await update.mutateAsync({ id: item.id, input: payload })
-              if (
+              const guestFieldsChanged = Boolean(
                 type &&
-                nextGuestName &&
-                (nextGuestName !== type.name ||
-                  nextDescription !== (type.description ?? null) ||
-                  guests !== type.maxGuests)
-              ) {
+                  nextGuestName &&
+                  (nextGuestName !== type.name ||
+                    nextDescription !== (type.description ?? null) ||
+                    guests !== type.maxGuests),
+              )
+              if (type && (guestFieldsChanged || nextAmenityKeys !== undefined)) {
                 await updateType.mutateAsync({
                   id: type.id,
                   input: {
-                    name: nextGuestName,
-                    description: nextDescription,
-                    maxGuests: guests,
+                    ...(guestFieldsChanged && nextGuestName
+                      ? {
+                          name: nextGuestName,
+                          description: nextDescription,
+                          maxGuests: guests,
+                        }
+                      : {}),
+                    ...(nextAmenityKeys !== undefined ? { amenityKeys: nextAmenityKeys } : {}),
                   },
                 })
               }
@@ -308,6 +336,7 @@ export function AccommodationEditorPage() {
                   kind,
                   maxGuests: guests,
                   active: values.active === 'yes',
+                  ...(nextAmenityKeys !== undefined ? { amenityKeys: nextAmenityKeys } : {}),
                 })
                 typeId = createdType.id
                 pendingTypeId.current = typeId
@@ -321,6 +350,7 @@ export function AccommodationEditorPage() {
                     kind,
                     maxGuests: guests,
                     active: values.active === 'yes',
+                    ...(nextAmenityKeys !== undefined ? { amenityKeys: nextAmenityKeys } : {}),
                   },
                 })
               }
@@ -419,6 +449,18 @@ export function AccommodationEditorPage() {
               Не вдалося завантажити опис і місткість. Назву, номер і стан усе одно можна зберегти.
             </p>
           ) : null}
+          <AmenityPicker
+            catalog={amenityCatalog.data ?? []}
+            selected={selectedAmenities ?? []}
+            disabled={!canWrite || selectedAmenities === null}
+            loading={amenityCatalog.isLoading || Boolean(item && assignedType.isLoading)}
+            error={
+              amenityCatalog.isError
+                ? 'Не вдалося завантажити зручності. Інші поля можна зберегти.'
+                : null
+            }
+            onChange={setSelectedAmenities}
+          />
           <Field label="Поверх" error={form.formState.errors.floor?.message} hint="Необовʼязково">
             <Input type="number" disabled={!canWrite} {...form.register('floor')} />
           </Field>
