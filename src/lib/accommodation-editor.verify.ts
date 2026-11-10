@@ -81,6 +81,8 @@ const bookings = readFileSync(new URL('../pages/bookings/BookingFormPage.tsx', i
 assert(editor.includes('Основна інформація'), 'basic information is a separate section')
 assert(editor.includes('Місткість і стан'), 'capacity and status are a separate section')
 assert(editor.includes('AccommodationPhotoGallery'), 'edit page includes the photo gallery')
+assert(editor.includes('AmenityPicker'), 'the editor includes amenity selection')
+assert(editor.includes('amenityKeysForSave'), 'unrelated saves omit unchanged amenities')
 assert(editor.includes('data-accommodation-kind'), 'the editor chooses a kind')
 assert(editor.includes("'Номер'") && editor.includes("'Котедж'"), 'kind choices are room and cottage')
 assert(!editor.includes('RoomTypePicker'), 'the editor does not list other accommodation names')

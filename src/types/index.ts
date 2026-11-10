@@ -18,6 +18,31 @@ export type AccommodationKind = 'room' | 'house'
 /** Backend RoomType.kind — physical units inherit this via their category. */
 export type RoomTypeKind = 'ROOM' | 'COTTAGE'
 
+export type AmenityCategory =
+  | 'SECURITY'
+  | 'VIEW'
+  | 'BATHROOM'
+  | 'OTHER_COMFORTS'
+  | 'ENTERTAINMENT'
+  | 'HEATING_COOLING'
+  | 'INTERNET_WORKSPACE'
+  | 'KITCHEN'
+  | 'SPA'
+  | 'NEARBY'
+  | 'OUTDOOR'
+  | 'OTHER'
+
+/** Catalog row from GET /api/admin/accommodations/amenities. */
+export type Amenity = {
+  id: string
+  key: string
+  category: AmenityCategory
+  labelUk: string
+  iconKey: string
+  sortOrder: number
+  isActive: boolean
+}
+
 export type RoomStatus = 'AVAILABLE' | 'MAINTENANCE' | 'OUT_OF_ORDER' | 'INACTIVE'
 
 export type RoomBlockType = 'MAINTENANCE' | 'OWNER_USE' | 'OTHER'
@@ -137,6 +162,8 @@ export type RoomType = {
   active: boolean
   createdAt: string
   updatedAt: string
+  /** Assigned amenities. Absent on an older API, which must not be saved as an empty selection. */
+  amenities?: Amenity[]
   /** Mock-only until rates API; ignored by accommodation admin API. */
   basePrice?: number
 }
@@ -215,6 +242,7 @@ export type RoomTypeCreateInput = {
   kind: RoomTypeKind
   maxGuests: number
   active?: boolean
+  amenityKeys?: string[]
 }
 
 export type RoomTypeUpdateInput = {
@@ -224,6 +252,8 @@ export type RoomTypeUpdateInput = {
   kind?: RoomTypeKind
   maxGuests?: number
   active?: boolean
+  /** Omitted preserves the current selection. An empty array clears it. */
+  amenityKeys?: string[]
 }
 
 export type RoomCreateInput = {
