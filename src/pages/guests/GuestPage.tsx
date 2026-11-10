@@ -6,15 +6,19 @@ import { GuestStats } from '@/components/guests/GuestStats'
 import { Button } from '@/components/ui/button'
 import { Pagination } from '@/components/ui/pagination'
 import { LoadingState } from '@/components/ui/states'
+import { useAuth } from '@/hooks/useAuth'
 import { useGuestHistory, useGuestProfile, useSaveGuest } from '@/hooks/useGuestDirectory'
-import { guestFailure, guestFailureMessage } from '@/lib/admin-guests'
+import { guestFailure, guestFailureMessage, guestPlaceLabel } from '@/lib/admin-guests'
 import { ApiError } from '@/lib/api-error'
 import { formatDateTime } from '@/lib/format'
+import { canWriteGuests } from '@/lib/roles'
 import { fullName } from '@/lib/utils'
 
 const HISTORY_PAGE_SIZE = 20
 
 export function GuestPage() {
+  const { user } = useAuth()
+  const canWrite = canWriteGuests(user?.role)
   const { id = '' } = useParams()
   const [historyPage, setHistoryPage] = useState(1)
   const [historyGuestId, setHistoryGuestId] = useState(id)
@@ -55,6 +59,7 @@ export function GuestPage() {
     { label: 'Імʼя та прізвище', value: fullName(guest.firstName, guest.lastName), prominent: true },
     { label: 'Email', value: guest.email || '—' },
     { label: 'Телефон', value: guest.phone || '—' },
+    { label: 'Країна і місто', value: guestPlaceLabel(guest.country, guest.city) },
     { label: 'Картку створено', value: formatDateTime(guest.createdAt) },
   ]
 
@@ -68,15 +73,18 @@ export function GuestPage() {
           <Button asChild size="sm" variant="outline">
             <Link to={`/admin/bookings/new?guestId=${encodeURIComponent(guest.id)}`}>Створити бронювання</Link>
           </Button>
-          <Button size="sm" onClick={() => setEditing((open) => !open)}>
-            {editing ? 'Закрити редагування' : 'Редагувати'}
-          </Button>
+          {canWrite ? (
+            <Button size="sm" onClick={() => setEditing((open) => !open)}>
+              {editing ? 'Закрити редагування' : 'Редагувати'}
+            </Button>
+          ) : null}
         </div>
       </div>
 
-      {editing ? (
+      {editing && canWrite ? (
         <GuestForm
           guest={guest}
+          contactLocked={guest.contactShared}
           submitLabel="Зберегти"
           pending={save.isPending}
           duplicateHint={hint}

@@ -17,6 +17,7 @@ import {
   parseGuestProfile,
 } from './admin-guests.js'
 import { formatMoneyAmount } from './format.js'
+import { canExportGuests, canWriteGuests } from './roles.js'
 
 function assert(condition: boolean, message: string) {
   if (!condition) throw new Error(message)
@@ -96,6 +97,7 @@ const profileBody = {
     city: 'Чернівці',
     notes: 'Постійний гість',
     createdAt: '2026-01-15T12:00:00Z',
+    contactShared: false,
   },
   stats: {
     bookingsCount: 3,
@@ -131,8 +133,9 @@ assert(
   'export uses the same hotel filters',
 )
 assert(
-  guestDirectoryPath({ page: 1, limit: 20, search: '  Коваль ' }) === '/api/admin/guests?page=1&limit=20&search=%D0%9A%D0%BE%D0%B2%D0%B0%D0%BB%D1%8C',
-  'search is trimmed and sent to the server',
+  guestDirectoryPath({ page: 1, limit: 20, search: '  Коваль ', sort: 'visitCount', order: 'desc' }) ===
+    '/api/admin/guests?page=1&limit=20&search=%D0%9A%D0%BE%D0%B2%D0%B0%D0%BB%D1%8C&sort=visitCount&order=desc',
+  'search is trimmed and sort is sent to the server',
 )
 assert(guestDirectoryPath({ page: 3, limit: 20, search: '   ' }) === '/api/admin/guests?page=3&limit=20', 'blank search is omitted')
 assert(guestProfilePath(guestId) === `/api/admin/guests/${guestId}`, 'profile path uses the guest id')
@@ -143,6 +146,7 @@ assert(
 
 const profile = parseGuestProfile(profileBody)
 assert(profile.guest.notes === 'Постійний гість', 'notes stay on the profile')
+assert(profile.guest.contactShared === false, 'exclusive contacts are not locked')
 assert(profile.guest.createdAt === '2026-01-15T12:00:00Z', 'created time stays a string')
 assert(profile.stats.totalSpent === '430.00', 'spent amount stays a decimal string')
 assert(profile.stats.currency === 'UAH', 'stats currency is kept')
@@ -184,13 +188,18 @@ assert(api.includes('listAdminGuests') && api.includes('createAdminGuest') && ap
 assert(!api.includes('mocks/db') && !api.includes('importGuest'), 'guest API has no mock import')
 assert(hooks.includes('useSaveGuest') && hooks.includes('useExportGuests'), 'hooks write and export guests')
 assert(directory.includes('Ваша клієнтська база тут'), 'directory subtitle matches clients copy')
-assert(directory.includes('Додати клієнта') && directory.includes('Експорт'), 'create and export are available')
+assert(directory.includes('canWrite') && directory.includes('canExport'), 'create and export follow staff roles')
+assert(!directory.includes('Імпорт') && !directory.includes('GuestImportDialog'), 'unfinished import is not shown')
+assert(directory.includes('sort') && directory.includes('order'), 'directory sends sort to the API')
+assert(canWriteGuests('receptionist') && !canExportGuests('receptionist'), 'reception can write clients but not export')
+assert(canExportGuests('manager') && canExportGuests('admin') && canExportGuests('owner'), 'managers can export')
 assert(directory.includes('guests.data.total'), 'total comes from the page payload')
 assert(!directory.includes('newGuests') && !directory.includes('Постійний'), 'no invented guest categories')
 assert(profilePage.includes('Редагувати') && profilePage.includes('Створити бронювання'), 'profile can edit and prefill a booking')
 assert(profilePage.includes('useGuestHistory'), 'history uses its own request')
 assert(!profilePage.includes('profile.data.history'), 'profile history slice is not the table')
-assert(!profilePage.includes('Країна і місто') && !profilePage.includes('guestPlaceLabel'), 'guest details do not show city and country')
+assert(profilePage.includes('Країна і місто') && profilePage.includes('guestPlaceLabel'), 'guest details show stored place')
+assert(profilePage.includes('contactShared') && profilePage.includes('canWrite'), 'shared contacts lock and roles hide edit')
 assert(profilePage.includes('Email') && profilePage.includes('Телефон'), 'guest contact stays on the details page')
 assert(profilePage.includes('useGuestHistory') && profilePage.includes('GuestBookingHistory'), 'booking history still loads on guest details')
 

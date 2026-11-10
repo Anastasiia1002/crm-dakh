@@ -344,7 +344,7 @@ function main() {
   assert(formSource.includes('preset?.guestId') && formSource.includes('getAdminGuest'), 'create form can preselect a client')
   assert(!formSource.includes("from '@/api/services'") && !formSource.includes('getServices'), 'create form does not load mock services')
   const guestPage = readFileSync(new URL('../pages/guests/GuestPage.tsx', import.meta.url), 'utf8')
-  assert(!guestPage.includes('Країна і місто') && !guestPage.includes('guestPlaceLabel'), 'guest details omit city and country')
+  assert(guestPage.includes('Країна і місто') && guestPage.includes('guestPlaceLabel'), 'client profile shows stored place')
   assert(guestPage.includes('Email') && guestPage.includes('Телефон') && guestPage.includes('GuestBookingHistory'), 'guest contact and history stay')
   console.log('PASS: guest city and country hidden on booking detail')
 

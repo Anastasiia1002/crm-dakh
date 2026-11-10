@@ -22,6 +22,7 @@ type GuestFormValues = z.infer<typeof schema>
 
 export function GuestForm({
   guest,
+  contactLocked = false,
   submitLabel,
   pending,
   confirmDuplicate,
@@ -33,6 +34,7 @@ export function GuestForm({
   onCancel,
 }: {
   guest?: AdminGuestIdentity
+  contactLocked?: boolean
   submitLabel: string
   pending: boolean
   confirmDuplicate?: boolean
@@ -72,18 +74,42 @@ export function GuestForm({
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Імʼя *" htmlFor="guest-first-name" error={errors.firstName?.message}>
-          <Input id="guest-first-name" autoComplete="given-name" aria-invalid={Boolean(errors.firstName)} {...form.register('firstName')} />
+          <Input
+            id="guest-first-name"
+            autoComplete="given-name"
+            disabled={contactLocked}
+            aria-invalid={Boolean(errors.firstName)}
+            {...form.register('firstName')}
+          />
         </Field>
         <Field label="Прізвище *" htmlFor="guest-last-name" error={errors.lastName?.message}>
-          <Input id="guest-last-name" autoComplete="family-name" aria-invalid={Boolean(errors.lastName)} {...form.register('lastName')} />
+          <Input
+            id="guest-last-name"
+            autoComplete="family-name"
+            disabled={contactLocked}
+            aria-invalid={Boolean(errors.lastName)}
+            {...form.register('lastName')}
+          />
         </Field>
       </div>
       <Field label="Email" htmlFor="guest-email" error={errors.email?.message}>
-        <Input id="guest-email" type="email" autoComplete="email" aria-invalid={Boolean(errors.email)} {...form.register('email')} />
+        <Input
+          id="guest-email"
+          type="email"
+          autoComplete="email"
+          disabled={contactLocked}
+          aria-invalid={Boolean(errors.email)}
+          {...form.register('email')}
+        />
       </Field>
       <Field label="Телефон" htmlFor="guest-phone">
-        <Input id="guest-phone" type="tel" autoComplete="tel" {...form.register('phone')} />
+        <Input id="guest-phone" type="tel" autoComplete="tel" disabled={contactLocked} {...form.register('phone')} />
       </Field>
+      {contactLocked ? (
+        <p className="text-sm text-muted-foreground">
+          Імʼя, email і телефон спільні з іншим готелем. Змініть лише внутрішній коментар цього готелю.
+        </p>
+      ) : null}
       <Field label="Внутрішній коментар" htmlFor="guest-notes">
         <Textarea id="guest-notes" {...form.register('notes')} />
       </Field>

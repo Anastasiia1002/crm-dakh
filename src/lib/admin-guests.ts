@@ -50,6 +50,7 @@ export type AdminGuestIdentity = {
   city: string | null
   notes: string | null
   createdAt: string
+  contactShared: boolean
 }
 
 export type AdminGuestStats = {
@@ -261,6 +262,7 @@ function parseIdentity(value: unknown): AdminGuestIdentity {
     city: nullableText(row.city, 'guest city'),
     notes: nullableText(row.notes, 'guest notes'),
     createdAt: text(row.createdAt, 'guest created at'),
+    contactShared: booleanOf(row.contactShared, 'guest contact shared'),
   }
 }
 
@@ -362,6 +364,11 @@ function countAtLeast(value: unknown, min: number, label: string) {
   const parsed = count(value, label)
   if (parsed < min) throw new Error(`Invalid ${label}`)
   return parsed
+}
+
+function booleanOf(value: unknown, label: string) {
+  if (typeof value !== 'boolean') throw new Error(`Invalid ${label}`)
+  return value
 }
 
 function money(value: unknown, label: string) {

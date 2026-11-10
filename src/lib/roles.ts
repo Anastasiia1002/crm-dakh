@@ -65,6 +65,16 @@ export function canReassignBookingRoom(role: UserRole | undefined) {
   return role === 'owner' || role === 'admin' || role === 'manager'
 }
 
+/** Mirrors GUEST_WRITE_ROLES: all staff who can create bookings. */
+export function canWriteGuests(role: UserRole | undefined) {
+  return role === 'owner' || role === 'admin' || role === 'manager' || role === 'receptionist'
+}
+
+/** Mirrors GUEST_EXPORT_ROLES: SUPER_ADMIN + ADMIN + MANAGER. Notes are never exported. */
+export function canExportGuests(role: UserRole | undefined) {
+  return role === 'owner' || role === 'admin' || role === 'manager'
+}
+
 function isBackendAdminRole(role: string): role is BackendAdminRole {
   return Object.prototype.hasOwnProperty.call(backendRoleToFrontend, role)
 }

@@ -17,7 +17,10 @@ export function GuestExportDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Експорт клієнтів</DialogTitle>
-          <DialogDescription>Експортуються лише клієнти цього готелю з урахуванням пошуку та фільтрів.</DialogDescription>
+          <DialogDescription>
+            Експортуються лише клієнти цього готелю з урахуванням пошуку та фільтрів. Внутрішні коментарі та email не
+            входять у файл.
+          </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-2 sm:flex-row">
           <Button type="button" disabled={pending} onClick={() => onExport('csv')}>

@@ -13,6 +13,14 @@ const LAST_VISIT_LABEL: Record<LastVisitFilter, string> = {
   never: 'Ніколи не відвідували',
 }
 
+const SORT_OPTIONS = [
+  { value: 'fullName', label: 'ПІБ' },
+  { value: 'phone', label: 'Телефон' },
+  { value: 'visitCount', label: 'Візити' },
+  { value: 'lastVisit', label: 'Останній візит' },
+  { value: 'createdAt', label: 'Реєстрація' },
+] as const
+
 export function GuestFilters({
   search,
   lastVisit,
@@ -20,12 +28,16 @@ export function GuestFilters({
   visitCountMax,
   registeredFrom,
   registeredTo,
+  sort,
+  order,
   onSearch,
   onLastVisit,
   onVisitCountMin,
   onVisitCountMax,
   onRegisteredFrom,
   onRegisteredTo,
+  onSort,
+  onOrder,
   onClear,
 }: {
   search: string
@@ -34,12 +46,16 @@ export function GuestFilters({
   visitCountMax: string
   registeredFrom: string
   registeredTo: string
+  sort: 'fullName' | 'phone' | 'visitCount' | 'lastVisit' | 'createdAt'
+  order: 'asc' | 'desc'
   onSearch: (search: string) => void
   onLastVisit: (value: LastVisitFilter) => void
   onVisitCountMin: (value: string) => void
   onVisitCountMax: (value: string) => void
   onRegisteredFrom: (value: string) => void
   onRegisteredTo: (value: string) => void
+  onSort: (value: 'fullName' | 'phone' | 'visitCount' | 'lastVisit' | 'createdAt') => void
+  onOrder: (value: 'asc' | 'desc') => void
   onClear: () => void
 }) {
   const dirty =
@@ -48,7 +64,9 @@ export function GuestFilters({
     visitCountMin !== '' ||
     visitCountMax !== '' ||
     registeredFrom !== '' ||
-    registeredTo !== ''
+    registeredTo !== '' ||
+    sort !== 'fullName' ||
+    order !== 'asc'
 
   return (
     <div className="space-y-4">
@@ -89,6 +107,31 @@ export function GuestFilters({
         <label className="space-y-1 text-sm">
           <span className="text-muted-foreground">Реєстрація до</span>
           <Input type="date" value={registeredTo} onChange={(event) => onRegisteredTo(event.target.value)} />
+        </label>
+        <label className="space-y-1 text-sm">
+          <span className="text-muted-foreground">Сортування</span>
+          <select
+            className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+            value={sort}
+            onChange={(event) => onSort(event.target.value as (typeof SORT_OPTIONS)[number]['value'])}
+          >
+            {SORT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="space-y-1 text-sm">
+          <span className="text-muted-foreground">Напрямок</span>
+          <select
+            className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+            value={order}
+            onChange={(event) => onOrder(event.target.value as 'asc' | 'desc')}
+          >
+            <option value="asc">За зростанням</option>
+            <option value="desc">За спаданням</option>
+          </select>
         </label>
       </div>
       <button
