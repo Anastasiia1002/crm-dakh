@@ -8,8 +8,7 @@ import { Pagination } from '@/components/ui/pagination'
 import { LoadingState } from '@/components/ui/states'
 import { useAuth } from '@/hooks/useAuth'
 import { useGuestHistory, useGuestProfile, useSaveGuest } from '@/hooks/useGuestDirectory'
-import { guestFailure, guestFailureMessage, guestPlaceLabel } from '@/lib/admin-guests'
-import { ApiError } from '@/lib/api-error'
+import { guestFailure, guestFailureMessage, guestPlaceLabel, guestSaveHint } from '@/lib/admin-guests'
 import { formatDateTime } from '@/lib/format'
 import { canWriteGuests } from '@/lib/roles'
 import { fullName } from '@/lib/utils'
@@ -94,7 +93,7 @@ export function GuestPage() {
             void save.mutateAsync({ ...values, id: guest.id }).then(
               () => setEditing(false),
               (error: unknown) => {
-                setHint(error instanceof ApiError ? error.message : 'Не вдалося зберегти')
+                setHint(guestSaveHint(error))
               },
             )
           }}
