@@ -2,8 +2,7 @@ import { useState } from 'react'
 import { GuestForm } from '@/components/guests/GuestForm'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useSaveGuest } from '@/hooks/useGuestDirectory'
-import { ApiError } from '@/lib/api-error'
-import type { GuestWriteInput } from '@/lib/admin-guests'
+import { guestSaveHint, type GuestWriteInput } from '@/lib/admin-guests'
 
 export function GuestFormDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const save = useSaveGuest()
@@ -42,19 +41,7 @@ export function GuestFormDialog({ open, onOpenChange }: { open: boolean; onOpenC
             void save.mutateAsync(values).then(
               () => onOpenChange(false),
               (error: unknown) => {
-                if (error instanceof ApiError && error.code === 'GUEST_POSSIBLE_DUPLICATE') {
-                  setHint(error.message)
-                  return
-                }
-                if (error instanceof ApiError && error.code === 'GUEST_EMAIL_IN_USE') {
-                  setHint(error.message)
-                  return
-                }
-                if (error instanceof ApiError && error.code === 'GUEST_EMAIL_EXISTS') {
-                  setHint('Клієнт з таким email уже є в цьому готелі.')
-                  return
-                }
-                setHint(error instanceof Error ? error.message : 'Не вдалося зберегти')
+                setHint(guestSaveHint(error))
               },
             )
           }}

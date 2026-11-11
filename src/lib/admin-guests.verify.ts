@@ -11,6 +11,7 @@ import {
   guestHistoryPath,
   guestPlaceLabel,
   guestProfilePath,
+  guestSaveHint,
   guestStayRoomLabel,
   parseGuestDirectoryPage,
   parseGuestHistoryPage,
@@ -178,6 +179,23 @@ assert(guestFailure(new ApiError('no', 404, 'GUEST_NOT_FOUND')) === 'missing', '
 assert(guestFailure(new ApiError('no', 500, 'INTERNAL')) === 'unavailable', 'server failure is not a guest')
 assert(guestFailure(new Error('network')) === 'unavailable', 'network failure is not a guest')
 assert(!guestFailureMessage('unavailable').toLowerCase().includes('mock'), 'failure copy does not mention a mock')
+assert(
+  guestSaveHint(new ApiError('x', 409, 'GUEST_EMAIL_EXISTS')) === 'Клієнт з таким email уже є в цьому готелі.',
+  'same-hotel email conflict copy',
+)
+assert(
+  guestSaveHint(new ApiError('Підтвердіть приєднання', 409, 'GUEST_EMAIL_IN_USE')) === 'Підтвердіть приєднання',
+  'foreign email reuse copy',
+)
+assert(
+  guestSaveHint(new ApiError('Можливий дублікат', 409, 'GUEST_POSSIBLE_DUPLICATE')) === 'Можливий дублікат',
+  'phone duplicate copy',
+)
+assert(
+  guestSaveHint(new ApiError('Лише коментар', 409, 'GUEST_CONTACT_SHARED')) === 'Лише коментар',
+  'shared contact copy',
+)
+assert(guestSaveHint(new ApiError('no', 403, 'FORBIDDEN')) === 'Недостатньо прав для цієї дії.', 'save 403')
 
 const api = readFileSync(new URL('../api/guests.ts', import.meta.url), 'utf8')
 const directory = readFileSync(new URL('../pages/guests/GuestsPage.tsx', import.meta.url), 'utf8')
@@ -200,6 +218,9 @@ assert(profilePage.includes('useGuestHistory'), 'history uses its own request')
 assert(!profilePage.includes('profile.data.history'), 'profile history slice is not the table')
 assert(profilePage.includes('Країна і місто') && profilePage.includes('guestPlaceLabel'), 'guest details show stored place')
 assert(profilePage.includes('contactShared') && profilePage.includes('canWrite'), 'shared contacts lock and roles hide edit')
+assert(profilePage.includes('guestSaveHint'), 'profile edit uses shared save-error copy')
+const createDialog = readFileSync(new URL('../components/guests/GuestFormDialog.tsx', import.meta.url), 'utf8')
+assert(createDialog.includes('guestSaveHint'), 'create dialog uses shared save-error copy')
 assert(profilePage.includes('Email') && profilePage.includes('Телефон'), 'guest contact stays on the details page')
 assert(profilePage.includes('useGuestHistory') && profilePage.includes('GuestBookingHistory'), 'booking history still loads on guest details')
 

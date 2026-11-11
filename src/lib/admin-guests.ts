@@ -230,6 +230,19 @@ export function guestFailureMessage(failure: GuestFailure) {
   return 'Не вдалося завантажити дані гостей.'
 }
 
+/** User-facing copy for create/update 409s. Does not invent a guest id. */
+export function guestSaveHint(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.code === 'GUEST_EMAIL_EXISTS') return 'Клієнт з таким email уже є в цьому готелі.'
+    if (error.code === 'GUEST_EMAIL_IN_USE') return error.message
+    if (error.code === 'GUEST_POSSIBLE_DUPLICATE') return error.message
+    if (error.code === 'GUEST_CONTACT_SHARED') return error.message
+    if (error.status === 403) return 'Недостатньо прав для цієї дії.'
+    return error.message || 'Не вдалося зберегти'
+  }
+  return error instanceof Error ? error.message : 'Не вдалося зберегти'
+}
+
 function assertPage(page: number, limit: number) {
   if (!Number.isInteger(page) || page < 1) throw new Error('Guest page must be a positive integer')
   if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new Error('Guest page limit must be from 1 to 100')
