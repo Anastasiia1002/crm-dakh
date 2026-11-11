@@ -78,6 +78,8 @@ import {
 import {
   changeAdminPassword,
   createAdminUser,
+  inviteAdminUser,
+  listAdminInvitations,
   getAudit,
   listAdminUsers,
   revokeAdminSessions,
@@ -650,6 +652,22 @@ export function useUsers(query: AdminUserListQuery = {}) {
   return useQuery({
     queryKey: ['users', query],
     queryFn: () => listAdminUsers(query),
+  })
+}
+
+export function useAdminInvitations(enabled = true) {
+  return useQuery({
+    queryKey: ['admin-invitations'],
+    queryFn: listAdminInvitations,
+    enabled,
+  })
+}
+
+export function useInviteAdminUser() {
+  const refresh = useRefresh()
+  return useMutation({
+    mutationFn: inviteAdminUser,
+    onSuccess: () => refresh(['users', 'admin-invitations']),
   })
 }
 

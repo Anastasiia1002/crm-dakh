@@ -34,6 +34,11 @@ export function canCreateAdminUsers(role: UserRole | undefined) {
   return role === 'owner'
 }
 
+/** Mirrors backend POST /api/admin/users/invitations: SUPER_ADMIN only. */
+export function canInviteAdminUsers(role: UserRole | undefined) {
+  return canCreateAdminUsers(role)
+}
+
 export function canChangeAdminRoleOrActive(role: UserRole | undefined) {
   return role === 'owner'
 }

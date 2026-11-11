@@ -3,12 +3,15 @@ import { delay } from '@/mocks/delay'
 import * as db from '@/mocks/db'
 import { mapBackendRole, mapFrontendRole, type BackendAdminRole } from '@/lib/roles'
 import type {
+  AdminInvitation,
+  AdminInvitationPreview,
   AdminUser,
   AdminUserCreateInput,
   AdminUserDetails,
   AdminUserListQuery,
   AdminUserPage,
   AdminUserUpdateInput,
+  InviteAdminUserInput,
 } from '@/types'
 
 type BackendAdminUser = {
@@ -59,6 +62,64 @@ export async function getAdminUser(id: string): Promise<AdminUserDetails> {
     ...toAdminUser(user),
     activeSessionCount: typeof user.activeSessionCount === 'number' ? user.activeSessionCount : 0,
   }
+}
+
+type BackendInvitation = {
+  id: string
+  email: string
+  firstName: string
+  lastName: string
+  role: string
+  status: 'pending' | 'expired' | 'accepted'
+  expiresAt: string
+  acceptedAt: string | null
+  createdAt: string
+}
+
+export async function listAdminInvitations(): Promise<AdminInvitation[]> {
+  const page = await apiRequest<{ items: BackendInvitation[] }>('/api/admin/users/invitations')
+  return page.items.map(toInvitation)
+}
+
+export async function inviteAdminUser(input: InviteAdminUserInput): Promise<AdminInvitation> {
+  const created = await apiRequest<BackendInvitation>('/api/admin/users/invitations', {
+    method: 'POST',
+    body: {
+      email: input.email.trim().toLowerCase(),
+      firstName: input.firstName.trim(),
+      lastName: input.lastName.trim(),
+    },
+  })
+  return toInvitation(created)
+}
+
+export async function previewAdminInvite(token: string): Promise<AdminInvitationPreview> {
+  const preview = await apiRequest<{
+    email: string
+    firstName: string
+    lastName: string
+    role: string
+    expiresAt: string
+  }>('/api/auth/invites/preview', {
+    method: 'POST',
+    body: { token },
+    auth: false,
+  })
+  return {
+    email: preview.email,
+    firstName: preview.firstName,
+    lastName: preview.lastName,
+    role: mapBackendRole(preview.role),
+    expiresAt: preview.expiresAt,
+  }
+}
+
+export async function acceptAdminInvite(token: string, password: string) {
+  return apiRequest<{ ok: true; email: string }>('/api/auth/invites/accept', {
+    method: 'POST',
+    body: { token, password },
+    auth: false,
+  })
 }
 
 export async function createAdminUser(input: AdminUserCreateInput): Promise<AdminUser> {
@@ -112,6 +173,20 @@ export async function revokeAdminSessions(id: string) {
 export async function getAudit() {
   await delay()
   return clone(db.audit)
+}
+
+function toInvitation(invite: BackendInvitation): AdminInvitation {
+  return {
+    id: invite.id,
+    email: invite.email,
+    firstName: invite.firstName,
+    lastName: invite.lastName,
+    role: mapBackendRole(invite.role),
+    status: invite.status,
+    expiresAt: invite.expiresAt,
+    acceptedAt: invite.acceptedAt,
+    createdAt: invite.createdAt,
+  }
 }
 
 function toAdminUser(user: BackendAdminUser): AdminUser {

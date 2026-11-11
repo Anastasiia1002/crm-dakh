@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react'
 import { Navigate, createBrowserRouter, useLocation } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { AdminLayout } from '@/layouts/AdminLayout'
+import { InviteAcceptPage } from '@/pages/auth/InviteAcceptPage'
 import { LoginPage } from '@/pages/auth/LoginPage'
 import { RouteErrorPage } from '@/components/RouteErrorPage'
 import { AuthRestoreState, PageSkeleton } from '@/components/ui/page-status'
@@ -61,6 +62,7 @@ export const router = createBrowserRouter(
       errorElement: <RouteErrorPage />,
       children: [
     { path: '/login', element: <LoginPage /> },
+    { path: '/invite', element: <InviteAcceptPage /> },
     {
       path: '/admin',
       element: <RequireAuth />,

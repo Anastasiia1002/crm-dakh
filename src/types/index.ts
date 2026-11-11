@@ -655,6 +655,34 @@ export type AdminUserCreateInput = {
   password: string
 }
 
+export type AdminInvitationStatus = 'pending' | 'expired' | 'accepted'
+
+export type AdminInvitation = {
+  id: string
+  email: string
+  firstName: string
+  lastName: string
+  role: UserRole
+  status: AdminInvitationStatus
+  expiresAt: string
+  acceptedAt: string | null
+  createdAt: string
+}
+
+export type AdminInvitationPreview = {
+  email: string
+  firstName: string
+  lastName: string
+  role: UserRole
+  expiresAt: string
+}
+
+export type InviteAdminUserInput = {
+  email: string
+  firstName: string
+  lastName: string
+}
+
 export type AdminUserUpdateInput = {
   email?: string
   firstName?: string

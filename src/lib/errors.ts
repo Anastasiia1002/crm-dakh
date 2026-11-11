@@ -13,7 +13,11 @@ export function errorMessage(error: unknown) {
     if (error.status === 403) return error.message || 'Недостатньо прав.'
     if (error.status === 404) {
       if (error.code === 'SERVICE_NOT_FOUND') return 'Послугу не знайдено в цьому готелі.'
+      if (error.code === 'INVITE_INVALID') return 'Запрошення недійсне або вже використане.'
       return error.message || 'Не знайдено.'
+    }
+    if (error.status === 410 && error.code === 'INVITE_EXPIRED') {
+      return 'Термін дії запрошення минув. Попросіть нове запрошення.'
     }
     if (error.status === 409) {
       if (error.code === 'INVALID_STATUS_TRANSITION') {

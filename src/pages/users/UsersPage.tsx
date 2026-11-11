@@ -16,8 +16,10 @@ import { EmptyState, LoadingState, SectionHeading } from '@/components/ui/states
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useAuth } from '@/hooks/useAuth'
 import {
+  useAdminInvitations,
   useChangeAdminPassword,
   useCreateAdminUser,
+  useInviteAdminUser,
   useRevokeAdminSessions,
   useUpdateAdminUser,
   useUsers,
@@ -30,6 +32,7 @@ import {
   canAccessUsersManagement,
   canChangeAdminRoleOrActive,
   canCreateAdminUsers,
+  canInviteAdminUsers,
   canManageAdminAccount,
 } from '@/lib/roles'
 import { getAdminUser } from '@/api/users'
@@ -44,6 +47,12 @@ const profileSchema = z.object({
   email: z.string().trim().email('Вкажіть коректну електронну пошту').max(320, 'Електронна пошта задовга'),
   role: z.enum(ALL_ROLES),
   active: z.enum(['yes', 'no']),
+})
+
+const inviteSchema = z.object({
+  firstName: z.string().trim().min(1, 'Вкажіть імʼя').max(100, 'Імʼя задовге'),
+  lastName: z.string().trim().min(1, 'Вкажіть прізвище').max(100, 'Прізвище задовге'),
+  email: z.string().trim().email('Вкажіть коректну електронну пошту').max(320, 'Електронна пошта задовга'),
 })
 
 const createSchema = profileSchema.extend({
@@ -70,13 +79,16 @@ export function UsersPage() {
   const navigate = useNavigate()
   const canAccess = canAccessUsersManagement(user?.role)
   const canCreate = canCreateAdminUsers(user?.role)
+  const canInvite = canInviteAdminUsers(user?.role)
   const [page, setPage] = useState(1)
   const [editing, setEditing] = useState<AdminUser | 'new' | null>(null)
+  const [inviting, setInviting] = useState(false)
   const [passwordUser, setPasswordUser] = useState<AdminUser | null>(null)
   const [revokeUser, setRevokeUser] = useState<AdminUser | null>(null)
   const [revokeSessions, setRevokeSessions] = useState<number | null>(null)
   const [revokePending, setRevokePending] = useState(false)
   const users = useUsers({ page, limit: PAGE_SIZE })
+  const invitations = useAdminInvitations(canAccess)
   const revoke = useRevokeAdminSessions()
 
   if (!canAccess) {
@@ -142,7 +154,18 @@ export function UsersPage() {
       <section>
         <SectionHeading
           title="Адміністратори"
-          action={canCreate ? <Button onClick={() => setEditing('new')}>Додати користувача</Button> : undefined}
+          action={
+            canCreate || canInvite ? (
+              <div className="flex flex-wrap gap-2">
+                {canInvite ? <Button onClick={() => setInviting(true)}>Запросити адміністратора</Button> : null}
+                {canCreate ? (
+                  <Button variant="outline" onClick={() => setEditing('new')}>
+                    Додати з паролем
+                  </Button>
+                ) : null}
+              </div>
+            ) : undefined
+          }
         />
         {items.length === 0 ? (
           <EmptyState>Користувачів поки немає.</EmptyState>
@@ -215,12 +238,50 @@ export function UsersPage() {
       </section>
 
       <section className="border-t border-border pt-8">
+        <SectionHeading title="Запрошення" />
+        {invitations.isError ? (
+          <p className="text-sm">Не вдалося завантажити запрошення</p>
+        ) : (invitations.data ?? []).length === 0 ? (
+          <EmptyState>Активних запрошень немає.</EmptyState>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead>Імʼя</TableHead>
+                <TableHead>Пошта</TableHead>
+                <TableHead>Роль</TableHead>
+                <TableHead>Стан</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(invitations.data ?? []).map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell>
+                    {item.firstName} {item.lastName}
+                  </TableCell>
+                  <TableCell>{item.email}</TableCell>
+                  <TableCell>{userRoleLabel[item.role]}</TableCell>
+                  <TableCell>
+                    <Badge tone={item.status === 'pending' ? 'success' : 'neutral'}>
+                      {item.status === 'pending' ? 'Очікує' : item.status === 'expired' ? 'Прострочене' : 'Прийняте'}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </section>
+
+      <section className="border-t border-border pt-8">
         <SectionHeading title="Журнал дій" />
         <p className="max-w-xl text-sm leading-6 text-muted-foreground">
           Журнал дій буде доступний після підключення audit API. Демонстраційні записи з мок-даних тут не
           показуються.
         </p>
       </section>
+
+      <InviteAdminDialog open={inviting} onOpenChange={setInviting} />
 
       <UserDialog
         open={editing !== null}
@@ -286,6 +347,101 @@ export function UsersPage() {
         }}
       />
     </div>
+  )
+}
+
+function InviteAdminDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const { user } = useAuth()
+  const invite = useInviteAdminUser()
+  const [confirming, setConfirming] = useState(false)
+  const form = useForm<z.infer<typeof inviteSchema>>({
+    resolver: zodResolver(inviteSchema),
+    values: { firstName: '', lastName: '', email: '' },
+  })
+
+  function resetAndClose() {
+    setConfirming(false)
+    form.reset({ firstName: '', lastName: '', email: '' })
+    onOpenChange(false)
+  }
+
+  return (
+    <>
+      <Dialog
+        open={open && !confirming}
+        onOpenChange={(next) => {
+          if (!next) resetAndClose()
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Запросити адміністратора</DialogTitle>
+          </DialogHeader>
+          <form
+            className="space-y-4"
+            onSubmit={form.handleSubmit(() => {
+              if (!canInviteAdminUsers(user?.role)) {
+                toast.error('Недостатньо прав для цієї дії')
+                return
+              }
+              setConfirming(true)
+            })}
+          >
+            <p className="text-sm text-muted-foreground">
+              Користувач отримає лист із посиланням, щоб самостійно встановити пароль. Роль: адміністратор.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Імʼя" error={form.formState.errors.firstName?.message}>
+                <Input {...form.register('firstName')} />
+              </Field>
+              <Field label="Прізвище" error={form.formState.errors.lastName?.message}>
+                <Input {...form.register('lastName')} />
+              </Field>
+            </div>
+            <Field label="Електронна пошта" error={form.formState.errors.email?.message}>
+              <Input type="email" autoComplete="off" {...form.register('email')} />
+            </Field>
+            <Field label="Роль">
+              <Input value={userRoleLabel.admin} readOnly disabled />
+            </Field>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={resetAndClose}>
+                Скасувати
+              </Button>
+              <Button type="submit">Далі</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      <ConfirmDialog
+        open={open && confirming}
+        title="Надіслати запрошення?"
+        description={`Надіслати запрошення адміністратора на ${form.getValues('email')}? Пароль задасть запрошена особа.`}
+        confirmLabel="Надіслати запрошення"
+        pending={invite.isPending}
+        onOpenChange={(next) => {
+          if (!next) setConfirming(false)
+        }}
+        onConfirm={() => {
+          if (!canInviteAdminUsers(user?.role)) {
+            toast.error('Недостатньо прав для цієї дії')
+            return
+          }
+          const values = form.getValues()
+          void invite
+            .mutateAsync({
+              email: values.email,
+              firstName: values.firstName,
+              lastName: values.lastName,
+            })
+            .then(() => {
+              toast.success('Запрошення надіслано')
+              resetAndClose()
+            })
+            .catch((error) => toast.error(userErrorMessage(error)))
+        }}
+      />
+    </>
   )
 }
 
@@ -618,7 +774,16 @@ function userErrorMessage(error: unknown) {
     if (error.code === 'SELF_DEACTIVATION') return 'Не можна деактивувати власний обліковий запис'
     return 'Недостатньо прав для цієї дії'
   }
-  if (error.status === 404) return error.message || 'Користувача не знайдено'
+  if (error.status === 404) {
+    if (error.code === 'INVITE_INVALID') return 'Запрошення недійсне або вже використане'
+    return error.message || 'Користувача не знайдено'
+  }
+  if (error.status === 410 && error.code === 'INVITE_EXPIRED') {
+    return 'Термін дії запрошення минув. Надішліть нове запрошення.'
+  }
+  if (error.status === 503 && error.code === 'EMAIL_UNAVAILABLE') {
+    return 'Не вдалося надіслати лист. Спробуйте ще раз пізніше.'
+  }
   if (error.status === 409) {
     if (error.code === 'EMAIL_ALREADY_EXISTS') return 'Користувач з такою поштою вже існує'
     if (error.code === 'LAST_SUPER_ADMIN') {
