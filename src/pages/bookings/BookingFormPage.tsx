@@ -49,6 +49,7 @@ export function BookingFormPage() {
       roomId: parsed.roomId,
       checkIn: parsed.checkIn,
       checkOut: parsed.checkOut,
+      guestId: parsed.guestId,
     }
   }, [params])
 

@@ -6,16 +6,30 @@ const SOURCES: readonly AdminBookingSource[] = ['WEBSITE', 'ADMIN', 'PHONE', 'EM
 const DATE = /^\d{4}-\d{2}-\d{2}$/
 const MONEY = /^(0|[1-9]\d{0,7})(?:\.\d{1,2})?$/
 
+export const LAST_VISIT_FILTERS = [
+  'all',
+  'over_30',
+  'over_60',
+  'over_90',
+  'over_120',
+  'over_180',
+  'over_365',
+  'over_730',
+  'never',
+] as const
+
+export type LastVisitFilter = (typeof LAST_VISIT_FILTERS)[number]
+
 export type AdminGuestListItem = {
   id: string
   firstName: string
   lastName: string
   email: string | null
   phone: string | null
-  country: string | null
-  city: string | null
-  bookingsCount: number
-  lastCheckIn: string | null
+  notes: string | null
+  createdAt: string
+  visitCount: number
+  lastVisit: string | null
 }
 
 export type AdminGuestListPage = {
@@ -36,12 +50,15 @@ export type AdminGuestIdentity = {
   city: string | null
   notes: string | null
   createdAt: string
+  contactShared: boolean
 }
 
 export type AdminGuestStats = {
   bookingsCount: number
   lastCheckIn: string | null
   completedStays: number
+  visitCount: number
+  lastVisit: string | null
   totalNights: number
   totalSpent: string
   currency: string
@@ -87,6 +104,23 @@ export type GuestDirectoryQuery = {
   page: number
   limit: number
   search?: string
+  lastVisit?: LastVisitFilter
+  visitCountMin?: number
+  visitCountMax?: number
+  registeredFrom?: string
+  registeredTo?: string
+  sort?: 'fullName' | 'phone' | 'visitCount' | 'lastVisit' | 'createdAt'
+  order?: 'asc' | 'desc'
+}
+
+export type GuestWriteInput = {
+  firstName: string
+  lastName: string
+  email?: string
+  phone?: string
+  notes?: string
+  confirmDuplicate?: boolean
+  reuseContact?: boolean
 }
 
 export type GuestHistoryQuery = {
@@ -101,7 +135,33 @@ export function guestDirectoryPath(query: GuestDirectoryQuery) {
   params.set('limit', String(query.limit))
   const search = query.search?.trim()
   if (search) params.set('search', search)
+  if (query.lastVisit && query.lastVisit !== 'all') params.set('lastVisit', query.lastVisit)
+  if (query.visitCountMin !== undefined) params.set('visitCountMin', String(query.visitCountMin))
+  if (query.visitCountMax !== undefined) params.set('visitCountMax', String(query.visitCountMax))
+  if (query.registeredFrom) params.set('registeredFrom', query.registeredFrom)
+  if (query.registeredTo) params.set('registeredTo', query.registeredTo)
+  if (query.sort) params.set('sort', query.sort)
+  if (query.order) params.set('order', query.order)
   return `/api/admin/guests?${params.toString()}`
+}
+
+export function guestExportPath(query: GuestDirectoryQuery, format: 'csv' | 'xlsx') {
+  const queryString = guestDirectoryPath(query).split('?')[1] ?? ''
+  const params = new URLSearchParams(queryString)
+  params.set('format', format)
+  return `/api/admin/guests/export?${params.toString()}`
+}
+
+export function guestDuplicateCheckPath() {
+  return '/api/admin/guests/duplicate-check'
+}
+
+export function guestCreatePath() {
+  return '/api/admin/guests'
+}
+
+export function guestUpdatePath(id: string) {
+  return `/api/admin/guests/${encodeURIComponent(id)}`
 }
 
 export function guestProfilePath(id: string) {
@@ -183,10 +243,10 @@ function parseListItem(value: unknown): AdminGuestListItem {
     lastName: text(row.lastName, 'guest last name'),
     email: nullableText(row.email, 'guest email'),
     phone: nullableText(row.phone, 'guest phone'),
-    country: nullableText(row.country, 'guest country'),
-    city: nullableText(row.city, 'guest city'),
-    bookingsCount: count(row.bookingsCount, 'bookings count'),
-    lastCheckIn: nullableDate(row.lastCheckIn, 'last check-in'),
+    notes: nullableText(row.notes, 'guest notes'),
+    createdAt: dateText(row.createdAt, 'registration date'),
+    visitCount: count(row.visitCount, 'visit count'),
+    lastVisit: nullableDate(row.lastVisit, 'last visit'),
   }
 }
 
@@ -202,6 +262,7 @@ function parseIdentity(value: unknown): AdminGuestIdentity {
     city: nullableText(row.city, 'guest city'),
     notes: nullableText(row.notes, 'guest notes'),
     createdAt: text(row.createdAt, 'guest created at'),
+    contactShared: booleanOf(row.contactShared, 'guest contact shared'),
   }
 }
 
@@ -211,6 +272,8 @@ function parseStats(value: unknown): AdminGuestStats {
     bookingsCount: count(row.bookingsCount, 'bookings count'),
     lastCheckIn: nullableDate(row.lastCheckIn, 'last check-in'),
     completedStays: count(row.completedStays, 'completed stays'),
+    visitCount: count(row.visitCount, 'visit count'),
+    lastVisit: nullableDate(row.lastVisit, 'last visit'),
     totalNights: count(row.totalNights, 'total nights'),
     totalSpent: money(row.totalSpent, 'total spent'),
     currency: text(row.currency, 'currency'),
@@ -301,6 +364,11 @@ function countAtLeast(value: unknown, min: number, label: string) {
   const parsed = count(value, label)
   if (parsed < min) throw new Error(`Invalid ${label}`)
   return parsed
+}
+
+function booleanOf(value: unknown, label: string) {
+  if (typeof value !== 'boolean') throw new Error(`Invalid ${label}`)
+  return value
 }
 
 function money(value: unknown, label: string) {

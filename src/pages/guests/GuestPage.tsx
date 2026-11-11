@@ -1,24 +1,34 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { GuestBookingHistory } from '@/components/guests/GuestBookingHistory'
+import { GuestForm } from '@/components/guests/GuestForm'
 import { GuestStats } from '@/components/guests/GuestStats'
 import { Button } from '@/components/ui/button'
 import { Pagination } from '@/components/ui/pagination'
 import { LoadingState } from '@/components/ui/states'
-import { useGuestHistory, useGuestProfile } from '@/hooks/useGuestDirectory'
-import { guestFailure, guestFailureMessage } from '@/lib/admin-guests'
+import { useAuth } from '@/hooks/useAuth'
+import { useGuestHistory, useGuestProfile, useSaveGuest } from '@/hooks/useGuestDirectory'
+import { guestFailure, guestFailureMessage, guestPlaceLabel } from '@/lib/admin-guests'
+import { ApiError } from '@/lib/api-error'
 import { formatDateTime } from '@/lib/format'
+import { canWriteGuests } from '@/lib/roles'
 import { fullName } from '@/lib/utils'
 
 const HISTORY_PAGE_SIZE = 20
 
 export function GuestPage() {
+  const { user } = useAuth()
+  const canWrite = canWriteGuests(user?.role)
   const { id = '' } = useParams()
   const [historyPage, setHistoryPage] = useState(1)
   const [historyGuestId, setHistoryGuestId] = useState(id)
+  const [editing, setEditing] = useState(false)
+  const [hint, setHint] = useState<string | null>(null)
+  const save = useSaveGuest()
   if (id !== historyGuestId) {
     setHistoryGuestId(id)
     setHistoryPage(1)
+    setEditing(false)
   }
   const activeHistoryPage = id === historyGuestId ? historyPage : 1
   const profile = useGuestProfile(id)
@@ -31,7 +41,7 @@ export function GuestPage() {
     return (
       <div className="space-y-4">
         <Link to="/admin/guests" className="text-sm text-muted-foreground hover:text-foreground">
-          ← Гості
+          ← Клієнти
         </Link>
         <p className="text-sm">{guestFailureMessage(profileFailure ?? 'unavailable')}</p>
         {profileFailure !== 'missing' ? (
@@ -49,6 +59,7 @@ export function GuestPage() {
     { label: 'Імʼя та прізвище', value: fullName(guest.firstName, guest.lastName), prominent: true },
     { label: 'Email', value: guest.email || '—' },
     { label: 'Телефон', value: guest.phone || '—' },
+    { label: 'Країна і місто', value: guestPlaceLabel(guest.country, guest.city) },
     { label: 'Картку створено', value: formatDateTime(guest.createdAt) },
   ]
 
@@ -56,25 +67,54 @@ export function GuestPage() {
     <div className="max-w-5xl space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link to="/admin/guests" className="text-sm text-muted-foreground hover:text-foreground">
-          ← Гості
+          ← Клієнти
         </Link>
-        <p className="text-sm text-muted-foreground">Редагування картки гостя недоступне.</p>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild size="sm" variant="outline">
+            <Link to={`/admin/bookings/new?guestId=${encodeURIComponent(guest.id)}`}>Створити бронювання</Link>
+          </Button>
+          {canWrite ? (
+            <Button size="sm" onClick={() => setEditing((open) => !open)}>
+              {editing ? 'Закрити редагування' : 'Редагувати'}
+            </Button>
+          ) : null}
+        </div>
       </div>
 
-      <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
-        {fields.map((field) => (
-          <div key={field.label} className={field.prominent ? 'sm:col-span-2' : undefined}>
-            <dt className="text-[11px] tracking-[0.12em] text-muted uppercase">{field.label}</dt>
-            <dd className={field.prominent ? 'mt-2 font-serif text-4xl leading-none font-medium' : 'mt-1 text-sm'}>{field.value}</dd>
-          </div>
-        ))}
-        {notes ? (
-          <div className="sm:col-span-2">
-            <dt className="text-[11px] tracking-[0.12em] text-muted uppercase">Примітки</dt>
-            <dd className="mt-1 max-w-2xl text-sm whitespace-pre-wrap">{notes}</dd>
-          </div>
-        ) : null}
-      </dl>
+      {editing && canWrite ? (
+        <GuestForm
+          guest={guest}
+          contactLocked={guest.contactShared}
+          submitLabel="Зберегти"
+          pending={save.isPending}
+          duplicateHint={hint}
+          onCancel={() => setEditing(false)}
+          onSubmit={(values) => {
+            setHint(null)
+            void save.mutateAsync({ ...values, id: guest.id }).then(
+              () => setEditing(false),
+              (error: unknown) => {
+                setHint(error instanceof ApiError ? error.message : 'Не вдалося зберегти')
+              },
+            )
+          }}
+        />
+      ) : (
+        <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
+          {fields.map((field) => (
+            <div key={field.label} className={field.prominent ? 'sm:col-span-2' : undefined}>
+              <dt className="text-[11px] tracking-[0.12em] text-muted uppercase">{field.label}</dt>
+              <dd className={field.prominent ? 'mt-2 font-serif text-4xl leading-none font-medium' : 'mt-1 text-sm'}>{field.value}</dd>
+            </div>
+          ))}
+          {notes ? (
+            <div className="sm:col-span-2">
+              <dt className="text-[11px] tracking-[0.12em] text-muted uppercase">Внутрішній коментар</dt>
+              <dd className="mt-1 max-w-2xl text-sm whitespace-pre-wrap">{notes}</dd>
+            </div>
+          ) : null}
+        </dl>
+      )}
 
       <GuestStats stats={stats} />
 
