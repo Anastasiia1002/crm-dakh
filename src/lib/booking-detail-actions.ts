@@ -17,6 +17,26 @@ export function bookingDetailActionTarget(action: BookingDetailActionId) {
   return 'status-dialog' as const
 }
 
+/** Status action shown as the header primary button. */
+export function bookingDetailPrimaryAction(
+  actions: readonly AdminBookingStatusAction[],
+): Exclude<AdminBookingStatusAction, 'cancel' | 'no-show'> | null {
+  if (actions.includes('check-in')) return 'check-in'
+  if (actions.includes('check-out')) return 'check-out'
+  if (actions.includes('confirm')) return 'confirm'
+  return null
+}
+
+/** Infrequent or irreversible actions sit in the overflow control. */
+export function bookingDetailOverflowActions(
+  actions: readonly AdminBookingStatusAction[],
+): Array<Extract<AdminBookingStatusAction, 'no-show' | 'cancel'>> {
+  const overflow: Array<Extract<AdminBookingStatusAction, 'no-show' | 'cancel'>> = []
+  if (actions.includes('no-show')) overflow.push('no-show')
+  if (actions.includes('cancel')) overflow.push('cancel')
+  return overflow
+}
+
 /**
  * Action-specific confirmation. Each action names the booking and its own
  * consequence; the sentences are not interchangeable.

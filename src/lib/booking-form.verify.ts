@@ -334,8 +334,9 @@ function main() {
   console.log('PASS: calendar cell states')
 
   const detail = readFileSync(new URL('../pages/bookings/BookingDetailPage.tsx', import.meta.url), 'utf8')
-  assert(!detail.includes('Місто / країна'), 'booking detail does not present city and country')
-  assert(detail.includes('Телефон') && detail.includes('Електронна пошта'), 'guest contact stays on the booking detail')
+  const guestPanel = readFileSync(new URL('../components/bookings/BookingGuestPanel.tsx', import.meta.url), 'utf8')
+  assert(!detail.includes('Місто / країна') && !guestPanel.includes('Місто / країна'), 'booking detail does not present city and country')
+  assert(guestPanel.includes('Телефон') && guestPanel.includes('Електронна пошта'), 'guest contact stays on the booking detail')
   assert(detail.includes('formatDate(booking.checkIn)') && detail.includes('formatDate(booking.checkOut)'), 'booking detail shows the stored dates')
   assert(!detail.includes('StayCalendar') && !detail.includes('stayDateDisabled'), 'booking detail does not apply the past-date calendar')
   const formSource = readFileSync(new URL('../components/bookings/AdminBookingForm.tsx', import.meta.url), 'utf8')

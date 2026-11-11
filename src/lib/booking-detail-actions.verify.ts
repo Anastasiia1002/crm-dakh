@@ -9,7 +9,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import { BookingDetailPage } from '../pages/bookings/BookingDetailPage'
 import { AuthProvider } from '../hooks/useAuth'
-import { bookingDetailActionTarget, bookingStatusDialog } from './booking-detail-actions'
+import {
+  bookingDetailActionTarget,
+  bookingDetailOverflowActions,
+  bookingDetailPrimaryAction,
+  bookingStatusDialog,
+} from './booking-detail-actions'
 import type { AdminBookingDetail, AdminUser, BookingStatus } from '../types'
 
 function assert(condition: boolean, message: string) {
@@ -128,11 +133,18 @@ function main() {
   assert(bookingDetailActionTarget('check-in') === 'status-dialog', 'check-in opens a status dialog')
   assert(bookingDetailActionTarget('no-show') === 'status-dialog', 'no-show opens a status dialog')
   assert(bookingDetailActionTarget('check-in') !== bookingDetailActionTarget('cancel'), 'check-in and cancel do not share a target')
+  assert(bookingDetailPrimaryAction(['confirm', 'cancel']) === 'confirm', 'pending primary is confirm')
+  assert(bookingDetailPrimaryAction(['check-in', 'no-show', 'cancel']) === 'check-in', 'confirmed primary is check-in')
+  assert(bookingDetailPrimaryAction(['check-out']) === 'check-out', 'checked-in primary is check-out')
+  assert(bookingDetailPrimaryAction([]) === null, 'terminal bookings have no primary action')
+  assert(bookingDetailOverflowActions(['check-in', 'no-show', 'cancel']).join(',') === 'no-show,cancel', 'overflow holds no-show and cancel')
+  assert(bookingDetailOverflowActions(['confirm', 'cancel']).join(',') === 'cancel', 'pending overflow is cancel only')
+  assert(bookingDetailOverflowActions(['check-out']).length === 0, 'checked-in has no overflow')
 
   const confirmed = renderDetail('CONFIRMED', 'admin')
   const confirmedActions = presentActions(confirmed)
   assert(
-    confirmedActions.join(',') === 'edit,move,check-in,no-show,cancel',
+    confirmedActions.join(',') === 'check-in,edit,move,no-show,cancel',
     `confirmed booking shows only its own actions, got ${confirmedActions.join(',')}`,
   )
   const checkIn = control(confirmed, 'check-in')
@@ -147,18 +159,16 @@ function main() {
   assert(!confirmed.includes('variant="ghost"'), 'the booking detail does not use a ghost action')
   assert(edit.startsWith('<a') && edit.includes(`href="/admin/bookings/${bookingId}/edit"`), 'edit is the booking edit link')
   assert(move.startsWith('<a') && move.includes(`href="/admin/bookings/${bookingId}/edit"`), 'move is the booking edit link')
-  assert(confirmed.includes('Керування бронюванням'), 'management group is labeled')
-  assert(confirmed.includes('Статус заїзду'), 'arrival group is labeled')
-  assert(confirmed.includes('Небезпечні дії'), 'danger group is labeled')
+  assert(confirmed.includes('Ще'), 'infrequent actions sit behind overflow')
   assert(confirmed.includes('Позначити незаїзд'), 'no-show label names the action')
   assert(confirmed.includes('flex-col') && confirmed.includes('md:flex-row'), 'actions stack on small screens and wrap from tablet width')
 
   const pending = presentActions(renderDetail('PENDING', 'admin'))
-  assert(pending.join(',') === 'edit,move,confirm,cancel', `pending booking actions, got ${pending.join(',')}`)
+  assert(pending.join(',') === 'confirm,edit,move,cancel', `pending booking actions, got ${pending.join(',')}`)
   const stayed = presentActions(renderDetail('CHECKED_IN', 'admin'))
-  assert(stayed.join(',') === 'edit,check-out', `checked-in booking actions, got ${stayed.join(',')}`)
+  assert(stayed.join(',') === 'check-out,edit', `checked-in booking actions, got ${stayed.join(',')}`)
   const desk = presentActions(renderDetail('CONFIRMED', 'receptionist'))
-  assert(desk.join(',') === 'edit,check-in,no-show,cancel', `receptionist cannot reassign the room, got ${desk.join(',')}`)
+  assert(desk.join(',') === 'check-in,edit,no-show,cancel', `receptionist cannot reassign the room, got ${desk.join(',')}`)
   const closed = presentActions(renderDetail('CANCELLED', 'admin'))
   assert(closed.length === 0, 'a cancelled booking has no status actions')
 
@@ -177,8 +187,8 @@ function main() {
   assert(page.includes('returnFocusRef'), 'status dialogs return focus to the triggering button')
   assert(page.includes('if (pending) event.preventDefault()'), 'escape stays blocked while a mutation is pending')
   assert(component.includes('data-action="check-in"') && component.includes('onClick={onCheckIn}'), 'check-in control is bound to the check-in handler')
-  assert(component.includes('data-action="no-show"') && component.includes('onClick={onNoShow}'), 'no-show control is bound to the no-show handler')
-  assert(component.includes('data-action="cancel"') && component.includes('onClick={onCancel}'), 'cancel control is bound to the cancel handler')
+  assert(component.includes('dataAction="no-show"') && component.includes('onClick={onNoShow}'), 'no-show control is bound to the no-show handler')
+  assert(component.includes('dataAction="cancel"') && component.includes('onClick={onCancel}'), 'cancel control is bound to the cancel handler')
   assert(component.includes('data-action="edit"') && component.includes('to={editTo}'), 'edit control is the edit route')
   assert(component.includes('data-action="move"') && component.includes('to={editTo}'), 'move control is the edit route')
   const handlers = ['onConfirm', 'onCheckIn', 'onCheckOut', 'onNoShow', 'onCancel'] as const
