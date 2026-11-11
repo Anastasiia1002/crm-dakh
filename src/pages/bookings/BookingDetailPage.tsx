@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { useBlocker, useNavigate, useParams } from 'react-router-dom'
+import { Link, useBlocker, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
+import { ChevronLeft } from 'lucide-react'
 import { BookingDetailActions } from '@/components/bookings/BookingDetailActions'
+import { BookingFinancePanel } from '@/components/bookings/BookingFinancePanel'
+import { BookingGuestPanel } from '@/components/bookings/BookingGuestPanel'
+import { BookingStaySummary } from '@/components/bookings/BookingStaySummary'
+import { BookingMeta, BookingWorkspaceSection } from '@/components/bookings/BookingWorkspaceSection'
 import { BookingStatusBadge } from '@/components/bookings/BookingStatusBadge'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -27,6 +32,11 @@ import {
 import { createSubmitLock } from '@/lib/booking-form'
 import { classifyMutationFailure, type MutationKind, type MutationPhase } from '@/lib/mutation-action'
 import { bookingStatusDialog } from '@/lib/booking-detail-actions'
+import {
+  bookingStayNightCopy,
+  bookingWorkspaceHasCancellation,
+  bookingWorkspaceHasNotes,
+} from '@/lib/booking-detail-workspace'
 import { ApiError } from '@/lib/api-error'
 import { errorMessage } from '@/lib/errors'
 import { serviceDisplayName } from '@/lib/admin-services'
@@ -77,7 +87,7 @@ export function BookingDetailPage() {
       return (
         <div className="space-y-3 border-t border-border py-10">
           <p className="text-sm">Бронювання не знайдено.</p>
-          <Button size="sm" variant="ghost" onClick={() => navigate('/admin/bookings')}>
+          <Button size="sm" variant="outline" onClick={() => navigate('/admin/bookings')}>
             До списку
           </Button>
         </div>
@@ -102,6 +112,8 @@ export function BookingDetailPage() {
   const closed = isAdminBookingTerminal(booking.status)
   const canEdit = canEditAdminBookingProfile(booking.status)
   const canMove = canEditAdminBookingCommercial(booking.status) && canReassignAdminBookingRoom(user?.role)
+  const notes = bookingWorkspaceHasNotes(booking)
+  const cancellation = bookingWorkspaceHasCancellation(booking)
 
   async function runAction(action: AdminBookingStatusAction, cancellationReason?: string) {
     if (pending || !actionLock.current.tryBegin()) return
@@ -131,7 +143,7 @@ export function BookingDetailPage() {
   }
 
   return (
-    <div className="max-w-5xl space-y-10" aria-busy={pending || undefined}>
+    <div className="mx-auto max-w-6xl space-y-4" aria-busy={pending || undefined}>
       {phase === 'submitting' || phase === 'uncertain' ? (
         <PendingOverlay
           kind={kind}
@@ -140,111 +152,124 @@ export function BookingDetailPage() {
           onCheckList={phase === 'uncertain' ? () => navigate('/admin/bookings') : undefined}
         />
       ) : null}
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-[11px] tracking-[0.16em] text-muted uppercase" title={booking.id}>
-            {adminBookingRef(booking.id)}
-          </p>
-          <h2 className="mt-2 font-serif text-4xl font-medium">{adminGuestName(booking.guest)}</h2>
-          <div className="mt-3">
-            <BookingStatusBadge status={booking.status} />
+
+      <header className="space-y-3">
+        <Link
+          to="/admin/bookings"
+          className="inline-flex min-h-8 items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ChevronLeft className="size-4" aria-hidden />
+          Бронювання
+        </Link>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="font-sans text-xs font-medium tracking-[0.08em] text-muted uppercase" title={booking.id}>
+                {adminBookingRef(booking.id)}
+              </p>
+              <BookingStatusBadge status={booking.status} />
+            </div>
+            <h1 className="font-serif text-2xl leading-tight font-medium md:text-[1.75rem]">
+              {adminGuestName(booking.guest)}
+            </h1>
           </div>
+          <BookingDetailActions
+            editTo={`/admin/bookings/${booking.id}/edit`}
+            canEdit={canEdit && !closed}
+            canMove={canMove}
+            actions={actions}
+            pending={pending}
+            busyAction={pending ? (cancelOpen ? 'cancel' : confirm) : null}
+            confirmRef={confirmRef}
+            checkInRef={checkInRef}
+            checkOutRef={checkOutRef}
+            noShowRef={noShowRef}
+            cancelRef={cancelRef}
+            onConfirm={() => setConfirm('confirm')}
+            onCheckIn={() => setConfirm('check-in')}
+            onCheckOut={() => setConfirm('check-out')}
+            onNoShow={() => setConfirm('no-show')}
+            onCancel={() => setCancelOpen(true)}
+          />
         </div>
-        <BookingDetailActions
-          editTo={`/admin/bookings/${booking.id}/edit`}
-          canEdit={canEdit && !closed}
-          canMove={canMove}
-          actions={actions}
-          pending={pending}
-          busyAction={pending ? (cancelOpen ? 'cancel' : confirm) : null}
-          confirmRef={confirmRef}
-          checkInRef={checkInRef}
-          checkOutRef={checkOutRef}
-          noShowRef={noShowRef}
-          cancelRef={cancelRef}
-          onConfirm={() => setConfirm('confirm')}
-          onCheckIn={() => setConfirm('check-in')}
-          onCheckOut={() => setConfirm('check-out')}
-          onNoShow={() => setConfirm('no-show')}
-          onCancel={() => setCancelOpen(true)}
-        />
-      </div>
+      </header>
 
-      <div className="grid gap-10 md:grid-cols-2">
-        <section className="space-y-3 border-t border-border pt-5">
-          <h3 className="font-serif text-2xl">Проживання</h3>
-          <Info label="Номер / будиночок" value={adminRoomsLabel(booking.rooms)} />
-          <Info label="Заїзд" value={formatDate(booking.checkIn)} />
-          <Info label="Виїзд" value={formatDate(booking.checkOut)} />
-          <Info label="Гості" value={formatGuests(booking.adults, booking.children)} />
-          <Info label="У бронюванні" value={String(booking.guestCount)} />
-          <Info label="Джерело" value={adminBookingSourceLabel[booking.source]} />
-          <Info label="Створено" value={formatDateTime(booking.createdAt)} />
-        </section>
+      <BookingStaySummary
+        checkIn={formatDate(booking.checkIn)}
+        checkOut={formatDate(booking.checkOut)}
+        nights={bookingStayNightCopy(booking.checkIn, booking.checkOut)}
+        guests={formatGuests(booking.adults, booking.children)}
+        accommodation={adminRoomsLabel(booking.rooms)}
+        source={adminBookingSourceLabel[booking.source]}
+      />
 
-        <section className="space-y-3 border-t border-border pt-5">
-          <h3 className="font-serif text-2xl">Гість</h3>
-          <Info label="Телефон" value={booking.guest.phone ?? '—'} />
-          <Info label="Електронна пошта" value={booking.guest.email || '—'} />
-          {booking.notes ? <Info label="Примітки до бронювання" value={booking.notes} /> : null}
-          {booking.cancellationReason ? (
-            <Info label="Причина скасування" value={booking.cancellationReason} />
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(16rem,0.9fr)]">
+        <div className="space-y-4">
+          <BookingWorkspaceSection title="Проживання">
+            <BookingMeta label="Номер / будиночок" value={adminRoomsLabel(booking.rooms)} />
+            <div className="grid grid-cols-2 gap-3">
+              <BookingMeta label="Заїзд" value={formatDate(booking.checkIn)} />
+              <BookingMeta label="Виїзд" value={formatDate(booking.checkOut)} />
+            </div>
+            <BookingMeta label="Гості" value={formatGuests(booking.adults, booking.children)} />
+            <BookingMeta label="У бронюванні" value={String(booking.guestCount)} />
+            <BookingMeta label="Джерело" value={adminBookingSourceLabel[booking.source]} />
+            <BookingMeta label="Створено" value={formatDateTime(booking.createdAt)} />
+          </BookingWorkspaceSection>
+
+          <BookingGuestPanel guest={booking.guest} />
+
+          <BookingWorkspaceSection title="Послуги">
+            {booking.services.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Додаткових послуг немає.</p>
+            ) : (
+              <ul className="divide-y divide-border">
+                {booking.services.map((service) => (
+                  <li key={service.id} className="flex justify-between gap-3 py-2 text-sm first:pt-0 last:pb-0">
+                    <span>
+                      {serviceDisplayName(service.serviceId, servicesCatalog.data ?? [])}
+                      <span className="ml-2 text-muted-foreground">× {service.quantity}</span>
+                    </span>
+                    <span className="tabular-nums">
+                      {formatAdminBookingMoney(service.totalPrice, price.currency)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </BookingWorkspaceSection>
+
+          {booking.nights.length > 0 ? (
+            <BookingWorkspaceSection title="Ночі">
+              <ul className="max-h-56 overflow-auto divide-y divide-border text-sm">
+                {booking.nights.map((night) => (
+                  <li key={night.id} className="flex justify-between gap-4 py-2 first:pt-0 last:pb-0">
+                    <span>{formatDate(night.date)}</span>
+                    <span className="tabular-nums">{formatAdminBookingMoney(night.price, night.currency)}</span>
+                  </li>
+                ))}
+              </ul>
+            </BookingWorkspaceSection>
           ) : null}
-          {booking.cancelledAt ? <Info label="Скасовано" value={formatDateTime(booking.cancelledAt)} /> : null}
-        </section>
+        </div>
+
+        <aside className="space-y-4 lg:sticky lg:top-20">
+          <BookingFinancePanel price={price} />
+          {notes ? (
+            <BookingWorkspaceSection title="Примітки до бронювання">
+              <p className="text-sm whitespace-pre-wrap">{booking.notes}</p>
+            </BookingWorkspaceSection>
+          ) : null}
+          {cancellation ? (
+            <BookingWorkspaceSection title="Скасування">
+              {booking.cancellationReason ? (
+                <BookingMeta label="Причина скасування" value={booking.cancellationReason} />
+              ) : null}
+              {booking.cancelledAt ? <BookingMeta label="Скасовано" value={formatDateTime(booking.cancelledAt)} /> : null}
+            </BookingWorkspaceSection>
+          ) : null}
+        </aside>
       </div>
-
-      <section className="border-t border-border pt-5">
-        <h3 className="font-serif text-2xl">Послуги</h3>
-        {booking.services.length === 0 ? (
-          <p className="mt-3 text-sm text-muted-foreground">Додаткових послуг немає.</p>
-        ) : (
-          <ul className="mt-3 divide-y divide-border">
-            {booking.services.map((service) => (
-              <li key={service.id} className="flex justify-between py-2 text-sm">
-                <span>
-                  {serviceDisplayName(service.serviceId, servicesCatalog.data ?? [])}
-                  <span className="ml-2 text-muted-foreground">× {service.quantity}</span>
-                </span>
-                <span className="tabular-nums">
-                  {formatAdminBookingMoney(service.totalPrice, price.currency)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {booking.nights.length > 0 ? (
-        <section className="border-t border-border pt-5">
-          <h3 className="font-serif text-2xl">Ночі</h3>
-          <ul className="mt-3 max-h-64 overflow-auto divide-y divide-border text-sm">
-            {booking.nights.map((night) => (
-              <li key={night.id} className="flex justify-between gap-4 py-2">
-                <span>{formatDate(night.date)}</span>
-                <span className="tabular-nums">{formatAdminBookingMoney(night.price, night.currency)}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      <section className="border-t border-border pt-5">
-        <p className="text-[11px] tracking-[0.16em] text-muted uppercase">Сума</p>
-        <p className="mt-2 font-serif text-4xl">
-          {formatAdminBookingMoney(price.totalAmount, price.currency)}
-        </p>
-        <dl className="mt-4 max-w-sm space-y-1.5 text-sm">
-          <Row label="Проживання" value={formatAdminBookingMoney(price.roomSubtotal, price.currency)} />
-          <Row label="Послуги" value={formatAdminBookingMoney(price.servicesTotal, price.currency)} />
-          <Row label="Знижка" value={formatAdminBookingMoney(price.discountAmount, price.currency)} />
-          <Row label="Податок" value={formatAdminBookingMoney(price.taxAmount, price.currency)} />
-        </dl>
-      </section>
-
-      <button type="button" className="text-sm text-muted-foreground hover:underline" onClick={() => navigate('/admin/bookings')}>
-        До списку бронювань
-      </button>
 
       <Dialog
         open={cancelOpen}
@@ -315,24 +340,6 @@ export function BookingDetailPage() {
           />
         )
       })}
-    </div>
-  )
-}
-
-function Info({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-[11px] tracking-[0.12em] text-muted uppercase">{label}</p>
-      <p className="mt-1 text-sm whitespace-pre-wrap">{value}</p>
-    </div>
-  )
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between gap-3">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="tabular-nums">{value}</dd>
     </div>
   )
 }
