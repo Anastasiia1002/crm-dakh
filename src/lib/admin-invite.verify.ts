@@ -4,16 +4,21 @@
  */
 import { readFileSync } from 'node:fs'
 import { consumeInviteTokenFromLocation, inviteHref } from './invite-token'
-import { canCreateAdminUsers, canInviteAdminUsers } from './roles'
+import { inviteableFrontendRoles } from './permissions'
+import { canCreateAdminUsers, canInviteAdminUsers, canInviteRole } from './roles'
 
 function assert(condition: boolean, message: string) {
   if (!condition) throw new Error(message)
 }
 
 assert(canInviteAdminUsers('owner'), 'owner may invite')
+assert(canInviteAdminUsers('manager'), 'manager may invite receptionist')
 assert(!canInviteAdminUsers('admin'), 'admin may not invite')
 assert(!canInviteAdminUsers('receptionist'), 'receptionist may not invite')
-assert(canInviteAdminUsers('owner') === canCreateAdminUsers('owner'), 'invite matches existing create policy')
+assert(canInviteRole('owner', 'admin') && canInviteRole('owner', 'manager') && canInviteRole('owner', 'receptionist'), 'owner invite set')
+assert(canInviteRole('manager', 'receptionist') && !canInviteRole('manager', 'admin') && !canInviteRole('manager', 'manager'), 'manager invite set')
+assert(inviteableFrontendRoles('admin').length === 0, 'admin has no inviteable roles')
+assert(canCreateAdminUsers('owner') && !canCreateAdminUsers('manager'), 'password create remains owner-only')
 
 assert(inviteHref('/crm-dakh/') === '/crm-dakh/invite', 'Pages basename invite path')
 assert(inviteHref('/') === '/invite', 'root invite path')
@@ -43,16 +48,16 @@ const invitations = usersPage.slice(
   usersPage.indexOf('title="Запрошення"'),
   usersPage.indexOf('title="Журнал дій"'),
 )
-assert(invitations.includes('Запросити адміністратора'), 'invite CTA in invitations section')
+assert(invitations.includes('Запросити співробітника'), 'invite CTA in invitations section')
 assert(invitations.includes('canInvite'), 'invite CTA gated in invitations header')
 assert(invitations.includes('Активних запрошень немає.'), 'empty invitations copy')
-assert(!administrators.includes('Запросити адміністратора'), 'invite CTA not in administrators header')
+assert(!administrators.includes('Запросити співробітника'), 'invite CTA not in administrators header')
 assert(
-  (usersPage.match(/<Button onClick=\{\(\) => setInviting\(true\)\}>Запросити адміністратора<\/Button>/g) ?? [])
+  (usersPage.match(/<Button onClick=\{\(\) => setInviting\(true\)\}>Запросити співробітника<\/Button>/g) ?? [])
     .length === 1,
   'invite CTA button appears once',
 )
-assert(usersPage.includes('canInviteAdminUsers'), 'invite gated by owner policy')
+assert(usersPage.includes('inviteableFrontendRoles'), 'invite dialog uses allowed roles')
 const inviteDialog = usersPage.slice(usersPage.indexOf('function InviteAdminDialog'), usersPage.indexOf('function UserDialog'))
 assert(inviteDialog.includes('inviteSchema'), 'invite form')
 assert(!inviteDialog.includes("register('password')"), 'invite dialog has no password field')
@@ -60,12 +65,17 @@ assert(!inviteDialog.includes("register('password')"), 'invite dialog has no pas
 const api = readFileSync(new URL('../api/users.ts', import.meta.url), 'utf8')
 const inviteFn = api.slice(api.indexOf('export async function inviteAdminUser'), api.indexOf('export async function previewAdminInvite'))
 assert(inviteFn.includes('/api/admin/users/invitations'), 'invite API')
-assert(!inviteFn.includes('role:'), 'invite POST does not send a client role')
+assert(inviteFn.includes("input.role === 'admin'"), 'ADMIN invites omit role for current API compatibility')
+assert(inviteFn.includes('mapFrontendRole(input.role)'), 'non-admin invites send an authorized role')
 assert(api.includes('/api/auth/invites/preview'), 'preview endpoint')
 assert(api.includes('/api/auth/invites/accept'), 'accept endpoint')
 assert(api.includes('auth: false'), 'preview/accept are unauthenticated')
 
 const spa = readFileSync(new URL('./vercel-spa.verify.ts', import.meta.url), 'utf8')
 assert(spa.includes("fallsBack('/invite')"), 'SPA fallback covers /invite')
+
+const sidebar = readFileSync(new URL('../components/layout/Sidebar.tsx', import.meta.url), 'utf8')
+assert(sidebar.includes('canAccessUsersManagement'), 'users nav is permission-gated')
+assert(sidebar.includes('canReadAnalytics'), 'analytics nav is permission-gated')
 
 console.log('All administrator invitation checks passed.')

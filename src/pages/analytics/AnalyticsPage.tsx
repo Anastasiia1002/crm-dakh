@@ -32,20 +32,32 @@ import { formatCount, formatMoneyAmount } from '@/lib/format'
 import { bookingStatusLabel, roomTypeKindLabel } from '@/lib/labels'
 import { CATALOG_STALE_TIME } from '@/lib/queryClient'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/hooks/useAuth'
+import { canReadAnalytics } from '@/lib/roles'
 
 export function AnalyticsPage() {
+  const { user } = useAuth()
   const hotel = useHotelSettings()
   const timezone = hotel.data?.timezone?.trim() || HOTEL_TIME_ZONE
   const [searchParams, setSearchParams] = useSearchParams()
   const filters = useMemo(() => parseAnalyticsSearch(searchParams, new Date(), timezone), [searchParams, timezone])
   const period = analyticsPeriodReady(filters.from, filters.to)
-  const summary = useAdminAnalyticsSummary(filters, { enabled: period.ok })
+  const summary = useAdminAnalyticsSummary(filters, { enabled: period.ok && canReadAnalytics(user?.role) })
   const rooms = useAllAdminRooms()
   const roomTypes = useQuery({
     queryKey: ['admin-room-types-all', { active: undefined }],
     queryFn: ({ signal }) => listAllRoomTypes({}, signal),
     staleTime: CATALOG_STALE_TIME,
   })
+
+  if (!canReadAnalytics(user?.role)) {
+    return (
+      <div className="max-w-xl space-y-3 border-t border-border py-10">
+        <h2 className="font-serif text-[1.7rem] font-medium">Немає доступу</h2>
+        <p className="text-sm text-muted-foreground">Аналітика доступна власнику та адміністратору.</p>
+      </div>
+    )
+  }
 
   function patch(next: Partial<AnalyticsFilterState>) {
     setSearchParams(analyticsSearchParams({ ...filters, ...next }), { replace: true })
