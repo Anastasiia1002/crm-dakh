@@ -26,6 +26,7 @@ function fallsBack(pathname: string): boolean {
 }
 
 assert(fallsBack('/login'), 'direct /login')
+assert(fallsBack('/invite'), 'direct /invite')
 assert(fallsBack('/admin'), 'direct /admin')
 assert(fallsBack('/admin/bookings'), 'direct /admin/bookings')
 assert(fallsBack('/admin/analytics'), 'direct /admin/analytics')
