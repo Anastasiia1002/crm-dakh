@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { Logo } from '@/components/brand/Logo'
 import { useAuth } from '@/hooks/useAuth'
-import { canAccessUsersManagement, canReadAnalytics } from '@/lib/roles'
+import { canAccessUsersManagement, canReadAnalytics, canReadAudit } from '@/lib/roles'
 import { primaryNav, secondaryNav, type NavItem } from '@/router/nav'
 import { cn } from '@/lib/utils'
 
@@ -39,9 +39,11 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const primaryItems = canReadAnalytics(user?.role)
     ? primaryNav
     : primaryNav.filter((item) => item.to !== '/admin/analytics')
-  const secondaryItems = canAccessUsersManagement(user?.role)
-    ? secondaryNav
-    : secondaryNav.filter((item) => item.to !== '/admin/users')
+  const secondaryItems = secondaryNav.filter((item) => {
+    if (item.to === '/admin/users') return canAccessUsersManagement(user?.role)
+    if (item.to === '/admin/audit') return canReadAudit(user?.role)
+    return true
+  })
 
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">

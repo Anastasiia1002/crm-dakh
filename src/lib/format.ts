@@ -27,6 +27,19 @@ export function formatDateTime(value: string) {
   return format(date, 'd MMM yyyy, HH:mm', { locale: uk })
 }
 
+export function formatDateTimeKyiv(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return new Intl.DateTimeFormat('uk-UA', {
+    timeZone: 'Europe/Kyiv',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
+}
+
 export function formatMoney(amount: number) {
   return new Intl.NumberFormat('uk-UA', {
     style: 'currency',

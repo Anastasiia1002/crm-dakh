@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { Badge } from '@/components/ui/badge'
@@ -313,8 +313,10 @@ export function UsersPage() {
       <section className="border-t border-border pt-8">
         <SectionHeading title="Журнал дій" />
         <p className="max-w-xl text-sm leading-6 text-muted-foreground">
-          Журнал дій буде доступний після підключення audit API. Демонстраційні записи з мок-даних тут не
-          показуються.
+          Повний журнал дій співробітників відкривається окремою сторінкою.{' '}
+          <Link to="/admin/audit" className="underline-offset-2 hover:underline">
+            Перейти до журналу дій
+          </Link>
         </p>
       </section>
 
