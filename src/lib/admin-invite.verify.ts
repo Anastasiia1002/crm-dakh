@@ -35,7 +35,23 @@ assert(router.includes("path: '/invite'"), 'public invite route')
 assert(router.includes('InviteAcceptPage'), 'invite page is wired')
 
 const usersPage = readFileSync(new URL('../pages/users/UsersPage.tsx', import.meta.url), 'utf8')
-assert(usersPage.includes('Запросити адміністратора'), 'invite CTA')
+const administrators = usersPage.slice(
+  usersPage.indexOf('title="Адміністратори"'),
+  usersPage.indexOf('title="Запрошення"'),
+)
+const invitations = usersPage.slice(
+  usersPage.indexOf('title="Запрошення"'),
+  usersPage.indexOf('title="Журнал дій"'),
+)
+assert(invitations.includes('Запросити адміністратора'), 'invite CTA in invitations section')
+assert(invitations.includes('canInvite'), 'invite CTA gated in invitations header')
+assert(invitations.includes('Активних запрошень немає.'), 'empty invitations copy')
+assert(!administrators.includes('Запросити адміністратора'), 'invite CTA not in administrators header')
+assert(
+  (usersPage.match(/<Button onClick=\{\(\) => setInviting\(true\)\}>Запросити адміністратора<\/Button>/g) ?? [])
+    .length === 1,
+  'invite CTA button appears once',
+)
 assert(usersPage.includes('canInviteAdminUsers'), 'invite gated by owner policy')
 const inviteDialog = usersPage.slice(usersPage.indexOf('function InviteAdminDialog'), usersPage.indexOf('function UserDialog'))
 assert(inviteDialog.includes('inviteSchema'), 'invite form')
