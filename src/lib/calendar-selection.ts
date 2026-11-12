@@ -1,5 +1,5 @@
 import { addCalendarDays } from '@/lib/dates'
-import { canManageAccommodations } from '@/lib/roles'
+import { canManageRoomAvailability } from '@/lib/roles'
 import type { UserRole } from '@/types'
 
 /** Half-open stay [startDate, endDate) on one physical room. */
@@ -10,12 +10,12 @@ export type NightSelection = {
 }
 
 export function showCalendarBlockButton(role: UserRole | undefined) {
-  return canManageAccommodations(role)
+  return canManageRoomAvailability(role)
 }
 
 /** Writers pick a range first. Other staff keep the one-click booking shortcut. */
 export function emptyNightIntent(role: UserRole | undefined): 'select' | 'book' {
-  return canManageAccommodations(role) ? 'select' : 'book'
+  return canManageRoomAvailability(role) ? 'select' : 'book'
 }
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/

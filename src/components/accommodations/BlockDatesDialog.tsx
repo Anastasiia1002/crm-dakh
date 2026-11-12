@@ -31,7 +31,7 @@ import {
   blockWriteFromReason,
   type BlockReasonId,
 } from '@/lib/room-block'
-import { canManageAccommodations } from '@/lib/roles'
+import { canManageRoomAvailability } from '@/lib/roles'
 import type { Accommodation } from '@/types'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
@@ -76,7 +76,7 @@ export function BlockDatesDialog({
   onDraftChange?: (draft: { roomId: string; startDate: string; endDate: string } | null) => void
 }) {
   const { user } = useAuth()
-  const canWrite = canManageAccommodations(user?.role)
+  const canWrite = canManageRoomAvailability(user?.role)
   const save = useCreateAdminRoomBlock()
   const lock = useRef(createSubmitLock())
   const wasOpen = useRef(false)

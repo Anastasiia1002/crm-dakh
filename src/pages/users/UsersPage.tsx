@@ -37,6 +37,8 @@ import {
   canUpdateAdminUsers,
   canInviteRole,
   canManageAdminAccount,
+  canResetStaffPasswords,
+  canRevokeStaffSessions,
 } from '@/lib/roles'
 import { inviteableFrontendRoles } from '@/lib/permissions'
 import { getAdminUser } from '@/api/users'
@@ -101,7 +103,7 @@ export function UsersPage() {
       <div className="max-w-xl space-y-3 border-t border-border py-10">
         <h2 className="font-serif text-[1.7rem] font-medium">Немає доступу</h2>
         <p className="text-sm text-muted-foreground">
-          Керування користувачами доступне лише власнику та адміністратору.
+          Керування користувачами недоступне для вашої ролі.
         </p>
       </div>
     )
@@ -201,21 +203,27 @@ export function UsersPage() {
                     <TableCell className="text-right">
                       {canManageAdminAccount(user?.role, item) ? (
                         <div className="flex flex-wrap justify-end gap-1">
-                          <Button size="sm" variant="ghost" onClick={() => openEdit(item)}>
-                            Редагувати
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={() => openPassword(item)}>
-                            Пароль
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              void openRevoke(item)
-                            }}
-                          >
-                            Сесії
-                          </Button>
+                          {(canUpdateAdminUsers(user?.role) || canDeactivateUsers(user?.role)) ? (
+                            <Button size="sm" variant="ghost" onClick={() => openEdit(item)}>
+                              Редагувати
+                            </Button>
+                          ) : null}
+                          {canResetStaffPasswords(user?.role) ? (
+                            <Button size="sm" variant="ghost" onClick={() => openPassword(item)}>
+                              Пароль
+                            </Button>
+                          ) : null}
+                          {canRevokeStaffSessions(user?.role) ? (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                void openRevoke(item)
+                              }}
+                            >
+                              Сесії
+                            </Button>
+                          ) : null}
                         </div>
                       ) : (
                         <span className="text-xs text-muted-foreground">Лише перегляд</span>
@@ -729,7 +737,7 @@ function PasswordDialog({
           className="space-y-4"
           onSubmit={form.handleSubmit(async (values) => {
             if (!user) return
-            if (!canManageAdminAccount(currentUser?.role, user)) {
+            if (!canResetStaffPasswords(currentUser?.role) || !canManageAdminAccount(currentUser?.role, user)) {
               toast.error('Недостатньо прав для цієї дії')
               return
             }

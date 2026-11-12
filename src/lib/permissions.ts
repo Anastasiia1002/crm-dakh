@@ -18,6 +18,7 @@ export type Permission =
   | 'guests.export'
   | 'accommodations.read'
   | 'accommodations.write'
+  | 'accommodations.availability'
   | 'pricing.read'
   | 'pricing.update'
   | 'promos.read'
@@ -62,6 +63,7 @@ const ALL: Permission[] = [
   'bookings.promo',
   'guests.export',
   'accommodations.write',
+  'accommodations.availability',
   'pricing.update',
   'promos.update',
   'services.update',
@@ -92,6 +94,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     'bookings.cancel',
     'bookings.reassign',
     'bookings.promo',
+    'accommodations.availability',
     'users.read',
     'users.invite',
     'users.deactivate',

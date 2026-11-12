@@ -62,6 +62,18 @@ export function canManageAccommodations(role: UserRole | undefined) {
   return hasPermission(role, 'accommodations.write')
 }
 
+export function canManageRoomAvailability(role: UserRole | undefined) {
+  return hasPermission(role, 'accommodations.availability')
+}
+
+export function canResetStaffPasswords(role: UserRole | undefined) {
+  return hasPermission(role, 'users.password')
+}
+
+export function canRevokeStaffSessions(role: UserRole | undefined) {
+  return hasPermission(role, 'users.sessions')
+}
+
 export function canManageRates(role: UserRole | undefined) {
   return hasPermission(role, 'pricing.update')
 }
