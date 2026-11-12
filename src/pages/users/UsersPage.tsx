@@ -27,7 +27,7 @@ import {
 import { ApiError } from '@/lib/api-error'
 import { errorMessage } from '@/lib/errors'
 import { formatDateTime } from '@/lib/format'
-import { userRoleLabel } from '@/lib/labels'
+import { staffInviteRoleLabel, userRoleLabel } from '@/lib/labels'
 import {
   canAccessUsersManagement,
   canChangeAdminRoleOrActive,
@@ -42,7 +42,13 @@ import {
 } from '@/lib/roles'
 import { inviteableFrontendRoles } from '@/lib/permissions'
 import { getAdminUser } from '@/api/users'
-import type { AdminUser, UserRole } from '@/types'
+import type { AdminInvitation, AdminInvitationStatus, AdminUser, UserRole } from '@/types'
+
+function invitationStatusLabel(status: AdminInvitationStatus) {
+  if (status === 'pending') return 'Очікує'
+  if (status === 'expired') return 'Прострочено'
+  return 'Прийнято'
+}
 
 const PAGE_SIZE = 20
 const ALL_ROLES = ['owner', 'admin', 'manager', 'receptionist'] as const
@@ -94,9 +100,11 @@ export function UsersPage() {
   const [revokeUser, setRevokeUser] = useState<AdminUser | null>(null)
   const [revokeSessions, setRevokeSessions] = useState<number | null>(null)
   const [revokePending, setRevokePending] = useState(false)
+  const [resending, setResending] = useState<AdminInvitation | null>(null)
   const users = useUsers({ page, limit: PAGE_SIZE })
   const invitations = useAdminInvitations(canAccess)
   const revoke = useRevokeAdminSessions()
+  const invite = useInviteAdminUser()
 
   if (!canAccess) {
     return (
@@ -262,24 +270,38 @@ export function UsersPage() {
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead>Імʼя</TableHead>
                 <TableHead>Пошта</TableHead>
                 <TableHead>Роль</TableHead>
                 <TableHead>Стан</TableHead>
+                <TableHead>Створено</TableHead>
+                <TableHead>Дійсне до</TableHead>
+                <TableHead className="text-right">Дії</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {(invitations.data ?? []).map((item) => (
                 <TableRow key={item.id}>
-                  <TableCell>
-                    {item.firstName} {item.lastName}
-                  </TableCell>
                   <TableCell>{item.email}</TableCell>
-                  <TableCell>{userRoleLabel[item.role]}</TableCell>
+                  <TableCell>
+                    {item.role === 'owner' ? userRoleLabel.owner : staffInviteRoleLabel[item.role]}
+                  </TableCell>
                   <TableCell>
                     <Badge tone={item.status === 'pending' ? 'success' : 'neutral'}>
-                      {item.status === 'pending' ? 'Очікує' : item.status === 'expired' ? 'Прострочене' : 'Прийняте'}
+                      {invitationStatusLabel(item.status)}
                     </Badge>
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-muted-foreground">
+                    {formatDateTime(item.createdAt)}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-muted-foreground">
+                    {formatDateTime(item.expiresAt)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {canInvite && item.status === 'pending' && item.role !== 'owner' && canInviteRole(user?.role, item.role) ? (
+                      <Button size="sm" variant="ghost" onClick={() => setResending(item)}>
+                        Надіслати знову
+                      </Button>
+                    ) : null}
                   </TableCell>
                 </TableRow>
               ))}
@@ -297,6 +319,41 @@ export function UsersPage() {
       </section>
 
       <InviteAdminDialog open={inviting} onOpenChange={setInviting} />
+
+      <ConfirmDialog
+        open={resending !== null}
+        title="Надіслати запрошення знову?"
+        description={
+          resending
+            ? `Надіслати нове посилання для ${resending.email} (${resending.role === 'owner' ? userRoleLabel.owner : staffInviteRoleLabel[resending.role]}). Попереднє посилання перестане діяти.`
+            : ''
+        }
+        confirmLabel="Надіслати знову"
+        pending={invite.isPending}
+        onOpenChange={(open) => {
+          if (!open) setResending(null)
+        }}
+        onConfirm={() => {
+          if (!resending || resending.role === 'owner') return
+          if (!canInviteAdminUsers(user?.role) || !canInviteRole(user?.role, resending.role)) {
+            toast.error('Недостатньо прав для цієї дії')
+            setResending(null)
+            return
+          }
+          void invite
+            .mutateAsync({
+              email: resending.email,
+              firstName: resending.firstName,
+              lastName: resending.lastName,
+              role: resending.role,
+            })
+            .then(() => {
+              toast.success('Запрошення надіслано знову')
+              setResending(null)
+            })
+            .catch((error) => toast.error(userErrorMessage(error)))
+        }}
+      />
 
       <UserDialog
         open={editing !== null}
@@ -417,10 +474,13 @@ function InviteAdminDialog({ open, onOpenChange }: { open: boolean; onOpenChange
             <Field label="Електронна пошта" error={form.formState.errors.email?.message}>
               <Input type="email" autoComplete="off" {...form.register('email')} />
             </Field>
-            <Field label="Роль">
+            <Field label="Роль" error={form.formState.errors.role?.message}>
               <Select
                 value={form.watch('role')}
-                onValueChange={(value: 'admin' | 'manager' | 'receptionist') => form.setValue('role', value)}
+                onValueChange={(value: 'admin' | 'manager' | 'receptionist') => {
+                  if (!canInviteRole(user?.role, value)) return
+                  form.setValue('role', value)
+                }}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -428,7 +488,7 @@ function InviteAdminDialog({ open, onOpenChange }: { open: boolean; onOpenChange
                 <SelectContent>
                   {allowedRoles.map((value) => (
                     <SelectItem key={value} value={value}>
-                      {userRoleLabel[value]}
+                      {staffInviteRoleLabel[value]}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -446,7 +506,7 @@ function InviteAdminDialog({ open, onOpenChange }: { open: boolean; onOpenChange
       <ConfirmDialog
         open={open && confirming}
         title="Надіслати запрошення?"
-        description={`Надіслати запрошення (${userRoleLabel[form.getValues('role')]}) на ${form.getValues('email')}? Пароль задасть запрошена особа.`}
+        description={`Надіслати запрошення (${staffInviteRoleLabel[form.getValues('role')]}) на ${form.getValues('email')}? Пароль задасть запрошена особа.`}
         confirmLabel="Надіслати запрошення"
         pending={invite.isPending}
         onOpenChange={(next) => {

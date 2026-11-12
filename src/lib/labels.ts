@@ -101,4 +101,11 @@ export const userRoleLabel: Record<UserRole, string> = {
   receptionist: 'Ресепшен',
 }
 
+/** Invitation dialog and table — matches the backend invite email labels. */
+export const staffInviteRoleLabel: Record<Exclude<UserRole, 'owner'>, string> = {
+  admin: 'Адміністратор',
+  manager: 'Менеджер',
+  receptionist: 'Рецепціоніст',
+}
+
 export const HOLDING_STATUSES: BookingStatus[] = ['PENDING', 'CONFIRMED', 'CHECKED_IN']

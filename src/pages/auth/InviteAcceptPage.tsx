@@ -9,8 +9,9 @@ import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { acceptAdminInvite, previewAdminInvite } from '@/api/users'
 import { errorMessage } from '@/lib/errors'
+import { formatDateTime } from '@/lib/format'
 import { consumeInviteTokenFromLocation } from '@/lib/invite-token'
-import { userRoleLabel } from '@/lib/labels'
+import { staffInviteRoleLabel, userRoleLabel } from '@/lib/labels'
 import { AuthLayout } from '@/layouts/AuthLayout'
 import type { AdminInvitationPreview } from '@/types'
 
@@ -93,7 +94,11 @@ export function InviteAcceptPage() {
           <p className="text-sm text-muted-foreground">
             {preview.firstName} {preview.lastName} · {preview.email}
           </p>
-          <p className="text-sm text-muted-foreground">Роль: {userRoleLabel[preview.role]}</p>
+          <p className="text-sm text-muted-foreground">
+            Призначена роль:{' '}
+            {preview.role === 'owner' ? userRoleLabel.owner : staffInviteRoleLabel[preview.role]}
+          </p>
+          <p className="text-sm text-muted-foreground">Дійсне до {formatDateTime(preview.expiresAt)}</p>
           <Field label="Пароль" error={form.formState.errors.password?.message}>
             <Input type="password" autoComplete="new-password" {...form.register('password')} />
           </Field>
@@ -104,7 +109,7 @@ export function InviteAcceptPage() {
             <p className="text-sm text-destructive">{form.formState.errors.root.message}</p>
           ) : null}
           <Button type="submit" className="w-full" loading={form.formState.isSubmitting}>
-            Зберегти пароль
+            Прийняти запрошення
           </Button>
         </form>
       )}
