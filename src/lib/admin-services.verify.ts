@@ -14,20 +14,32 @@ import {
 } from './admin-booking-view'
 import {
   ADMIN_SERVICE_CATALOG_AVAILABLE,
+  SERVICE_ACTIVATE_NEEDS_PRICE,
+  SERVICE_CHARGE_BASIS_LABEL,
   SERVICE_DEACTIVATE_CONFIRMATION,
   SERVICE_PRICE_CHANGE_NOTICE,
+  SERVICE_PRICE_UNSET_LABEL,
+  SERVICE_PUBLIC_STAY_ONLY_HINT,
+  SUGGESTED_SERVICE_DEFAULTS,
+  SUGGESTED_SERVICES_BUTTON,
+  SUGGESTED_SERVICES_HINT,
   buildAdminServiceCreateBody,
   buildAdminServicePatchBody,
+  canActivateManagedService,
   filterManagedServices,
+  formatManagedServicePrice,
   normalizeServiceSelections,
   parseAdminServiceCatalog,
+  parseEnsureSuggestedServicesResult,
   parseManagedAdminService,
   parseManagedAdminServiceCatalog,
   parseOptionalServiceQuantity,
   serviceDisplayName,
   serviceWriteBodyHasForbiddenFields,
   setServiceQuantity,
+  snapshotCatalogSelection,
   toggleServiceSelection,
+  validateOptionalServicePrice,
   validateServicePrice,
   validateServiceQuantity,
   validateServiceQuantityBounds,
@@ -408,8 +420,24 @@ function main() {
   })
   assert(published.bookable === true && published.minQuantity === 2 && published.maxQuantity === 4, 'public limits load from the admin service')
   assert(isPubliclyBookableService(published), 'an active bookable service is offered online')
-  assert(!isPubliclyBookableService({ active: false, bookable: true }), 'an inactive service stays off the public catalog')
-  assert(!isPubliclyBookableService({ active: true, bookable: false }), 'a private service stays off the public catalog')
+  assert(!isPubliclyBookableService({ active: false, bookable: true, price: '10.10' }), 'an inactive service stays off the public catalog')
+  assert(!isPubliclyBookableService({ active: true, bookable: false, price: '10.10' }), 'a private service stays off the public catalog')
+  const perNight = parseManagedAdminService({
+    id: BREAKFAST,
+    name: 'Сніданок',
+    description: null,
+    price: '10.10',
+    currency: 'UAH',
+    active: true,
+    bookable: true,
+    chargeBasis: 'PER_NIGHT',
+    minQuantity: null,
+    maxQuantity: null,
+    createdAt: '2026-10-01T00:00:00.000Z',
+    updatedAt: '2026-10-02T00:00:00.000Z',
+  })
+  assert(perNight.chargeBasis === 'PER_NIGHT', 'PER_NIGHT is a catalog charge basis')
+  assert(!isPubliclyBookableService(perNight), 'non-stay charge stays off the public catalog')
   let rejectedBasis = false
   try {
     parseManagedAdminService({
@@ -420,7 +448,7 @@ function main() {
       currency: 'UAH',
       active: true,
       bookable: true,
-      chargeBasis: 'PER_NIGHT',
+      chargeBasis: 'PER_HOUR',
       minQuantity: null,
       maxQuantity: null,
       createdAt: '2026-10-01T00:00:00.000Z',
@@ -429,7 +457,7 @@ function main() {
   } catch {
     rejectedBasis = true
   }
-  assert(rejectedBasis, 'unsupported charge bases are rejected')
+  assert(rejectedBasis, 'unknown charge bases are rejected')
 
   const privateCreate = buildAdminServiceCreateBody({
     name: 'Трансфер',
@@ -476,7 +504,7 @@ function main() {
   const enabled = buildAdminServicePatchBody(loaded, {
     name: loaded.name,
     description: '',
-    price: loaded.price,
+    price: loaded.price ?? '',
     active: true,
     bookable: true,
   })
@@ -484,7 +512,7 @@ function main() {
   const disabled = buildAdminServicePatchBody(published, {
     name: published.name,
     description: '',
-    price: published.price,
+    price: published.price ?? '',
     active: true,
     bookable: false,
     minQuantity: '2',
@@ -494,7 +522,7 @@ function main() {
   const clearedLimit = buildAdminServicePatchBody(published, {
     name: published.name,
     description: '',
-    price: published.price,
+    price: published.price ?? '',
     active: true,
     bookable: true,
     minQuantity: '',
@@ -511,14 +539,72 @@ function main() {
   )
 
   assert(page.includes('Доступна для онлайн-бронювання'), 'the form names the public switch')
-  assert(page.includes('За бронювання'), 'the form shows the only supported charge basis')
+  assert(page.includes('За бронювання') || page.includes('SERVICE_PUBLIC_STAY_ONLY_HINT'), 'the form still names the per-stay unit')
   assert(page.includes('role="switch"'), 'public availability is a switch')
-  assert(!page.includes('PER_NIGHT') && !page.includes('PER_PERSON'), 'the form does not offer unsupported charge bases')
+  assert(page.includes('ADMIN_SERVICE_CHARGE_BASES') && page.includes('SERVICE_CHARGE_BASIS_LABEL'), 'the form offers staff charge bases')
+  assert(page.includes('SERVICE_PUBLIC_STAY_ONLY_HINT'), 'public booking stays PER_STAY in the copy')
   assert(page.includes('На сайті') && page.includes('Лише в CRM'), 'the catalog shows whether a service is public')
+  assert(page.includes('SUGGESTED_SERVICES_BUTTON') && page.includes('SUGGESTED_SERVICES_HINT'), 'suggested services stay off until priced')
+  assert(page.includes('SERVICE_PRICE_UNSET_LABEL'), 'unset price is labeled as not set')
+  assert(page.includes('ensure-suggested') === false, 'the page uses the hook, not a raw path')
+  assert(page.includes('useEnsureSuggestedAdminServices'), 'write roles can insert suggested defaults')
+  assert(SERVICE_CHARGE_BASIS_LABEL.PER_NIGHT === 'За ніч' && SERVICE_CHARGE_BASIS_LABEL.PER_PERSON_DAY === 'За людину на добу', 'charge bases have Ukrainian unit labels')
+  assert(SUGGESTED_SERVICES_BUTTON === 'Додати шаблонні послуги', 'suggested-services button copy')
 
   const picker = readFileSync(new URL('../components/bookings/AdminServicePicker.tsx', import.meta.url), 'utf8')
   assert(picker.includes('savedLine.unitPrice'), 'picker shows saved historical unitPrice')
   assert(picker.includes('Немає в активному каталозі'), 'inactive saved lines stay on the booking form')
+  assert(picker.includes('SERVICE_CHARGE_BASIS_LABEL'), 'picker shows the unit hint')
+  assert(picker.includes('Активних послуг із ціною немає'), 'picker requires a catalog price')
+
+  const unset = parseManagedAdminService({
+    id: BREAKFAST,
+    name: 'Трансфер',
+    description: null,
+    price: null,
+    currency: 'UAH',
+    active: false,
+    bookable: false,
+    chargeBasis: 'PER_TRIP',
+    sortOrder: 3,
+    category: 'логістика',
+    createdAt: '2026-10-01T00:00:00.000Z',
+    updatedAt: '2026-10-02T00:00:00.000Z',
+  })
+  assert(unset.price === null && unset.chargeBasis === 'PER_TRIP' && unset.sortOrder === 3 && unset.category === 'логістика', 'managed catalog keeps an unset price')
+  assert(formatManagedServicePrice(null) === SERVICE_PRICE_UNSET_LABEL, 'unset price is not shown as free')
+  assert(!canActivateManagedService(unset), 'a service without a price cannot be activated')
+  assert(
+    !buildAdminServiceCreateBody({ name: 'Трансфер', description: '', price: '', active: true }).ok,
+    'create cannot activate without a price',
+  )
+  const draft = buildAdminServiceCreateBody({
+    name: 'Трансфер',
+    description: '',
+    price: '',
+    active: false,
+    chargeBasis: 'PER_TRIP',
+  })
+  assert(draft.ok && draft.body.price === null && draft.body.chargeBasis === 'PER_TRIP' && draft.body.active === false, 'unset price is sent as null')
+  assert(validateOptionalServicePrice('').ok && validateOptionalServicePrice('').price === null, 'blank price is unset')
+  assert(
+    parseAdminServiceCatalog({
+      items: [
+        { id: BREAKFAST, name: 'Сніданок', description: null, price: '10.10', currency: 'UAH', active: true },
+        { id: DINNER, name: 'Вечеря', description: null, price: null, currency: 'UAH', active: true },
+      ],
+    }).map((item) => item.id).join() === BREAKFAST,
+    'booking picker hides active services without a price',
+  )
+  const snapshot = snapshotCatalogSelection({ id: BREAKFAST, price: '10.10' }, 2)
+  assert(snapshot.ok && snapshot.quantity === 2 && snapshot.unitPrice === '10.10', 'quantity snapshots the catalog unit price')
+  assert(!snapshotCatalogSelection({ id: BREAKFAST, price: '10.10' }, 0).ok, 'snapshot still validates quantity')
+  assert(SUGGESTED_SERVICE_DEFAULTS.every((item) => item.name.length > 0 && !('active' in item && item.active)), 'suggested defaults are named and not pre-activated')
+  assert(SUGGESTED_SERVICE_DEFAULTS.some((item) => item.name === 'Сніданок' && item.chargeBasis === 'PER_PERSON_DAY'), 'breakfast is per person-day')
+  const ensured = parseEnsureSuggestedServicesResult({ insertedCount: 7, skippedCount: 0 })
+  assert(ensured.insertedCount === 7 && ensured.skippedCount === 0, 'ensure-suggested reports insert counts')
+  assert(api.includes('/api/admin/services/ensure-suggested'), 'API client can insert suggested services')
+  assert(SERVICE_ACTIVATE_NEEDS_PRICE.includes('ціни'), 'activation copy requires a price')
 
   console.log('PASS: admin extra-service catalog uses GET /api/admin/services')
 }

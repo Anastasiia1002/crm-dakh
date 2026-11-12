@@ -19,20 +19,33 @@ import { useAuth } from '@/hooks/useAuth'
 import {
   useAdminService,
   useCreateAdminService,
+  useEnsureSuggestedAdminServices,
   useManagedAdminServices,
   useUpdateAdminService,
 } from '@/hooks/useAdminServices'
 import {
+  ADMIN_SERVICE_CATEGORY_MAX,
+  ADMIN_SERVICE_CHARGE_BASES,
   ADMIN_SERVICE_DESCRIPTION_MAX,
   ADMIN_SERVICE_NAME_MAX,
+  SERVICE_ACTIVATE_NEEDS_PRICE,
+  SERVICE_CHARGE_BASIS_LABEL,
+  SERVICE_PRICE_UNSET_LABEL,
+  SERVICE_PUBLIC_STAY_ONLY_HINT,
+  SUGGESTED_SERVICES_BUTTON,
+  SUGGESTED_SERVICES_HINT,
   buildAdminServiceCreateBody,
   buildAdminServicePatchBody,
+  canActivateManagedService,
   filterManagedServices,
-  formatCatalogPrice,
+  formatManagedServicePrice,
   isPubliclyBookableService,
   parseOptionalServiceQuantity,
+  parseOptionalServiceSortOrder,
+  validateOptionalServicePrice,
   validateServiceQuantityBounds,
   type AdminManagedService,
+  type AdminServiceChargeBasis,
   type ServiceStatusFilter,
 } from '@/lib/admin-services'
 import { createSubmitLock } from '@/lib/booking-form'
@@ -48,15 +61,25 @@ const schema = z
       .min(1, 'Вкажіть назву послуги.')
       .max(ADMIN_SERVICE_NAME_MAX, `Назва має бути до ${ADMIN_SERVICE_NAME_MAX} символів.`),
     description: z.string().max(ADMIN_SERVICE_DESCRIPTION_MAX, `Опис має бути до ${ADMIN_SERVICE_DESCRIPTION_MAX} символів.`),
-    price: z.string().trim().min(1, 'Вкажіть ціну.'),
+    price: z.string(),
     active: z.enum(['yes', 'no']),
     bookable: z.boolean(),
+    chargeBasis: z.enum(ADMIN_SERVICE_CHARGE_BASES),
     minQuantity: z.string(),
     maxQuantity: z.string(),
+    sortOrder: z.string(),
+    category: z.string().max(ADMIN_SERVICE_CATEGORY_MAX, `Категорія має бути до ${ADMIN_SERVICE_CATEGORY_MAX} символів.`),
   })
   .superRefine((values, ctx) => {
-    if (values.price === '0' || values.price === '0.0' || values.price === '0.00') {
-      ctx.addIssue({ code: 'custom', path: ['price'], message: 'Ціна має бути щонайменше 0.01 ₴.' })
+    const price = validateOptionalServicePrice(values.price)
+    if (!price.ok) {
+      ctx.addIssue({ code: 'custom', path: ['price'], message: price.error })
+    } else if ((values.active === 'yes' || values.bookable) && price.price === null) {
+      ctx.addIssue({ code: 'custom', path: ['price'], message: SERVICE_ACTIVATE_NEEDS_PRICE })
+    }
+    const sortOrder = parseOptionalServiceSortOrder(values.sortOrder)
+    if (!sortOrder.ok) {
+      ctx.addIssue({ code: 'custom', path: ['sortOrder'], message: sortOrder.error })
     }
     const minQuantity = parseOptionalServiceQuantity(values.minQuantity)
     if (!minQuantity.ok) {
@@ -79,6 +102,7 @@ export function ServicesPage() {
   const canWrite = canManageAdminServices(user?.role)
   const catalog = useManagedAdminServices()
   const update = useUpdateAdminService()
+  const ensureSuggested = useEnsureSuggestedAdminServices()
   const [editing, setEditing] = useState<AdminManagedService | 'new' | null>(null)
   const [pendingDeactivate, setPendingDeactivate] = useState<AdminManagedService | null>(null)
   const [query, setQuery] = useState('')
@@ -90,11 +114,37 @@ export function ServicesPage() {
     <div>
       <SectionHeading
         title="Додаткові послуги"
-        action={canWrite ? <Button onClick={() => setEditing('new')}>Додати послугу</Button> : undefined}
+        action={
+          canWrite ? (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                loading={ensureSuggested.isPending}
+                onClick={() => {
+                  void ensureSuggested
+                    .mutateAsync()
+                    .then((result) => {
+                      if (result.insertedCount === 0) {
+                        toast.success('Усі шаблонні послуги вже є.')
+                        return
+                      }
+                      toast.success(`Додано шаблонні послуги: ${result.insertedCount}.`)
+                    })
+                    .catch((error) => toast.error(errorMessage(error)))
+                }}
+              >
+                {SUGGESTED_SERVICES_BUTTON}
+              </Button>
+              <Button onClick={() => setEditing('new')}>Додати послугу</Button>
+            </div>
+          ) : undefined
+        }
       />
       <p className="mb-4 max-w-2xl text-sm text-muted-foreground">
-        Каталог цього готелю, включно з вимкненими послугами. Ціни в гривнях. Нова ціна не змінює вже збережені рядки в
-        бронюваннях. На сайті гість бачить лише активну послугу, яку окремо дозволено для онлайн-бронювання.
+        Каталог цього готелю, включно з вимкненими послугами. Ціни в гривнях. Порожня ціна — {SERVICE_PRICE_UNSET_LABEL.toLowerCase()},
+        це не безкоштовна послуга. Нова ціна не змінює вже збережені рядки в бронюваннях. {SERVICE_PUBLIC_STAY_ONLY_HINT}{' '}
+        {SUGGESTED_SERVICES_HINT}
       </p>
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
         <Input
@@ -133,6 +183,7 @@ export function ServicesPage() {
               <TableHead>Назва</TableHead>
               <TableHead>Опис</TableHead>
               <TableHead>Ціна</TableHead>
+              <TableHead>Нарахування</TableHead>
               <TableHead>Статус</TableHead>
               <TableHead>Оновлено</TableHead>
               <TableHead />
@@ -143,7 +194,8 @@ export function ServicesPage() {
               <TableRow key={item.id}>
                 <TableCell className="font-medium">{item.name}</TableCell>
                 <TableCell>{item.description || '—'}</TableCell>
-                <TableCell className="tabular-nums">{formatCatalogPrice(item.price)}</TableCell>
+                <TableCell className="tabular-nums">{formatManagedServicePrice(item.price)}</TableCell>
+                <TableCell>{SERVICE_CHARGE_BASIS_LABEL[item.chargeBasis]}</TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-1">
                     <Badge tone={item.active ? 'success' : 'neutral'}>{item.active ? 'Активна' : 'Вимкнена'}</Badge>
@@ -162,9 +214,14 @@ export function ServicesPage() {
                       <Button
                         size="sm"
                         variant="outline"
+                        disabled={!item.active && !canActivateManagedService(item)}
                         onClick={() => {
                           if (item.active) {
                             setPendingDeactivate(item)
+                            return
+                          }
+                          if (!canActivateManagedService(item)) {
+                            toast.error(SERVICE_ACTIVATE_NEEDS_PRICE)
                             return
                           }
                           void update
@@ -244,14 +301,18 @@ function ServiceDialog({
       name: current?.name ?? '',
       description: current?.description ?? '',
       price: current?.price ?? '',
-      active: current?.active === false ? 'no' : 'yes',
+      active: current?.active ? 'yes' : 'no',
       bookable: current?.bookable ?? false,
+      chargeBasis: current?.chargeBasis ?? 'PER_STAY',
       minQuantity: current?.minQuantity == null ? '' : String(current.minQuantity),
       maxQuantity: current?.maxQuantity == null ? '' : String(current.maxQuantity),
+      sortOrder: current?.sortOrder ? String(current.sortOrder) : '',
+      category: current?.category ?? '',
     },
   })
   const watchedPrice = form.watch('price')
-  const priceChanged = Boolean(current && watchedPrice.trim() !== current.price)
+  const watchedChargeBasis = form.watch('chargeBasis')
+  const priceChanged = Boolean(current && watchedPrice.trim() !== (current.price ?? ''))
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -270,8 +331,11 @@ function ServiceDialog({
               price: values.price,
               active: values.active === 'yes',
               bookable: values.bookable,
+              chargeBasis: values.chargeBasis,
               minQuantity: values.minQuantity,
               maxQuantity: values.maxQuantity,
+              sortOrder: values.sortOrder,
+              category: values.category,
             }
             if (!item) {
               const created = buildAdminServiceCreateBody(formValues)
@@ -333,7 +397,11 @@ function ServiceDialog({
         <Field label="Опис" error={form.formState.errors.description?.message}>
           <Textarea disabled={!canWrite} {...form.register('description')} />
         </Field>
-        <Field label="Ціна, ₴" error={form.formState.errors.price?.message}>
+        <Field
+          label="Ціна, ₴"
+          error={form.formState.errors.price?.message}
+          hint={`Порожнє поле — ${SERVICE_PRICE_UNSET_LABEL.toLowerCase()}. Це не безкоштовна послуга.`}
+        >
           <Input inputMode="decimal" disabled={!canWrite} {...form.register('price')} />
         </Field>
         {item && priceChanged ? (
@@ -377,15 +445,43 @@ function ServiceDialog({
             </span>
           </button>
           <p id="service-bookable-hint" className="text-xs text-muted-foreground">
-            Увімкніть, щоб гість міг додати послугу під час онлайн-бронювання. Вимкнена послуга на сайті не з’являється.
+            {SERVICE_PUBLIC_STAY_ONLY_HINT} Вимкнена послуга на сайті не з’являється.
           </p>
           {form.watch('active') === 'no' && form.watch('bookable') ? (
             <p className="text-xs text-muted-foreground">На сайті послуга не з’явиться, доки вона вимкнена.</p>
           ) : null}
+          {form.watch('bookable') && watchedChargeBasis !== 'PER_STAY' ? (
+            <p className="text-xs text-muted-foreground">
+              Онлайн-бронювання підтримує лише нарахування «За бронювання». Інші одиниці видно лише в CRM.
+            </p>
+          ) : null}
         </div>
-        <Field label="Нарахування" hint="Вартість додається один раз до всього бронювання. Інші способи нарахування не підтримуються.">
-          <p className="flex min-h-11 items-center rounded-md border border-border bg-surface-muted px-3 text-sm">За бронювання</p>
+        <Field label="Нарахування" error={form.formState.errors.chargeBasis?.message}>
+          <Select
+            value={watchedChargeBasis}
+            onValueChange={(value: AdminServiceChargeBasis) => form.setValue('chargeBasis', value, { shouldDirty: true })}
+            disabled={!canWrite}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className={formDialogSelectContentClass} collisionPadding={16}>
+              {ADMIN_SERVICE_CHARGE_BASES.map((basis) => (
+                <SelectItem key={basis} value={basis}>
+                  {SERVICE_CHARGE_BASIS_LABEL[basis]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Порядок" htmlFor="service-sort-order" error={form.formState.errors.sortOrder?.message}>
+            <Input id="service-sort-order" inputMode="numeric" disabled={!canWrite} placeholder="0" {...form.register('sortOrder')} />
+          </Field>
+          <Field label="Категорія" htmlFor="service-category" error={form.formState.errors.category?.message} hint="Необов’язково.">
+            <Input id="service-category" disabled={!canWrite} {...form.register('category')} />
+          </Field>
+        </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field
             label="Мінімальна кількість"
