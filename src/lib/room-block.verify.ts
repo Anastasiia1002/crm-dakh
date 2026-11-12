@@ -78,16 +78,16 @@ assert(
 )
 console.log('PASS: conflict copy')
 
-for (const role of ['owner', 'admin'] as const) {
+for (const role of ['owner', 'admin', 'manager'] as const) {
   assert(showCalendarBlockButton(role), `${role} sees Заблокувати дати`)
   assert(emptyNightIntent(role) === 'select', `${role} selects a range before acting`)
 }
-for (const role of ['manager', 'receptionist'] as const) {
+for (const role of ['receptionist'] as const) {
   assert(!showCalendarBlockButton(role), `${role} does not see block mutations`)
   assert(emptyNightIntent(role) === 'book', `${role} keeps one-click booking`)
 }
 assert(!showCalendarBlockButton(undefined), 'signed-out user has no block action')
-console.log('PASS: calendar block action follows SUPER_ADMIN and ADMIN')
+console.log('PASS: calendar block action follows SUPER_ADMIN, ADMIN, and MANAGER')
 
 const free = new Set(['2027-01-05', '2027-01-06', '2027-01-07', '2027-01-09'])
 const first = nextNightSelection({ current: null, roomId: 'room-a', date: '2027-01-05', availableDates: free })

@@ -14,7 +14,7 @@ import { useDeleteAdminRoomBlock } from '@/hooks/useHotel'
 import { unitDisplayTitle } from '@/lib/accommodation-labels'
 import { formatDate, formatDateTime } from '@/lib/format'
 import { blockConflictMessage, blockReasonLabel, unblockConfirmMessage } from '@/lib/room-block'
-import { canManageAccommodations } from '@/lib/roles'
+import { canManageRoomAvailability } from '@/lib/roles'
 import type { Block } from '@/types'
 
 export function BlockDetailsDialog({
@@ -29,7 +29,7 @@ export function BlockDetailsDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const { user } = useAuth()
-  const canWrite = canManageAccommodations(user?.role)
+  const canWrite = canManageRoomAvailability(user?.role)
   const removeBlock = useDeleteAdminRoomBlock()
   const [confirming, setConfirming] = useState(false)
 
