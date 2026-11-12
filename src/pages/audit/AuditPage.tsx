@@ -16,6 +16,7 @@ import { useUsers } from '@/hooks/useHotel'
 import {
   AUDIT_CATEGORIES,
   auditCategoryLabel,
+  auditActorRoleLabel,
   entityHref,
   isAuditUnavailable,
   operationalAuditCategories,
@@ -23,7 +24,6 @@ import {
   type AuditEvent,
 } from '@/lib/admin-audit'
 import { formatDateTimeKyiv } from '@/lib/format'
-import { userRoleLabel } from '@/lib/labels'
 import { canExportAudit, canReadAudit } from '@/lib/roles'
 
 const PAGE_SIZE = 20
@@ -244,19 +244,20 @@ export function AuditPage() {
               <TableHead>Дія</TableHead>
               <TableHead>Категорія</TableHead>
               <TableHead>Сутність</TableHead>
+              <TableHead>
+                <span className="sr-only">Деталі</span>
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {items.map((item) => {
               const href = entityHref(item.entityType, item.entityId)
               return (
-                <TableRow key={item.id} className="cursor-pointer" onClick={() => setSelected(item)}>
+                <TableRow key={item.id}>
                   <TableCell className="whitespace-nowrap">{formatDateTimeKyiv(item.createdAt)}</TableCell>
                   <TableCell>
                     <div>{item.actor?.displayName ?? 'Система / невідомо'}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {item.actor?.role ? userRoleLabel[item.actor.role] : '—'}
-                    </div>
+                    <div className="text-xs text-muted-foreground">{auditActorRoleLabel(item.actor?.role)}</div>
                   </TableCell>
                   <TableCell>
                     <div>{item.description}</div>
@@ -269,12 +270,23 @@ export function AuditPage() {
                   <TableCell>{auditCategoryLabel[item.category]}</TableCell>
                   <TableCell>
                     {href ? (
-                      <Link to={href} onClick={(event) => event.stopPropagation()} className="underline-offset-2 hover:underline">
+                      <Link to={href} className="underline-offset-2 hover:underline">
                         {item.entityLabel}
                       </Link>
                     ) : (
                       item.entityLabel
                     )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      aria-label={`Деталі: ${item.description}`}
+                      onClick={() => setSelected(item)}
+                    >
+                      Деталі
+                    </Button>
                   </TableCell>
                 </TableRow>
               )
@@ -294,7 +306,7 @@ export function AuditPage() {
             <dl className="space-y-3 text-sm">
               <Detail label="Час" value={formatDateTimeKyiv(selected.createdAt)} />
               <Detail label="Співробітник" value={selected.actor?.displayName ?? 'Система / невідомо'} />
-              <Detail label="Роль" value={selected.actor?.role ? userRoleLabel[selected.actor.role] : '—'} />
+              <Detail label="Роль" value={auditActorRoleLabel(selected.actor?.role)} />
               <Detail label="Код дії" value={selected.action} />
               <Detail label="Категорія" value={auditCategoryLabel[selected.category]} />
               <Detail

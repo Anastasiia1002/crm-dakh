@@ -1,4 +1,5 @@
 import { ApiError } from '@/lib/api-error'
+import { userRoleLabel } from '@/lib/labels'
 import type { UserRole } from '@/types'
 import { mapBackendRole } from '@/lib/roles'
 
@@ -85,6 +86,12 @@ export type AuditListQuery = {
 
 export function isAuditUnavailable(error: unknown) {
   return error instanceof ApiError && error.status === 404
+}
+
+export function auditActorRoleLabel(role: UserRole | null | undefined): string {
+  if (!role) return '—'
+  if (role === 'receptionist') return 'Рецепціоніст'
+  return userRoleLabel[role]
 }
 
 export function entityHref(entityType: string, entityId: string | null): string | null {
