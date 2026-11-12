@@ -5,7 +5,7 @@
 import { readFileSync } from 'node:fs'
 import { hasPermission } from './permissions'
 import { canExportAudit, canReadAudit } from './roles'
-import { entityHref, isAuditUnavailable, parseAuditPage } from './admin-audit'
+import { auditActorRoleLabel, entityHref, isAuditUnavailable, parseAuditPage } from './admin-audit'
 import { ApiError } from './api-error'
 
 function assert(condition: boolean, message: string) {
@@ -17,6 +17,10 @@ assert(!canReadAudit('receptionist'), 'receptionist cannot read audit')
 assert(canExportAudit('owner') && !canExportAudit('admin') && !canExportAudit('manager'), 'export is owner only')
 assert(hasPermission('owner', 'audit.export'), 'owner catalog includes export')
 assert(!hasPermission('admin', 'audit.export'), 'admin catalog excludes export')
+
+assert(auditActorRoleLabel('receptionist') === 'Рецепціоніст', 'audit role label is receptionist')
+assert(auditActorRoleLabel('admin') === 'Адміністратор', 'audit admin role label')
+assert(auditActorRoleLabel(null) === '—', 'missing audit role')
 
 assert(entityHref('Booking', 'book-1') === '/admin/bookings/book-1', 'booking entity link')
 assert(entityHref('Guest', 'g1') === '/admin/guests/g1', 'guest entity link')
@@ -64,6 +68,10 @@ assert(pageSrc.includes('formatDateTimeKyiv'), 'kyiv timestamps')
 assert(pageSrc.includes('canExportAudit'), 'export gated')
 assert(pageSrc.includes("Експортувати CSV"), 'export label')
 assert(pageSrc.includes('canExport'), 'owner-only export button')
+assert(pageSrc.includes('Деталі'), 'keyboard-accessible details control')
+assert(pageSrc.includes('aria-label={`Деталі: ${item.description}`}'), 'details button has accessible name')
+assert(pageSrc.includes('auditActorRoleLabel'), 'audit uses receptionist-standardized role labels')
+assert(!pageSrc.includes('Ресепшен'), 'audit page does not use Ресепшен')
 assert(!pageSrc.includes('password'), 'page source does not mention passwords')
 
 const usersPage = readFileSync(new URL('../pages/users/UsersPage.tsx', import.meta.url), 'utf8')
