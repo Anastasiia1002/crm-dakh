@@ -681,6 +681,7 @@ export type InviteAdminUserInput = {
   email: string
   firstName: string
   lastName: string
+  role: Exclude<UserRole, 'owner'>
 }
 
 export type AdminUserUpdateInput = {

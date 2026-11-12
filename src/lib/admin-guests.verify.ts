@@ -210,7 +210,7 @@ assert(directory.includes('canWrite') && directory.includes('canExport'), 'creat
 assert(!directory.includes('Імпорт') && !directory.includes('GuestImportDialog'), 'unfinished import is not shown')
 assert(directory.includes('sort') && directory.includes('order'), 'directory sends sort to the API')
 assert(canWriteGuests('receptionist') && !canExportGuests('receptionist'), 'reception can write clients but not export')
-assert(canExportGuests('manager') && canExportGuests('admin') && canExportGuests('owner'), 'managers can export')
+assert(!canExportGuests('manager') && !canExportGuests('admin') && canExportGuests('owner'), 'only owner exports guests')
 assert(directory.includes('guests.data.total'), 'total comes from the page payload')
 assert(!directory.includes('newGuests') && !directory.includes('Постійний'), 'no invented guest categories')
 assert(profilePage.includes('Редагувати') && profilePage.includes('Створити бронювання'), 'profile can edit and prefill a booking')

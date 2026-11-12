@@ -88,6 +88,7 @@ export async function inviteAdminUser(input: InviteAdminUserInput): Promise<Admi
       email: input.email.trim().toLowerCase(),
       firstName: input.firstName.trim(),
       lastName: input.lastName.trim(),
+      ...(input.role === 'admin' ? {} : { role: mapFrontendRole(input.role) }),
     },
   })
   return toInvitation(created)

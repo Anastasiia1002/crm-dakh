@@ -1,4 +1,5 @@
 import { ApiError } from '@/lib/api-error'
+import { hasPermission, inviteableFrontendRoles } from '@/lib/permissions'
 import type { UserRole } from '@/types'
 
 export const backendRoleToFrontend = {
@@ -27,57 +28,70 @@ export function mapFrontendRole(role: UserRole): BackendAdminRole {
 }
 
 export function canAccessUsersManagement(role: UserRole | undefined) {
-  return role === 'owner' || role === 'admin'
+  return hasPermission(role, 'users.read')
 }
 
 export function canCreateAdminUsers(role: UserRole | undefined) {
-  return role === 'owner'
+  return hasPermission(role, 'users.create')
 }
 
-/** Mirrors backend POST /api/admin/users/invitations: SUPER_ADMIN only. */
+export function canUpdateAdminUsers(role: UserRole | undefined) {
+  return hasPermission(role, 'users.update')
+}
+
 export function canInviteAdminUsers(role: UserRole | undefined) {
-  return canCreateAdminUsers(role)
+  return hasPermission(role, 'users.invite')
 }
 
 export function canChangeAdminRoleOrActive(role: UserRole | undefined) {
-  return role === 'owner'
+  return hasPermission(role, 'users.roles.manage')
 }
 
-/** Mirrors backend assertAdminMayTouchAccount: ADMIN cannot modify SUPER_ADMIN accounts. */
+export function canDeactivateUsers(role: UserRole | undefined) {
+  return hasPermission(role, 'users.deactivate')
+}
+
 export function canManageAdminAccount(actorRole: UserRole | undefined, target: { role: UserRole }) {
   if (actorRole === 'owner') return true
   if (actorRole === 'admin') return target.role !== 'owner'
+  if (actorRole === 'manager') return target.role === 'receptionist'
   return false
 }
 
-/** Mirrors accommodation WRITE_ROLES: SUPER_ADMIN + ADMIN. All staff roles may read. */
 export function canManageAccommodations(role: UserRole | undefined) {
-  return role === 'owner' || role === 'admin'
+  return hasPermission(role, 'accommodations.write')
 }
 
-/** Mirrors rates WRITE_ROLES: SUPER_ADMIN + ADMIN. Manager/receptionist may read. */
 export function canManageRates(role: UserRole | undefined) {
-  return role === 'owner' || role === 'admin'
+  return hasPermission(role, 'pricing.update')
 }
 
-/** Mirrors admin service catalog WRITE_ROLES: SUPER_ADMIN + ADMIN. Manager/receptionist may read. */
 export function canManageAdminServices(role: UserRole | undefined) {
-  return role === 'owner' || role === 'admin'
+  return hasPermission(role, 'services.update')
 }
 
-/** Mirrors booking REASSIGN_ROLES: SUPER_ADMIN + ADMIN + MANAGER. */
 export function canReassignBookingRoom(role: UserRole | undefined) {
-  return role === 'owner' || role === 'admin' || role === 'manager'
+  return hasPermission(role, 'bookings.reassign')
 }
 
-/** Mirrors GUEST_WRITE_ROLES: all staff who can create bookings. */
 export function canWriteGuests(role: UserRole | undefined) {
-  return role === 'owner' || role === 'admin' || role === 'manager' || role === 'receptionist'
+  return hasPermission(role, 'guests.update')
 }
 
-/** Mirrors GUEST_EXPORT_ROLES: SUPER_ADMIN + ADMIN + MANAGER. Notes are never exported. */
 export function canExportGuests(role: UserRole | undefined) {
-  return role === 'owner' || role === 'admin' || role === 'manager'
+  return hasPermission(role, 'guests.export')
+}
+
+export function canReadAnalytics(role: UserRole | undefined) {
+  return hasPermission(role, 'analytics.read')
+}
+
+export function canCancelBookings(role: UserRole | undefined) {
+  return hasPermission(role, 'bookings.cancel')
+}
+
+export function canInviteRole(actor: UserRole | undefined, target: UserRole) {
+  return (inviteableFrontendRoles(actor) as UserRole[]).includes(target)
 }
 
 function isBackendAdminRole(role: string): role is BackendAdminRole {

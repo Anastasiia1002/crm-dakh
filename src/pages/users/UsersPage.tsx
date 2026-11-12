@@ -32,9 +32,13 @@ import {
   canAccessUsersManagement,
   canChangeAdminRoleOrActive,
   canCreateAdminUsers,
+  canDeactivateUsers,
   canInviteAdminUsers,
+  canUpdateAdminUsers,
+  canInviteRole,
   canManageAdminAccount,
 } from '@/lib/roles'
+import { inviteableFrontendRoles } from '@/lib/permissions'
 import { getAdminUser } from '@/api/users'
 import type { AdminUser, UserRole } from '@/types'
 
@@ -53,6 +57,7 @@ const inviteSchema = z.object({
   firstName: z.string().trim().min(1, 'Вкажіть імʼя').max(100, 'Імʼя задовге'),
   lastName: z.string().trim().min(1, 'Вкажіть прізвище').max(100, 'Прізвище задовге'),
   email: z.string().trim().email('Вкажіть коректну електронну пошту').max(320, 'Електронна пошта задовга'),
+  role: z.enum(['admin', 'manager', 'receptionist']),
 })
 
 const createSchema = profileSchema.extend({
@@ -237,7 +242,7 @@ export function UsersPage() {
           title="Запрошення"
           action={
             canInvite ? (
-              <Button onClick={() => setInviting(true)}>Запросити адміністратора</Button>
+              <Button onClick={() => setInviting(true)}>Запросити співробітника</Button>
             ) : undefined
           }
         />
@@ -355,15 +360,16 @@ export function UsersPage() {
 function InviteAdminDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const { user } = useAuth()
   const invite = useInviteAdminUser()
+  const allowedRoles = inviteableFrontendRoles(user?.role)
   const [confirming, setConfirming] = useState(false)
   const form = useForm<z.infer<typeof inviteSchema>>({
     resolver: zodResolver(inviteSchema),
-    values: { firstName: '', lastName: '', email: '' },
+    values: { firstName: '', lastName: '', email: '', role: allowedRoles[0] ?? 'receptionist' },
   })
 
   function resetAndClose() {
     setConfirming(false)
-    form.reset({ firstName: '', lastName: '', email: '' })
+    form.reset({ firstName: '', lastName: '', email: '', role: allowedRoles[0] ?? 'receptionist' })
     onOpenChange(false)
   }
 
@@ -377,12 +383,12 @@ function InviteAdminDialog({ open, onOpenChange }: { open: boolean; onOpenChange
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Запросити адміністратора</DialogTitle>
+            <DialogTitle>Запросити співробітника</DialogTitle>
           </DialogHeader>
           <form
             className="space-y-4"
             onSubmit={form.handleSubmit(() => {
-              if (!canInviteAdminUsers(user?.role)) {
+              if (!canInviteAdminUsers(user?.role) || !canInviteRole(user?.role, form.getValues('role'))) {
                 toast.error('Недостатньо прав для цієї дії')
                 return
               }
@@ -390,7 +396,7 @@ function InviteAdminDialog({ open, onOpenChange }: { open: boolean; onOpenChange
             })}
           >
             <p className="text-sm text-muted-foreground">
-              Користувач отримає лист із посиланням, щоб самостійно встановити пароль. Роль: адміністратор.
+              Користувач отримає лист із посиланням, щоб самостійно встановити пароль.
             </p>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Імʼя" error={form.formState.errors.firstName?.message}>
@@ -404,7 +410,21 @@ function InviteAdminDialog({ open, onOpenChange }: { open: boolean; onOpenChange
               <Input type="email" autoComplete="off" {...form.register('email')} />
             </Field>
             <Field label="Роль">
-              <Input value={userRoleLabel.admin} readOnly disabled />
+              <Select
+                value={form.watch('role')}
+                onValueChange={(value: 'admin' | 'manager' | 'receptionist') => form.setValue('role', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {allowedRoles.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {userRoleLabel[value]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </Field>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={resetAndClose}>
@@ -418,14 +438,14 @@ function InviteAdminDialog({ open, onOpenChange }: { open: boolean; onOpenChange
       <ConfirmDialog
         open={open && confirming}
         title="Надіслати запрошення?"
-        description={`Надіслати запрошення адміністратора на ${form.getValues('email')}? Пароль задасть запрошена особа.`}
+        description={`Надіслати запрошення (${userRoleLabel[form.getValues('role')]}) на ${form.getValues('email')}? Пароль задасть запрошена особа.`}
         confirmLabel="Надіслати запрошення"
         pending={invite.isPending}
         onOpenChange={(next) => {
           if (!next) setConfirming(false)
         }}
         onConfirm={() => {
-          if (!canInviteAdminUsers(user?.role)) {
+          if (!canInviteAdminUsers(user?.role) || !canInviteRole(user?.role, form.getValues('role'))) {
             toast.error('Недостатньо прав для цієї дії')
             return
           }
@@ -435,6 +455,7 @@ function InviteAdminDialog({ open, onOpenChange }: { open: boolean; onOpenChange
               email: values.email,
               firstName: values.firstName,
               lastName: values.lastName,
+              role: values.role,
             })
             .then(() => {
               toast.success('Запрошення надіслано')
@@ -562,7 +583,9 @@ function EditUserDialog({
   const { user } = useAuth()
   const update = useUpdateAdminUser()
   const canManageRole = canChangeAdminRoleOrActive(user?.role)
+  const canToggleActive = canDeactivateUsers(user?.role) && canManageAdminAccount(user?.role, item)
   const canManage = canManageAdminAccount(user?.role, item)
+  const canEditProfile = canUpdateAdminUsers(user?.role) && canManage
   const isSelf = Boolean(user && item.id === user.id)
   const form = useForm<z.infer<typeof profileSchema>>({
     resolver: zodResolver(profileSchema),
@@ -584,7 +607,7 @@ function EditUserDialog({
         <form
           className="space-y-4"
           onSubmit={form.handleSubmit(async (values) => {
-            if (!canManage) {
+            if (!canManage || (!canEditProfile && !canManageRole && !canToggleActive)) {
               toast.error('Недостатньо прав для цієї дії')
               return
             }
@@ -600,7 +623,7 @@ function EditUserDialog({
               if (values.lastName !== item.lastName) patch.lastName = values.lastName
               if (values.email.trim().toLowerCase() !== item.email) patch.email = values.email
               if (canManageRole && values.role !== item.role) patch.role = values.role
-              if (canManageRole && !isSelf) {
+              if (canToggleActive && !isSelf) {
                 const nextActive = values.active === 'yes'
                 if (nextActive !== item.active) patch.active = nextActive
               }
@@ -621,14 +644,14 @@ function EditUserDialog({
         >
           <div className="grid grid-cols-2 gap-3">
             <Field label="Імʼя" error={form.formState.errors.firstName?.message}>
-              <Input disabled={!canManage} {...form.register('firstName')} />
+              <Input disabled={!canEditProfile} {...form.register('firstName')} />
             </Field>
             <Field label="Прізвище" error={form.formState.errors.lastName?.message}>
-              <Input disabled={!canManage} {...form.register('lastName')} />
+              <Input disabled={!canEditProfile} {...form.register('lastName')} />
             </Field>
           </div>
           <Field label="Електронна пошта" error={form.formState.errors.email?.message}>
-            <Input type="email" autoComplete="off" disabled={!canManage} {...form.register('email')} />
+            <Input type="email" autoComplete="off" disabled={!canEditProfile} {...form.register('email')} />
           </Field>
           <Field label="Роль">
             <Select
@@ -652,7 +675,7 @@ function EditUserDialog({
             <Select
               value={form.watch('active')}
               onValueChange={(value: 'yes' | 'no') => form.setValue('active', value)}
-              disabled={!canManageRole || isSelf}
+              disabled={!canToggleActive || isSelf}
             >
               <SelectTrigger>
                 <SelectValue />

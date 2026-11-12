@@ -42,6 +42,7 @@ import { errorMessage } from '@/lib/errors'
 import { serviceDisplayName } from '@/lib/admin-services'
 import { formatDate, formatDateTime, formatGuests } from '@/lib/format'
 import { adminBookingSourceLabel } from '@/lib/labels'
+import { canCancelBookings } from '@/lib/roles'
 import type { AdminBookingStatusAction } from '@/types'
 
 export function BookingDetailPage() {
@@ -108,7 +109,9 @@ export function BookingDetailPage() {
 
   const booking = bookingQuery.data
   const price = booking.price
-  const actions = adminBookingStatusActions(booking.status)
+  const actions = adminBookingStatusActions(booking.status).filter(
+    (action) => action !== 'cancel' || canCancelBookings(user?.role),
+  )
   const closed = isAdminBookingTerminal(booking.status)
   const canEdit = canEditAdminBookingProfile(booking.status)
   const canMove = canEditAdminBookingCommercial(booking.status) && canReassignAdminBookingRoom(user?.role)

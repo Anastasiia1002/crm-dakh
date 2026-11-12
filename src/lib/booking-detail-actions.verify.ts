@@ -168,7 +168,7 @@ function main() {
   const stayed = presentActions(renderDetail('CHECKED_IN', 'admin'))
   assert(stayed.join(',') === 'check-out,edit', `checked-in booking actions, got ${stayed.join(',')}`)
   const desk = presentActions(renderDetail('CONFIRMED', 'receptionist'))
-  assert(desk.join(',') === 'check-in,edit,no-show,cancel', `receptionist cannot reassign the room, got ${desk.join(',')}`)
+  assert(desk.join(',') === 'check-in,edit,no-show', `receptionist cannot reassign or cancel, got ${desk.join(',')}`)
   const closed = presentActions(renderDetail('CANCELLED', 'admin'))
   assert(closed.length === 0, 'a cancelled booking has no status actions')
 
