@@ -155,15 +155,10 @@ export function UsersPage() {
         <SectionHeading
           title="Адміністратори"
           action={
-            canCreate || canInvite ? (
-              <div className="flex flex-wrap gap-2">
-                {canInvite ? <Button onClick={() => setInviting(true)}>Запросити адміністратора</Button> : null}
-                {canCreate ? (
-                  <Button variant="outline" onClick={() => setEditing('new')}>
-                    Додати з паролем
-                  </Button>
-                ) : null}
-              </div>
+            canCreate ? (
+              <Button variant="outline" onClick={() => setEditing('new')}>
+                Додати з паролем
+              </Button>
             ) : undefined
           }
         />
@@ -238,7 +233,14 @@ export function UsersPage() {
       </section>
 
       <section className="border-t border-border pt-8">
-        <SectionHeading title="Запрошення" />
+        <SectionHeading
+          title="Запрошення"
+          action={
+            canInvite ? (
+              <Button onClick={() => setInviting(true)}>Запросити адміністратора</Button>
+            ) : undefined
+          }
+        />
         {invitations.isError ? (
           <p className="text-sm">Не вдалося завантажити запрошення</p>
         ) : (invitations.data ?? []).length === 0 ? (
