@@ -9,6 +9,8 @@ import {
   guestFailure,
   guestFailureMessage,
   guestHistoryPath,
+  guestImportCommitPath,
+  guestImportPreviewPath,
   guestPlaceLabel,
   guestProfilePath,
   guestSaveHint,
@@ -18,7 +20,8 @@ import {
   parseGuestProfile,
 } from './admin-guests.js'
 import { formatMoneyAmount } from './format.js'
-import { canExportGuests, canWriteGuests } from './roles.js'
+import { GUEST_IMPORT_HISTORY_TITLE } from './guest-import.js'
+import { canExportGuests, canImportGuests, canWriteGuests } from './roles.js'
 
 function assert(condition: boolean, message: string) {
   if (!condition) throw new Error(message)
@@ -151,6 +154,7 @@ assert(profile.guest.contactShared === false, 'exclusive contacts are not locked
 assert(profile.guest.createdAt === '2026-01-15T12:00:00Z', 'created time stays a string')
 assert(profile.stats.totalSpent === '430.00', 'spent amount stays a decimal string')
 assert(profile.stats.currency === 'UAH', 'stats currency is kept')
+assert(profile.importedStats === null, 'missing imported stats stay null')
 assert(profile.history.length === 0, 'empty profile history is an empty list')
 assert(formatMoneyAmount(profile.stats.totalSpent) === '430,00\u00a0₴', 'string money formats without number conversion')
 
@@ -206,11 +210,13 @@ assert(api.includes('listAdminGuests') && api.includes('createAdminGuest') && ap
 assert(!api.includes('mocks/db') && !api.includes('importGuest'), 'guest API has no mock import')
 assert(hooks.includes('useSaveGuest') && hooks.includes('useExportGuests'), 'hooks write and export guests')
 assert(directory.includes('Ваша клієнтська база тут'), 'directory subtitle matches clients copy')
-assert(directory.includes('canWrite') && directory.includes('canExport'), 'create and export follow staff roles')
-assert(!directory.includes('Імпорт') && !directory.includes('GuestImportDialog'), 'unfinished import is not shown')
+assert(directory.includes('canWrite') && directory.includes('canExport') && directory.includes('canImport'), 'create, export, and import follow staff roles')
+assert(directory.includes('Імпорт') && directory.includes('GuestImportDialog'), 'import wizard is shown for allowed roles')
 assert(directory.includes('sort') && directory.includes('order'), 'directory sends sort to the API')
 assert(canWriteGuests('receptionist') && !canExportGuests('receptionist'), 'reception can write clients but not export')
 assert(!canExportGuests('manager') && !canExportGuests('admin') && canExportGuests('owner'), 'only owner exports guests')
+assert(canImportGuests('owner') && canImportGuests('admin'), 'owner and admin can import guests')
+assert(!canImportGuests('manager') && !canImportGuests('receptionist'), 'desk roles cannot import guests')
 assert(directory.includes('guests.data.total'), 'total comes from the page payload')
 assert(!directory.includes('newGuests') && !directory.includes('Постійний'), 'no invented guest categories')
 assert(profilePage.includes('Редагувати') && profilePage.includes('Створити бронювання'), 'profile can edit and prefill a booking')
@@ -229,6 +235,32 @@ const settingsPage = readFileSync(new URL('../pages/settings/SettingsPage.tsx', 
 assert(guestStats.includes('Сума бронювань'), 'guest total is labeled as booking value')
 assert(!guestStats.includes('Витрачено'), 'guest total is not labeled as money already spent')
 assert(guestStats.includes('не отримані оплати'), 'guest total says it is not received payments')
+assert(guestStats.includes(GUEST_IMPORT_HISTORY_TITLE), 'imported history is labeled separately')
+assert(!guestStats.includes('stats.visitCount +') && !guestStats.includes('importedStats.stayCount +'), 'imported stats are not added to CRM stats')
+assert(guestImportPreviewPath() === '/api/admin/guests/import/preview', 'preview path')
+assert(guestImportCommitPath() === '/api/admin/guests/import/commit', 'commit path')
+assert(api.includes('previewAdminGuestImport') && api.includes('commitAdminGuestImport'), 'guest import uses preview and commit')
+assert(api.includes('authorizedFormUpload'), 'import uploads multipart')
+
+const importedProfile = parseGuestProfile({
+  ...profileBody,
+  importedStats: {
+    stayCount: 10,
+    lastStayOn: '2026-09-29',
+    nightCount: 16,
+    spendAmount: '77700.00',
+    source: 'csv',
+  },
+})
+assert(importedProfile.stats.visitCount === 1 && importedProfile.stats.totalNights === 3, 'CRM stats stay on directory bookings')
+assert(
+  importedProfile.importedStats?.stayCount === 10 &&
+    importedProfile.importedStats.nightCount === 16 &&
+    importedProfile.importedStats.spendAmount === '77700.00',
+  'imported stats parse separately',
+)
+assert(importedProfile.stats.visitCount !== importedProfile.importedStats?.stayCount, 'imported stays are not merged into visitCount')
+assert(importedProfile.stats.totalSpent !== importedProfile.importedStats?.spendAmount, 'imported spend is not merged into totalSpent')
 assert(!settingsPage.includes('patch.currency'), 'hotel settings form does not change currency')
 assert(settingsPage.includes('дозволена лише гривня'), 'currency field explains UAH only')
 

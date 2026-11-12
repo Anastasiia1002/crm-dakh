@@ -16,6 +16,7 @@ export type Permission =
   | 'guests.create'
   | 'guests.update'
   | 'guests.export'
+  | 'guests.import'
   | 'accommodations.read'
   | 'accommodations.write'
   | 'accommodations.availability'
@@ -64,6 +65,7 @@ const ALL: Permission[] = [
   'bookings.reassign',
   'bookings.promo',
   'guests.export',
+  'guests.import',
   'accommodations.write',
   'accommodations.availability',
   'pricing.update',
