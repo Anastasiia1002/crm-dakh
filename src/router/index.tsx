@@ -23,6 +23,7 @@ const ServicesPage = lazy(async () => ({ default: (await import('@/pages/service
 const PromoCodesPage = lazy(async () => ({ default: (await import('@/pages/promo-codes/PromoCodesPage')).PromoCodesPage }))
 const SettingsPage = lazy(async () => ({ default: (await import('@/pages/settings/SettingsPage')).SettingsPage }))
 const UsersPage = lazy(async () => ({ default: (await import('@/pages/users/UsersPage')).UsersPage }))
+const AuditPage = lazy(async () => ({ default: (await import('@/pages/audit/AuditPage')).AuditPage }))
 const ProfilePage = lazy(async () => ({ default: (await import('@/pages/users/ProfilePage')).ProfilePage }))
 const NotFoundPage = lazy(async () => ({ default: (await import('@/pages/NotFoundPage')).NotFoundPage }))
 
@@ -85,6 +86,7 @@ export const router = createBrowserRouter(
         { path: 'promo-codes', element: <PromoCodesPage /> },
         { path: 'settings', element: <SettingsPage /> },
         { path: 'users', element: <UsersPage /> },
+        { path: 'audit', element: <AuditPage /> },
         { path: 'profile', element: <ProfilePage /> },
         { path: '*', element: <NotFoundPage /> },
       ],

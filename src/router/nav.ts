@@ -6,6 +6,7 @@ import {
   ContactRound,
   House,
   NotebookPen,
+  ScrollText,
   Settings,
   Tags,
   Ticket,
@@ -35,6 +36,7 @@ export const primaryNav: NavItem[] = [
 export const secondaryNav: NavItem[] = [
   { to: '/admin/settings', label: 'Налаштування', icon: Settings },
   { to: '/admin/users', label: 'Користувачі', icon: Users },
+  { to: '/admin/audit', label: 'Журнал дій', icon: ScrollText },
 ]
 
 export function titleForPath(pathname: string) {

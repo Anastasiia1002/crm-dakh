@@ -38,6 +38,8 @@ export type Permission =
   | 'dashboard.read'
   | 'analytics.read'
   | 'notices.read'
+  | 'audit.read'
+  | 'audit.export'
 
 const STAFF_OPERATIONS: Permission[] = [
   'bookings.read',
@@ -77,6 +79,8 @@ const ALL: Permission[] = [
   'users.roles.manage',
   'settings.update',
   'analytics.read',
+  'audit.read',
+  'audit.export',
 ]
 
 export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
@@ -87,7 +91,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
       permission !== 'users.create' &&
       permission !== 'users.invite' &&
       permission !== 'users.deactivate' &&
-      permission !== 'users.roles.manage',
+      permission !== 'users.roles.manage' &&
+      permission !== 'audit.export',
   ),
   manager: [
     ...STAFF_OPERATIONS,
@@ -98,6 +103,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     'users.read',
     'users.invite',
     'users.deactivate',
+    'audit.read',
   ],
   receptionist: STAFF_OPERATIONS,
 }

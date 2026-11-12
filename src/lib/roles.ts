@@ -98,6 +98,14 @@ export function canReadAnalytics(role: UserRole | undefined) {
   return hasPermission(role, 'analytics.read')
 }
 
+export function canReadAudit(role: UserRole | undefined) {
+  return hasPermission(role, 'audit.read')
+}
+
+export function canExportAudit(role: UserRole | undefined) {
+  return hasPermission(role, 'audit.export')
+}
+
 export function canCancelBookings(role: UserRole | undefined) {
   return hasPermission(role, 'bookings.cancel')
 }
