@@ -29,12 +29,17 @@ import {
   SERVICE_CHARGE_BASIS_LABEL,
   SERVICE_DEFAULT_CREATE_PRICE,
   SERVICE_PRICE_UNSET_LABEL,
+  SERVICE_CRM_BADGE,
   SERVICE_PUBLIC_NEEDS_PRICE,
   SERVICE_PUBLIC_STAY_ONLY_HINT,
+  SERVICE_SAVED_ONLINE_FLAG_HINT,
+  SERVICE_SITE_BADGE,
+  SERVICE_UNSUPPORTED_PUBLIC_BASIS_HINT,
   buildAdminServiceCreateBody,
   buildAdminServicePatchBody,
   filterManagedServices,
   formatManagedServicePrice,
+  isPublicServiceChargeBasis,
   isPubliclyBookableService,
   parseOptionalServiceQuantity,
   parseOptionalServiceSortOrder,
@@ -70,7 +75,7 @@ const schema = z
     const price = validateOptionalServicePrice(values.price)
     if (!price.ok) {
       ctx.addIssue({ code: 'custom', path: ['price'], message: price.error })
-    } else if (values.bookable && price.price === null) {
+    } else if (values.bookable && isPublicServiceChargeBasis(values.chargeBasis) && price.price === null) {
       ctx.addIssue({ code: 'custom', path: ['price'], message: SERVICE_PUBLIC_NEEDS_PRICE })
     }
     const sortOrder = parseOptionalServiceSortOrder(values.sortOrder)
@@ -171,8 +176,11 @@ export function ServicesPage() {
                   <div className="flex flex-wrap gap-1">
                     <Badge tone={item.active ? 'success' : 'neutral'}>{item.active ? 'Активна' : 'Вимкнена'}</Badge>
                     <Badge tone={isPubliclyBookableService(item) ? 'confirmed' : 'neutral'}>
-                      {isPubliclyBookableService(item) ? 'На сайті' : 'Лише в CRM'}
+                      {isPubliclyBookableService(item) ? SERVICE_SITE_BADGE : SERVICE_CRM_BADGE}
                     </Badge>
+                    {item.bookable && !isPubliclyBookableService(item) ? (
+                      <span className="text-xs text-muted-foreground">У картці онлайн</span>
+                    ) : null}
                   </div>
                 </TableCell>
                 <TableCell className="whitespace-nowrap text-muted-foreground">{formatDateTime(item.updatedAt)}</TableCell>
@@ -387,7 +395,7 @@ function ServiceDialog({
             role="switch"
             aria-checked={form.watch('bookable')}
             aria-describedby="service-bookable-hint"
-            disabled={!canWrite}
+            disabled={!canWrite || !isPublicServiceChargeBasis(watchedChargeBasis)}
             onClick={() => form.setValue('bookable', !form.getValues('bookable'), { shouldDirty: true })}
             className="flex min-h-11 w-full items-center justify-between gap-3 rounded-md border border-border bg-surface px-3 text-left outline-none hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-40"
           >
@@ -407,10 +415,11 @@ function ServiceDialog({
           {form.watch('active') === 'no' && form.watch('bookable') ? (
             <p className="text-xs text-muted-foreground">На сайті послуга не з’явиться, доки вона вимкнена.</p>
           ) : null}
-          {form.watch('bookable') && watchedChargeBasis !== 'PER_STAY' ? (
-            <p className="text-xs text-muted-foreground">
-              Онлайн-бронювання підтримує лише нарахування «За бронювання». Інші одиниці видно лише в CRM.
-            </p>
+          {!isPublicServiceChargeBasis(watchedChargeBasis) ? (
+            <p className="text-xs text-muted-foreground">{SERVICE_UNSUPPORTED_PUBLIC_BASIS_HINT}</p>
+          ) : null}
+          {form.watch('bookable') && !isPublicServiceChargeBasis(watchedChargeBasis) ? (
+            <p className="text-xs text-muted-foreground">{SERVICE_SAVED_ONLINE_FLAG_HINT}</p>
           ) : null}
         </div>
         <Field label="Нарахування" error={form.formState.errors.chargeBasis?.message}>
