@@ -39,6 +39,7 @@ export function useAdminCalendarBoard(input: {
     queryKey: ['admin-calendar', query],
     queryFn: ({ signal }) => getAdminCalendar(query, signal),
     staleTime: OPERATIONAL_STALE_TIME,
+    placeholderData: (previous) => previous,
   })
 
   // One paged type list supplies kind for every category on the calendar.

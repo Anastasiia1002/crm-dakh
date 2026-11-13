@@ -18,6 +18,7 @@ export function useGuestList(query: GuestDirectoryQuery) {
     queryKey: ['admin-guests', query],
     queryFn: ({ signal }) => listAdminGuests(query, signal),
     staleTime: OPERATIONAL_STALE_TIME,
+    placeholderData: (previous) => previous,
   })
 }
 
