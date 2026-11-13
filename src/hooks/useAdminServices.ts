@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createAdminService,
-  ensureSuggestedAdminServices,
   getAdminService,
   listAdminServices,
   listManagedAdminServices,
@@ -70,10 +69,3 @@ export function useUpdateAdminService() {
   })
 }
 
-export function useEnsureSuggestedAdminServices() {
-  const invalidate = useInvalidateAdminServiceCatalogs()
-  return useMutation({
-    mutationFn: () => ensureSuggestedAdminServices(),
-    onSuccess: invalidate,
-  })
-}

@@ -22,8 +22,6 @@ import {
   SERVICE_PRICE_UNSET_LABEL,
   SERVICE_PUBLIC_STAY_ONLY_HINT,
   SUGGESTED_SERVICE_DEFAULTS,
-  SUGGESTED_SERVICES_BUTTON,
-  SUGGESTED_SERVICES_HINT,
   buildAdminServiceCreateBody,
   buildAdminServicePatchBody,
   canActivateManagedService,
@@ -545,13 +543,14 @@ function main() {
   assert(page.includes('ADMIN_SERVICE_CHARGE_BASES') && page.includes('SERVICE_CHARGE_BASIS_LABEL'), 'the form offers staff charge bases')
   assert(page.includes('SERVICE_PUBLIC_STAY_ONLY_HINT'), 'public booking stays PER_STAY in the copy')
   assert(page.includes('На сайті') && page.includes('Лише в CRM'), 'the catalog shows whether a service is public')
-  assert(page.includes('SUGGESTED_SERVICES_BUTTON') && page.includes('SUGGESTED_SERVICES_HINT'), 'suggested services use the catalog seed action')
+  assert(!page.includes('Додати шаблонні послуги'), 'the services page does not offer template seeding')
+  assert(!page.includes('SUGGESTED_SERVICES_BUTTON') && !page.includes('SUGGESTED_SERVICES_HINT'), 'template seed copy is unused')
+  assert(page.includes('Додати послугу'), 'manual create remains')
   assert(page.includes('SERVICE_PRICE_UNSET_LABEL'), 'unset price is labeled as not set')
   assert(page.includes('SERVICE_DEFAULT_CREATE_PRICE'), 'create form prefills 100 грн')
-  assert(page.includes('ensure-suggested') === false, 'the page uses the hook, not a raw path')
-  assert(page.includes('useEnsureSuggestedAdminServices'), 'write roles can insert suggested defaults')
+  assert(page.includes('ensure-suggested') === false, 'the page does not call ensure-suggested')
+  assert(!page.includes('useEnsureSuggestedAdminServices'), 'write roles no longer seed from the page')
   assert(SERVICE_CHARGE_BASIS_LABEL.PER_NIGHT === 'За ніч' && SERVICE_CHARGE_BASIS_LABEL.PER_PERSON_DAY === 'За людину на добу', 'charge bases have Ukrainian unit labels')
-  assert(SUGGESTED_SERVICES_BUTTON === 'Додати шаблонні послуги', 'suggested-services button copy')
 
   const picker = readFileSync(new URL('../components/bookings/AdminServicePicker.tsx', import.meta.url), 'utf8')
   assert(picker.includes('savedLine.unitPrice'), 'picker shows saved historical unitPrice')

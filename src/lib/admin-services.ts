@@ -16,10 +16,6 @@ export const SERVICE_PUBLIC_NEEDS_PRICE =
   'Щоб зробити послугу доступною на сайті, вкажіть ціну або вимкніть онлайн-бронювання.'
 export const SERVICE_PUBLIC_STAY_ONLY_HINT =
   'На сайті гість бачить лише активну послугу з нарахуванням «За бронювання» і встановленою ціною.'
-export const SUGGESTED_SERVICES_BUTTON = 'Додати шаблонні послуги'
-export const SUGGESTED_SERVICES_HINT =
-  'Шаблонні послуги додаються активними з ціною 100 грн за одиницю нарахування. Повторне додавання не змінює наявні ціни й статуси.'
-
 export const ADMIN_SERVICE_QUANTITY_MAX = 99
 export const ADMIN_SERVICE_CATEGORY_MAX = 40
 export const ADMIN_SERVICE_SORT_ORDER_MAX = 9999
