@@ -2,6 +2,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { QueryErrorState } from '@/components/ui/page-status'
 import {
+  SERVICE_CHARGE_BASIS_LABEL,
   formatCatalogPrice,
   serviceDisplayName,
   setServiceQuantity,
@@ -60,13 +61,14 @@ export function AdminServicePicker({
   }
 
   if (catalog.length === 0 && orphanIds.length === 0) {
-    return <p className="text-sm text-muted-foreground">Активних послуг немає.</p>
+    return <p className="text-sm text-muted-foreground">Активних послуг із ціною немає.</p>
   }
 
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
-        Суму рахує сервер. Ціна з каталогу застосовується лише до нових рядків.
+        Суму рахує сервер. Ціна з каталогу застосовується лише до нових рядків. Послугу без зазначеної ціни додати не
+        можна.
       </p>
       <ul className="space-y-3">
         {catalog.map((item) => {
@@ -83,6 +85,7 @@ export function AdminServicePicker({
                 <span>
                   <span className="font-medium">{item.name}</span>
                   <span className="ml-2 tabular-nums text-muted-foreground">{formatCatalogPrice(item.price)}</span>
+                  <span className="ml-2 text-muted-foreground">{SERVICE_CHARGE_BASIS_LABEL[item.chargeBasis]}</span>
                   {item.description ? <span className="mt-0.5 block text-muted-foreground">{item.description}</span> : null}
                 </span>
               </label>
