@@ -46,8 +46,10 @@ const administrators = usersPage.slice(
 )
 const invitations = usersPage.slice(
   usersPage.indexOf('title="Запрошення"'),
-  usersPage.indexOf('title="Журнал дій"'),
+  usersPage.indexOf('function InviteAdminDialog'),
 )
+assert(usersPage.includes("value=\"invitations\""), 'invitations is a users-page tab')
+assert(usersPage.includes('USERS_PAGE_TAB_LABEL'), 'tab labels stay in the shared helper')
 assert(invitations.includes('Запросити співробітника'), 'invite CTA in invitations section')
 assert(invitations.includes('canInvite'), 'invite CTA gated in invitations header')
 assert(invitations.includes('Активних запрошень немає.'), 'empty invitations copy')
@@ -86,7 +88,7 @@ const spa = readFileSync(new URL('./vercel-spa.verify.ts', import.meta.url), 'ut
 assert(spa.includes("fallsBack('/invite')"), 'SPA fallback covers /invite')
 
 const sidebar = readFileSync(new URL('../components/layout/Sidebar.tsx', import.meta.url), 'utf8')
-assert(sidebar.includes('canAccessUsersManagement'), 'users nav is permission-gated')
+assert(sidebar.includes('canAccessUsersPage'), 'users nav is permission-gated')
 assert(sidebar.includes('canReadAnalytics'), 'analytics nav is permission-gated')
 
 console.log('All administrator invitation checks passed.')

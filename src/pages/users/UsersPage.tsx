@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { Badge } from '@/components/ui/badge'
@@ -13,7 +13,9 @@ import { Input } from '@/components/ui/input'
 import { Pagination } from '@/components/ui/pagination'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { EmptyState, LoadingState, SectionHeading } from '@/components/ui/states'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { AuditLogPanel } from '@/pages/audit/AuditLogPanel'
 import { useAuth } from '@/hooks/useAuth'
 import {
   useAdminInvitations,
@@ -41,6 +43,14 @@ import {
   canRevokeStaffSessions,
 } from '@/lib/roles'
 import { inviteableFrontendRoles } from '@/lib/permissions'
+import {
+  AUDIT_SEARCH_KEYS,
+  parseUsersPageTab,
+  stripAuditSearchParams,
+  USERS_PAGE_TAB_LABEL,
+  usersPageTabsFor,
+  type UsersPageTab,
+} from '@/lib/users-page-tabs'
 import { getAdminUser } from '@/api/users'
 import type { AdminInvitation, AdminInvitationStatus, AdminUser, UserRole } from '@/types'
 
@@ -90,9 +100,12 @@ const passwordSchema = z.object({
 export function UsersPage() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const canAccess = canAccessUsersManagement(user?.role)
   const canCreate = canCreateAdminUsers(user?.role)
   const canInvite = canInviteAdminUsers(user?.role)
+  const allowedTabs = usersPageTabsFor(user?.role)
+  const tab = parseUsersPageTab(searchParams.get('tab'), allowedTabs)
   const [page, setPage] = useState(1)
   const [editing, setEditing] = useState<AdminUser | 'new' | null>(null)
   const [inviting, setInviting] = useState(false)
@@ -101,31 +114,30 @@ export function UsersPage() {
   const [revokeSessions, setRevokeSessions] = useState<number | null>(null)
   const [revokePending, setRevokePending] = useState(false)
   const [resending, setResending] = useState<AdminInvitation | null>(null)
-  const users = useUsers({ page, limit: PAGE_SIZE })
-  const invitations = useAdminInvitations(canAccess)
+  const users = useUsers({ page, limit: PAGE_SIZE }, { enabled: canAccess && tab === 'users' })
+  const invitations = useAdminInvitations(canAccess && tab === 'invitations')
   const revoke = useRevokeAdminSessions()
   const invite = useInviteAdminUser()
 
-  if (!canAccess) {
+  useEffect(() => {
+    if (!tab) return
+    const requested = searchParams.get('tab')
+    if (requested === tab && (tab === 'audit' || !AUDIT_SEARCH_KEYS.some((key) => searchParams.has(key)))) return
+    const next = new URLSearchParams(searchParams)
+    next.set('tab', tab)
+    if (tab !== 'audit') stripAuditSearchParams(next)
+    const current = searchParams.toString()
+    const updated = next.toString()
+    if (current !== updated) setSearchParams(next, { replace: true })
+  }, [searchParams, setSearchParams, tab])
+
+  if (!tab) {
     return (
       <div className="max-w-xl space-y-3 border-t border-border py-10">
         <h2 className="font-serif text-[1.7rem] font-medium">Немає доступу</h2>
         <p className="text-sm text-muted-foreground">
           Керування користувачами недоступне для вашої ролі.
         </p>
-      </div>
-    )
-  }
-
-  if (users.isLoading && !users.data) return <LoadingState />
-
-  if (users.isError) {
-    return (
-      <div className="space-y-3 border-t border-border py-10">
-        <p className="text-sm">Не вдалося завантажити користувачів</p>
-        <Button size="sm" variant="outline" onClick={() => void users.refetch()}>
-          Спробувати ще раз
-        </Button>
       </div>
     )
   }
@@ -164,8 +176,35 @@ export function UsersPage() {
     setPasswordUser(item)
   }
 
+  function onTabChange(value: string) {
+    const nextTab = value as UsersPageTab
+    if (!allowedTabs.includes(nextTab)) return
+    const next = new URLSearchParams(searchParams)
+    next.set('tab', nextTab)
+    if (nextTab !== 'audit') stripAuditSearchParams(next)
+    setSearchParams(next)
+  }
+
   return (
-    <div className="space-y-14">
+    <Tabs value={tab} onValueChange={onTabChange} className="space-y-6">
+      <TabsList className="max-w-full overflow-x-auto">
+        {allowedTabs.map((item) => (
+          <TabsTrigger key={item} value={item}>
+            {USERS_PAGE_TAB_LABEL[item]}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+      <TabsContent value="users">
+      {tab === 'users' && users.isLoading && !users.data ? <LoadingState /> : null}
+      {tab === 'users' && users.isError ? (
+        <div className="space-y-3 py-6">
+          <p className="text-sm">Не вдалося завантажити користувачів</p>
+          <Button size="sm" variant="outline" onClick={() => void users.refetch()}>
+            Спробувати ще раз
+          </Button>
+        </div>
+      ) : null}
+      {tab === 'users' && !users.isError && !(users.isLoading && !users.data) ? (
       <section>
         <SectionHeading
           title="Адміністратори"
@@ -252,8 +291,12 @@ export function UsersPage() {
           </>
         )}
       </section>
+      ) : null}
+      </TabsContent>
 
-      <section className="border-t border-border pt-8">
+      <TabsContent value="invitations">
+      {tab === 'invitations' ? (
+      <section>
         <SectionHeading
           title="Запрошення"
           action={
@@ -309,16 +352,12 @@ export function UsersPage() {
           </Table>
         )}
       </section>
+      ) : null}
+      </TabsContent>
 
-      <section className="border-t border-border pt-8">
-        <SectionHeading title="Журнал дій" />
-        <p className="max-w-xl text-sm leading-6 text-muted-foreground">
-          Повний журнал дій співробітників відкривається окремою сторінкою.{' '}
-          <Link to="/admin/audit" className="underline-offset-2 hover:underline">
-            Перейти до журналу дій
-          </Link>
-        </p>
-      </section>
+      <TabsContent value="audit">
+        {tab === 'audit' ? <AuditLogPanel /> : null}
+      </TabsContent>
 
       <InviteAdminDialog open={inviting} onOpenChange={setInviting} />
 
@@ -420,7 +459,7 @@ export function UsersPage() {
             .finally(() => setRevokePending(false))
         }}
       />
-    </div>
+    </Tabs>
   )
 }
 

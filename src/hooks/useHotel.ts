@@ -648,10 +648,11 @@ export function useDeletePolicy() {
   return useMutation({ mutationFn: deletePolicy, onSuccess: () => refresh(['policies']) })
 }
 
-export function useUsers(query: AdminUserListQuery = {}) {
+export function useUsers(query: AdminUserListQuery = {}, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['users', query],
     queryFn: () => listAdminUsers(query),
+    enabled: options?.enabled ?? true,
   })
 }
 

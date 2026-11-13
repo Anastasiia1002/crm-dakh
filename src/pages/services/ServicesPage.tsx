@@ -18,7 +18,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/hooks/useAuth'
 import {
   useCreateAdminService,
-  useEnsureSuggestedAdminServices,
   useManagedAdminServices,
   useUpdateAdminService,
 } from '@/hooks/useAdminServices'
@@ -32,8 +31,6 @@ import {
   SERVICE_PRICE_UNSET_LABEL,
   SERVICE_PUBLIC_NEEDS_PRICE,
   SERVICE_PUBLIC_STAY_ONLY_HINT,
-  SUGGESTED_SERVICES_BUTTON,
-  SUGGESTED_SERVICES_HINT,
   buildAdminServiceCreateBody,
   buildAdminServicePatchBody,
   filterManagedServices,
@@ -101,7 +98,6 @@ export function ServicesPage() {
   const canWrite = canManageAdminServices(user?.role)
   const catalog = useManagedAdminServices()
   const update = useUpdateAdminService()
-  const ensureSuggested = useEnsureSuggestedAdminServices()
   const [editing, setEditing] = useState<AdminManagedService | 'new' | null>(null)
   const [pendingDeactivate, setPendingDeactivate] = useState<AdminManagedService | null>(null)
   const [query, setQuery] = useState('')
@@ -114,41 +110,12 @@ export function ServicesPage() {
       <SectionHeading
         title="Додаткові послуги"
         action={
-          canWrite ? (
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                loading={ensureSuggested.isPending}
-                onClick={() => {
-                  void ensureSuggested
-                    .mutateAsync()
-                    .then((result) => {
-                      if (result.conflicts.length > 0) {
-                        toast.error(
-                          `Не змінено неоднозначні послуги: ${result.conflicts.map((conflict) => conflict.name).join(', ')}.`,
-                        )
-                      }
-                      if (result.insertedCount === 0) {
-                        toast.success('Усі шаблонні послуги вже є.')
-                        return
-                      }
-                      toast.success(`Додано шаблонні послуги: ${result.insertedCount}.`)
-                    })
-                    .catch((error) => toast.error(errorMessage(error)))
-                }}
-              >
-                {SUGGESTED_SERVICES_BUTTON}
-              </Button>
-              <Button onClick={() => setEditing('new')}>Додати послугу</Button>
-            </div>
-          ) : undefined
+          canWrite ? <Button onClick={() => setEditing('new')}>Додати послугу</Button> : undefined
         }
       />
       <p className="mb-4 max-w-2xl text-sm text-muted-foreground">
         Каталог цього готелю, включно з вимкненими послугами. Ціни в гривнях. Порожня ціна — {SERVICE_PRICE_UNSET_LABEL.toLowerCase()},
-        це не безкоштовна послуга. Нова ціна не змінює вже збережені рядки в бронюваннях. {SERVICE_PUBLIC_STAY_ONLY_HINT}{' '}
-        {SUGGESTED_SERVICES_HINT}
+        це не безкоштовна послуга. Нова ціна не змінює вже збережені рядки в бронюваннях. {SERVICE_PUBLIC_STAY_ONLY_HINT}
       </p>
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
         <Input
