@@ -73,7 +73,7 @@ export function useStaffNotices() {
         mutations: staffNoticeMutations,
       })
     },
-    staleTime: 0,
+    staleTime: 10_000,
     refetchInterval: STAFF_NOTICE_POLL_MS,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,

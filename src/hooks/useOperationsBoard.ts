@@ -3,6 +3,7 @@ import { listAdminBookings } from '@/api/admin-bookings'
 import { getAdminCalendar } from '@/api/availability'
 import { ApiError } from '@/lib/api-error'
 import { addCalendarDays } from '@/lib/dates'
+import { OPERATIONAL_STALE_TIME } from '@/lib/queryClient'
 import {
   OPERATION_PAGE_LIMIT,
   movementWindow,
@@ -57,11 +58,15 @@ export function useOperationsBoard(date: string) {
     queryKey: ['admin-operations-board', 'movements', stay.checkIn, stay.checkOut],
     queryFn: ({ signal }) => listOperationBookings({ checkIn: stay.checkIn, checkOut: stay.checkOut }, signal),
     retry: false,
+    staleTime: OPERATIONAL_STALE_TIME,
+    placeholderData: (previous) => previous,
   })
   const created = useQuery({
     queryKey: ['admin-operations-board', 'created', date],
     queryFn: ({ signal }) => listCreatedOnHotelDate(date, signal),
     retry: false,
+    staleTime: OPERATIONAL_STALE_TIME,
+    placeholderData: (previous) => previous,
   })
   const cancelled = useQuery({
     queryKey: ['admin-operations-board', 'cancelled', date],
@@ -71,11 +76,15 @@ export function useOperationsBoard(date: string) {
         signal,
       ),
     retry: false,
+    staleTime: OPERATIONAL_STALE_TIME,
+    placeholderData: (previous) => previous,
   })
   const calendar = useQuery({
     queryKey: ['admin-operations-board', 'calendar', date],
     queryFn: ({ signal }) => getAdminCalendar({ from: date, to: stay.checkOut, active: true }, signal),
     retry: false,
+    staleTime: OPERATIONAL_STALE_TIME,
+    placeholderData: (previous) => previous,
   })
   return { movements, created, cancelled, calendar }
 }

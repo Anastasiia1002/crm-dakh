@@ -40,7 +40,17 @@ export function DashboardPage() {
   }, [defaults.from, defaults.to, edited, dateEdited])
 
   const period = parseDashboardPeriod(from, to)
-  const summary = useAdminDashboardSummary(from, to, { enabled: period.ok })
+  const [summaryEnabled, setSummaryEnabled] = useState(false)
+  useEffect(() => {
+    const idle = window.requestIdleCallback?.bind(window)
+    if (idle) {
+      const id = idle(() => setSummaryEnabled(true), { timeout: 800 })
+      return () => window.cancelIdleCallback?.(id)
+    }
+    const timer = window.setTimeout(() => setSummaryEnabled(true), 50)
+    return () => window.clearTimeout(timer)
+  }, [])
+  const summary = useAdminDashboardSummary(from, to, { enabled: period.ok && summaryEnabled })
   const view = resolveDashboardView({
     summaryEndpoint: true,
     phase: !period.ok
