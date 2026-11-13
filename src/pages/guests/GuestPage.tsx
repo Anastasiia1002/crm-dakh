@@ -115,7 +115,7 @@ export function GuestPage() {
         </dl>
       )}
 
-      <GuestStats stats={stats} />
+      <GuestStats stats={stats} importedStats={profile.data.importedStats} />
 
       {history.isLoading ? <LoadingState /> : null}
       {historyFailure ? (

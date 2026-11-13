@@ -64,6 +64,14 @@ export type AdminGuestStats = {
   currency: string
 }
 
+export type AdminGuestImportedStats = {
+  stayCount: number
+  lastStayOn: string | null
+  nightCount: number
+  spendAmount: string
+  source: string
+}
+
 export type AdminGuestHistoryRoom = {
   roomId: string
   roomTypeId: string
@@ -97,6 +105,7 @@ export type AdminGuestHistoryPage = {
 export type AdminGuestProfile = {
   guest: AdminGuestIdentity
   stats: AdminGuestStats
+  importedStats: AdminGuestImportedStats | null
   history: AdminGuestHistoryItem[]
 }
 
@@ -168,6 +177,14 @@ export function guestProfilePath(id: string) {
   return `/api/admin/guests/${encodeURIComponent(id)}`
 }
 
+export function guestImportPreviewPath() {
+  return '/api/admin/guests/import/preview'
+}
+
+export function guestImportCommitPath() {
+  return '/api/admin/guests/import/commit'
+}
+
 export function guestHistoryPath(id: string, query: GuestHistoryQuery) {
   assertPage(query.page, query.limit)
   const params = new URLSearchParams()
@@ -189,6 +206,7 @@ export function parseGuestProfile(body: unknown): AdminGuestProfile {
   return {
     guest: parseIdentity(record.guest),
     stats: parseStats(record.stats),
+    importedStats: parseImportedStats(record.importedStats),
     history: arrayOf(record.history, 'guest profile history').map(parseHistoryItem),
   }
 }
@@ -290,6 +308,18 @@ function parseStats(value: unknown): AdminGuestStats {
     totalNights: count(row.totalNights, 'total nights'),
     totalSpent: money(row.totalSpent, 'total spent'),
     currency: text(row.currency, 'currency'),
+  }
+}
+
+function parseImportedStats(value: unknown): AdminGuestImportedStats | null {
+  if (value === undefined || value === null) return null
+  const row = objectOf(value, 'imported stats')
+  return {
+    stayCount: row.stayCount == null ? 0 : count(row.stayCount, 'imported stay count'),
+    lastStayOn: nullableDate(row.lastStayOn, 'imported last stay'),
+    nightCount: row.nightCount == null ? 0 : count(row.nightCount, 'imported night count'),
+    spendAmount: row.spendAmount == null ? '0.00' : money(row.spendAmount, 'imported spend'),
+    source: text(row.source, 'imported source'),
   }
 }
 

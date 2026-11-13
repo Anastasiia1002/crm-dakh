@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { GuestExportDialog } from '@/components/guests/GuestExportDialog'
 import { GuestFilters } from '@/components/guests/GuestFilters'
 import { GuestFormDialog } from '@/components/guests/GuestFormDialog'
+import { GuestImportDialog } from '@/components/guests/GuestImportDialog'
 import { GuestTable } from '@/components/guests/GuestTable'
 import { Button } from '@/components/ui/button'
 import { Pagination } from '@/components/ui/pagination'
@@ -11,7 +12,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useExportGuests, useGuestList } from '@/hooks/useGuestDirectory'
 import { LAST_VISIT_FILTERS, type GuestDirectoryQuery, type LastVisitFilter, guestFailure, guestFailureMessage } from '@/lib/admin-guests'
 import { formatCount } from '@/lib/format'
-import { canExportGuests, canWriteGuests } from '@/lib/roles'
+import { canExportGuests, canImportGuests, canWriteGuests } from '@/lib/roles'
 
 const SORTS = ['fullName', 'phone', 'visitCount', 'lastVisit', 'createdAt'] as const
 type DirectorySort = (typeof SORTS)[number]
@@ -30,9 +31,11 @@ export function GuestsPage() {
   const { user } = useAuth()
   const canWrite = canWriteGuests(user?.role)
   const canExport = canExportGuests(user?.role)
+  const canImport = canImportGuests(user?.role)
   const [params, setParams] = useSearchParams()
   const [createOpen, setCreateOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const exporter = useExportGuests()
 
   const search = params.get('q') ?? ''
@@ -78,6 +81,11 @@ export function GuestsPage() {
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <p className="max-w-xl text-sm text-muted-foreground">Ваша клієнтська база тут</p>
         <div className="flex flex-wrap gap-2">
+          {canImport ? (
+            <Button type="button" variant="outline" onClick={() => setImportOpen(true)}>
+              Імпорт
+            </Button>
+          ) : null}
           {canExport ? (
             <Button type="button" variant="outline" onClick={() => setExportOpen(true)}>
               Експорт
@@ -159,6 +167,7 @@ export function GuestsPage() {
       ) : null}
 
       {canWrite ? <GuestFormDialog open={createOpen} onOpenChange={setCreateOpen} /> : null}
+      {canImport ? <GuestImportDialog open={importOpen} onOpenChange={setImportOpen} /> : null}
       <GuestExportDialog
         open={exportOpen}
         onOpenChange={setExportOpen}

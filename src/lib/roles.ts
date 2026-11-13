@@ -94,6 +94,10 @@ export function canExportGuests(role: UserRole | undefined) {
   return hasPermission(role, 'guests.export')
 }
 
+export function canImportGuests(role: UserRole | undefined) {
+  return hasPermission(role, 'guests.import')
+}
+
 export function canReadAnalytics(role: UserRole | undefined) {
   return hasPermission(role, 'analytics.read')
 }

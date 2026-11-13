@@ -1,13 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  commitAdminGuestImport,
   createAdminGuest,
   downloadAdminGuests,
   getAdminGuest,
   listAdminGuestBookings,
   listAdminGuests,
+  previewAdminGuestImport,
   updateAdminGuest,
 } from '@/api/guests'
 import type { GuestDirectoryQuery, GuestHistoryQuery, GuestWriteInput } from '@/lib/admin-guests'
+import type { GuestImportDuplicateMode, GuestImportMapping } from '@/lib/guest-import'
 import { OPERATIONAL_STALE_TIME } from '@/lib/queryClient'
 
 export function useGuestList(query: GuestDirectoryQuery) {
@@ -52,5 +55,23 @@ export function useExportGuests() {
   return useMutation({
     mutationFn: (input: { query: GuestDirectoryQuery; format: 'csv' | 'xlsx' }) =>
       downloadAdminGuests(input.query, input.format),
+  })
+}
+
+export function usePreviewGuestImport() {
+  return useMutation({
+    mutationFn: (file: File) => previewAdminGuestImport(file),
+  })
+}
+
+export function useCommitGuestImport() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { file: File; mapping: GuestImportMapping; duplicateMode: GuestImportDuplicateMode }) =>
+      commitAdminGuestImport(input),
+    onSuccess: async () => {
+      await client.invalidateQueries({ queryKey: ['admin-guests'] })
+      await client.invalidateQueries({ queryKey: ['admin-guest'] })
+    },
   })
 }

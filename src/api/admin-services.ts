@@ -1,12 +1,14 @@
 import { apiRequest } from '@/lib/api-client'
 import {
   parseAdminServiceCatalog,
+  parseEnsureSuggestedServicesResult,
   parseManagedAdminService,
   parseManagedAdminServiceCatalog,
   type AdminManagedService,
   type AdminServiceCatalogItem,
   type AdminServiceCreateInput,
   type AdminServicePatchInput,
+  type EnsureSuggestedServicesResult,
 } from '@/lib/admin-services'
 
 export async function listAdminServices(signal?: AbortSignal): Promise<AdminServiceCatalogItem[]> {
@@ -32,4 +34,9 @@ export async function createAdminService(input: AdminServiceCreateInput): Promis
 export async function updateAdminService(id: string, input: AdminServicePatchInput): Promise<AdminManagedService> {
   const raw = await apiRequest<unknown>(`/api/admin/services/${id}`, { method: 'PATCH', body: input })
   return parseManagedAdminService(raw)
+}
+
+export async function ensureSuggestedAdminServices(): Promise<EnsureSuggestedServicesResult> {
+  const raw = await apiRequest<unknown>('/api/admin/services/ensure-suggested', { method: 'POST' })
+  return parseEnsureSuggestedServicesResult(raw)
 }
