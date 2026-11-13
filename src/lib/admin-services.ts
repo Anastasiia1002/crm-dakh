@@ -16,6 +16,12 @@ export const SERVICE_PUBLIC_NEEDS_PRICE =
   'Щоб зробити послугу доступною на сайті, вкажіть ціну або вимкніть онлайн-бронювання.'
 export const SERVICE_PUBLIC_STAY_ONLY_HINT =
   'На сайті гість бачить лише активну послугу з нарахуванням «За бронювання» і встановленою ціною.'
+export const SERVICE_UNSUPPORTED_PUBLIC_BASIS_HINT =
+  'Сайт ще не рахує це нарахування. Збережений прапорець онлайн не змінюємо, а новий не вмикаємо.'
+export const SERVICE_SAVED_ONLINE_FLAG_HINT =
+  'У картці стоїть «доступна онлайн», але гість послугу не бачить, доки нарахування не з’явиться в публічному розрахунку.'
+export const SERVICE_SITE_BADGE = 'На сайті'
+export const SERVICE_CRM_BADGE = 'Лише в CRM'
 export const ADMIN_SERVICE_QUANTITY_MAX = 99
 export const ADMIN_SERVICE_CATEGORY_MAX = 40
 export const ADMIN_SERVICE_SORT_ORDER_MAX = 9999
@@ -32,6 +38,11 @@ export const ADMIN_SERVICE_CHARGE_BASES = [
 ] as const
 
 export type AdminServiceChargeBasis = (typeof ADMIN_SERVICE_CHARGE_BASES)[number]
+export const PUBLIC_SERVICE_CHARGE_BASES: readonly AdminServiceChargeBasis[] = ['PER_STAY']
+
+export function isPublicServiceChargeBasis(basis?: AdminServiceChargeBasis) {
+  return (basis ?? 'PER_STAY') === 'PER_STAY'
+}
 
 export const SERVICE_CHARGE_BASIS_LABEL: Record<AdminServiceChargeBasis, string> = {
   PER_STAY: 'За бронювання',
@@ -396,9 +407,18 @@ export function isPubliclyBookableService(service: {
   return (
     service.active &&
     service.bookable &&
-    (service.chargeBasis ?? 'PER_STAY') === 'PER_STAY' &&
+    isPublicServiceChargeBasis(service.chargeBasis) &&
     Boolean(service.price)
   )
+}
+
+export function serviceSiteVisibilityLabel(service: {
+  active: boolean
+  bookable: boolean
+  chargeBasis?: AdminServiceChargeBasis
+  price?: string | null
+}) {
+  return isPubliclyBookableService(service) ? SERVICE_SITE_BADGE : SERVICE_CRM_BADGE
 }
 
 export function parseOptionalServiceQuantity(
@@ -538,13 +558,13 @@ export function buildAdminServiceCreateBody(
   if (descriptionError) return { ok: false, error: descriptionError, field: 'description' }
   const price = validateOptionalServicePrice(input.price)
   if (!price.ok) return { ok: false, error: price.error, field: 'price' }
-  const bookable = input.bookable ?? false
-  if (bookable && price.price === null) {
-    return { ok: false, error: SERVICE_PUBLIC_NEEDS_PRICE, field: 'price' }
-  }
   const chargeBasis = input.chargeBasis ?? 'PER_STAY'
   if (!ADMIN_SERVICE_CHARGE_BASES.includes(chargeBasis)) {
     return { ok: false, error: 'Каталог послуг має непідтримуване нарахування.', field: 'chargeBasis' }
+  }
+  const bookable = (input.bookable ?? false) && isPublicServiceChargeBasis(chargeBasis)
+  if (bookable && price.price === null) {
+    return { ok: false, error: SERVICE_PUBLIC_NEEDS_PRICE, field: 'price' }
   }
   const minQuantity = parseOptionalServiceQuantity(input.minQuantity)
   if (!minQuantity.ok) return { ok: false, error: minQuantity.error, field: 'minQuantity' }
@@ -587,14 +607,14 @@ export function buildAdminServicePatchBody(
   if (descriptionError) return { ok: false, error: descriptionError, field: 'description' }
   const price = validateOptionalServicePrice(input.price)
   if (!price.ok) return { ok: false, error: price.error, field: 'price' }
-  const bookable = input.bookable ?? false
-  const nextPrice = price.price
-  if (bookable && nextPrice === null) {
-    return { ok: false, error: SERVICE_PUBLIC_NEEDS_PRICE, field: 'price' }
-  }
   const chargeBasis = input.chargeBasis ?? current.chargeBasis
   if (!ADMIN_SERVICE_CHARGE_BASES.includes(chargeBasis)) {
     return { ok: false, error: 'Каталог послуг має непідтримуване нарахування.', field: 'chargeBasis' }
+  }
+  const bookable = input.bookable ?? false
+  const nextPrice = price.price
+  if (bookable && nextPrice === null && isPublicServiceChargeBasis(chargeBasis)) {
+    return { ok: false, error: SERVICE_PUBLIC_NEEDS_PRICE, field: 'price' }
   }
   const minQuantity = parseOptionalServiceQuantity(input.minQuantity)
   if (!minQuantity.ok) return { ok: false, error: minQuantity.error, field: 'minQuantity' }
@@ -612,7 +632,7 @@ export function buildAdminServicePatchBody(
   if (description !== current.description) body.description = description
   if (nextPrice !== current.price) body.price = nextPrice
   if (input.active !== current.active) body.active = input.active
-  if (bookable !== current.bookable) body.bookable = bookable
+  if (bookable !== current.bookable && isPublicServiceChargeBasis(chargeBasis)) body.bookable = bookable
   if (chargeBasis !== current.chargeBasis) body.chargeBasis = chargeBasis
   if (minQuantity.quantity !== current.minQuantity) body.minQuantity = minQuantity.quantity
   if (maxQuantity.quantity !== current.maxQuantity) body.maxQuantity = maxQuantity.quantity

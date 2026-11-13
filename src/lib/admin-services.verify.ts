@@ -21,6 +21,8 @@ import {
   SERVICE_DEFAULT_CREATE_PRICE,
   SERVICE_PRICE_UNSET_LABEL,
   SERVICE_PUBLIC_STAY_ONLY_HINT,
+  SERVICE_SAVED_ONLINE_FLAG_HINT,
+  SERVICE_UNSUPPORTED_PUBLIC_BASIS_HINT,
   SUGGESTED_SERVICE_DEFAULTS,
   buildAdminServiceCreateBody,
   buildAdminServicePatchBody,
@@ -43,6 +45,7 @@ import {
   validateServiceQuantity,
   validateServiceQuantityBounds,
   isPubliclyBookableService,
+  serviceSiteVisibilityLabel,
 } from './admin-services'
 import { canManageAdminServices } from './roles'
 import type { AdminBookingDetail } from '@/types'
@@ -437,6 +440,45 @@ function main() {
   })
   assert(perNight.chargeBasis === 'PER_NIGHT', 'PER_NIGHT is a catalog charge basis')
   assert(!isPubliclyBookableService(perNight), 'non-stay charge stays off the public catalog')
+  const breakfastPersonDay = parseManagedAdminService({
+    id: BREAKFAST,
+    name: 'Сніданок',
+    description: null,
+    price: '250.00',
+    currency: 'UAH',
+    active: true,
+    bookable: true,
+    chargeBasis: 'PER_PERSON_DAY',
+    minQuantity: null,
+    maxQuantity: null,
+    createdAt: '2026-10-01T00:00:00.000Z',
+    updatedAt: '2026-10-02T00:00:00.000Z',
+  })
+  assert(breakfastPersonDay.bookable === true && breakfastPersonDay.chargeBasis === 'PER_PERSON_DAY', 'saved breakfast keeps the online flag')
+  assert(!isPubliclyBookableService(breakfastPersonDay), 'Breakfast per person-day is not on the public catalog')
+  assert(serviceSiteVisibilityLabel(breakfastPersonDay) === 'Лише в CRM', 'the list badge follows public eligibility, not the saved toggle')
+  const ignoredToggle = buildAdminServicePatchBody(breakfastPersonDay, {
+    name: breakfastPersonDay.name,
+    description: '',
+    price: breakfastPersonDay.price ?? '',
+    active: true,
+    bookable: false,
+    chargeBasis: 'PER_PERSON_DAY',
+    minQuantity: '',
+    maxQuantity: '',
+    sortOrder: '',
+    category: '',
+  })
+  assert('empty' in ignoredToggle && ignoredToggle.empty, 'an unsupported basis does not rewrite the saved online flag')
+  const coercedCreate = buildAdminServiceCreateBody({
+    name: 'Сніданок',
+    description: '',
+    price: '250',
+    active: true,
+    bookable: true,
+    chargeBasis: 'PER_PERSON_DAY',
+  })
+  assert(coercedCreate.ok && coercedCreate.body.bookable === false, 'a new unsupported extra is not saved as public')
   let rejectedBasis = false
   try {
     parseManagedAdminService({
@@ -542,7 +584,10 @@ function main() {
   assert(page.includes('role="switch"'), 'public availability is a switch')
   assert(page.includes('ADMIN_SERVICE_CHARGE_BASES') && page.includes('SERVICE_CHARGE_BASIS_LABEL'), 'the form offers staff charge bases')
   assert(page.includes('SERVICE_PUBLIC_STAY_ONLY_HINT'), 'public booking stays PER_STAY in the copy')
-  assert(page.includes('На сайті') && page.includes('Лише в CRM'), 'the catalog shows whether a service is public')
+  assert(page.includes('SERVICE_SITE_BADGE') && page.includes('SERVICE_CRM_BADGE'), 'the catalog shows whether a service is public')
+  assert(page.includes('SERVICE_UNSUPPORTED_PUBLIC_BASIS_HINT') && page.includes('SERVICE_SAVED_ONLINE_FLAG_HINT'), 'unsupported extras explain why they stay off the site')
+  assert(page.includes('У картці онлайн'), 'a saved online flag that is not public is labeled separately')
+  assert(page.includes('isPublicServiceChargeBasis(watchedChargeBasis)'), 'the online switch is disabled for unsupported units')
   assert(!page.includes('Додати шаблонні послуги'), 'the services page does not offer template seeding')
   assert(!page.includes('SUGGESTED_SERVICES_BUTTON') && !page.includes('SUGGESTED_SERVICES_HINT'), 'template seed copy is unused')
   assert(page.includes('Додати послугу'), 'manual create remains')
@@ -620,9 +665,22 @@ function main() {
     bookable: true,
     chargeBasis: 'PER_PERSON_DAY',
   })
-  assert(!publicCleared.ok && 'error' in publicCleared, 'clearing the price of a public bookable service is rejected')
   assert(
-    !('empty' in publicCleared) && publicCleared.error === SERVICE_PUBLIC_NEEDS_PRICE,
+    publicCleared.ok && publicCleared.body.price === null && !('bookable' in publicCleared.body),
+    'clearing CRM price on an unsupported extra does not rewrite the saved online flag',
+  )
+  const stayPublic = parseManagedAdminService({ ...existing, bookable: true, chargeBasis: 'PER_STAY' })
+  const stayCleared = buildAdminServicePatchBody(stayPublic, {
+    name: 'Сніданок',
+    description: '',
+    price: '',
+    active: true,
+    bookable: true,
+    chargeBasis: 'PER_STAY',
+  })
+  assert(!stayCleared.ok && 'error' in stayCleared, 'clearing the price of a public bookable service is rejected')
+  assert(
+    !('empty' in stayCleared) && stayCleared.error === SERVICE_PUBLIC_NEEDS_PRICE,
     'staff must turn off public bookability before clearing the price',
   )
   const draft = buildAdminServiceCreateBody({
