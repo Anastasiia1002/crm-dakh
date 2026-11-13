@@ -17,7 +17,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/hooks/useAuth'
 import {
-  useAdminService,
   useCreateAdminService,
   useEnsureSuggestedAdminServices,
   useManagedAdminServices,
@@ -291,8 +290,7 @@ function ServiceDialog({
 }) {
   const create = useCreateAdminService()
   const update = useUpdateAdminService()
-  const detail = useAdminService(open && item ? item.id : undefined)
-  const current = detail.data ?? item
+  const current = item
   const pending = create.isPending || update.isPending
   const submitLock = useRef(createSubmitLock())
   const form = useForm<FormValues>({
@@ -383,14 +381,6 @@ function ServiceDialog({
           </>
         }
       >
-        {item && detail.isLoading && !detail.data ? <p className="text-sm text-muted-foreground">Завантаження послуги…</p> : null}
-        {item && detail.isError ? (
-          <QueryErrorState
-            title="Не вдалося завантажити послугу"
-            error={detail.error}
-            onRetry={() => void detail.refetch()}
-          />
-        ) : null}
         <Field label="Назва" error={form.formState.errors.name?.message}>
           <Input disabled={!canWrite} {...form.register('name')} />
         </Field>

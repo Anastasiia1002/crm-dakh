@@ -67,7 +67,8 @@ export function AdminServicePicker({
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
-        Суму рахує сервер. Ціна з каталогу застосовується лише до нових рядків.
+        Суму рахує сервер. Ціна з каталогу застосовується лише до нових рядків. Послугу без зазначеної ціни додати не
+        можна.
       </p>
       <ul className="space-y-3">
         {catalog.map((item) => {

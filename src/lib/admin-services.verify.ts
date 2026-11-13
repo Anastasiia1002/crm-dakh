@@ -558,6 +558,7 @@ function main() {
   assert(picker.includes('Немає в активному каталозі'), 'inactive saved lines stay on the booking form')
   assert(picker.includes('SERVICE_CHARGE_BASIS_LABEL'), 'picker shows the unit hint')
   assert(picker.includes('Активних послуг із ціною немає'), 'picker requires a catalog price')
+  assert(picker.includes('Послугу без зазначеної ціни додати не'), 'picker explains unpriced rows cannot be added')
 
   const unset = parseManagedAdminService({
     id: BREAKFAST,

@@ -59,10 +59,14 @@ export function useCreateAdminService() {
 }
 
 export function useUpdateAdminService() {
+  const queryClient = useQueryClient()
   const invalidate = useInvalidateAdminServiceCatalogs()
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: AdminServicePatchInput }) => updateAdminService(id, input),
-    onSuccess: invalidate,
+    onSuccess: (result) => {
+      queryClient.setQueryData([...adminManagedServicesQueryKey, result.id], result)
+      invalidate()
+    },
   })
 }
 
