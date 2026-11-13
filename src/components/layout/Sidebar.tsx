@@ -3,6 +3,7 @@ import { Logo } from '@/components/brand/Logo'
 import { useAuth } from '@/hooks/useAuth'
 import { canReadAnalytics } from '@/lib/roles'
 import { canAccessUsersPage } from '@/lib/users-page-tabs'
+import { prefetchAdminRoute } from '@/lib/route-prefetch'
 import { primaryNav, secondaryNav, type NavItem } from '@/router/nav'
 import { cn } from '@/lib/utils'
 
@@ -17,6 +18,8 @@ function NavGroup({ items, onNavigate }: { items: NavItem[]; onNavigate?: () => 
             to={item.to}
             end={item.end}
             onClick={onNavigate}
+            onFocus={() => prefetchAdminRoute(item.to)}
+            onPointerEnter={() => prefetchAdminRoute(item.to)}
             className={({ isActive }) =>
               cn(
                 'flex items-center gap-3 border-l-2 px-4 py-2.5 text-[13.5px] tracking-wide text-sidebar-muted transition-colors',
