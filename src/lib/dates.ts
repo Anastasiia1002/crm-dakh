@@ -1,6 +1,15 @@
 /** Hotel-local calendar. Stay dates and the chessboard use this zone, not the browser zone. */
 export const HOTEL_TIME_ZONE = 'Europe/Kyiv'
 
+export function formatHotelClock(now = new Date(), timeZone = HOTEL_TIME_ZONE) {
+  return new Intl.DateTimeFormat('uk-UA', {
+    timeZone: timeZone.trim() || HOTEL_TIME_ZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(now)
+}
+
 export function todayIso(now = new Date(), timeZone = HOTEL_TIME_ZONE) {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone,

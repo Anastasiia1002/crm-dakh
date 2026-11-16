@@ -53,7 +53,7 @@ export function bookingStatusDialog(action: AdminBookingStatusAction, reference:
   if (action === 'check-in') {
     return {
       title: 'Заселити гостя',
-      description: `${booking} змінить статус заїзду одразу після підтвердження. ${statusOccupancyImpact('check-in')}`,
+      description: `Після «Заселити» Бронювання ${reference} отримає статус «Заселено». ${statusOccupancyImpact('check-in')} Кнопка «Скасувати» лише закриває вікно і нічого не змінює.`,
       confirmLabel: 'Заселити',
     }
   }
