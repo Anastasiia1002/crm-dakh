@@ -35,7 +35,7 @@ const WEEKDAY_FIELDS = [
   { id: 6, label: 'Неділя' },
 ] as const
 
-export function PriceWorkspace() {
+export function PriceWorkspace({ onBack }: { onBack?: () => void }) {
   const { user } = useAuth()
   const canWrite = canManageRates(user?.role)
   const rooms = useAllAdminRooms()
@@ -140,12 +140,19 @@ export function PriceWorkspace() {
 
   return (
     <section className="space-y-6">
-      <div>
-        <h1 className="font-serif text-3xl font-medium">Ціни</h1>
-        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-          Ціна записується для обраних номерів і будиночків, у гривнях. Категорія типу більше не змінює сусідні
-          одиниці. Уже створені бронювання зберігають записані нічні суми.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="font-serif text-3xl font-medium">Ціни</h1>
+          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+            Ціна записується для обраних номерів і будиночків, у гривнях. Категорія типу більше не змінює сусідні
+            одиниці. Уже створені бронювання зберігають записані нічні суми.
+          </p>
+        </div>
+        {onBack ? (
+          <Button type="button" variant="outline" onClick={onBack}>
+            Поточні ціни
+          </Button>
+        ) : null}
       </div>
 
       <Field label="Оберіть період на який встановлюємо ціни">

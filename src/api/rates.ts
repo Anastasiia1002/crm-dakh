@@ -18,6 +18,7 @@ import type {
   LengthStayDiscountListQuery,
   LengthStayDiscountUpdateInput,
   LengthStayPreview,
+  CurrentPricesCalendarView,
   PricePeriod,
   PriceWorkspaceInput,
   PriceWorkspacePreview,
@@ -250,6 +251,16 @@ export async function updateCancellationPolicy(
     method: 'PATCH',
     body,
   })
+}
+
+export async function getCurrentPricesCalendar(query: {
+  firstNight: string
+  lastNight: string
+}): Promise<CurrentPricesCalendarView> {
+  return apiRequest(`/api/admin/rates/prices/calendar${querySuffix({
+    firstNight: query.firstNight,
+    lastNight: query.lastNight,
+  })}`)
 }
 
 export async function listRoomPrices(query: RoomPriceListQuery = {}): Promise<RatesPage<RoomPrice>> {

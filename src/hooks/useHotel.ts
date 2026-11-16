@@ -46,6 +46,7 @@ import {
   listDayPriceRules,
   listLengthStayDiscounts,
   listRatePlans,
+  getCurrentPricesCalendar,
   listRoomPrices,
   previewDayPrice,
   previewLengthStay,
@@ -437,6 +438,14 @@ export function useUpdateAdminCancellationPolicy() {
   })
 }
 
+export function useCurrentPricesCalendar(query: { firstNight: string; lastNight: string } | undefined) {
+  return useQuery({
+    queryKey: ['admin-current-prices', query],
+    queryFn: () => getCurrentPricesCalendar(query!),
+    enabled: Boolean(query),
+  })
+}
+
 export function useAdminRoomPrices(query: RoomPriceListQuery = {}) {
   return useQuery({
     queryKey: ['admin-room-prices', query],
@@ -487,7 +496,7 @@ export function useApplyPriceWorkspace() {
   const refresh = useRefresh()
   return useMutation({
     mutationFn: applyPriceWorkspace,
-    onSuccess: () => refresh(['admin-room-prices', 'admin-room-price', 'admin-day-price-rules']),
+    onSuccess: () => refresh(['admin-room-prices', 'admin-room-price', 'admin-day-price-rules', 'admin-current-prices']),
   })
 }
 
