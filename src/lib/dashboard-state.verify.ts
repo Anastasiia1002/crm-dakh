@@ -60,6 +60,9 @@ function main() {
   assert(page.includes('No chart until that series exists'), 'a missing daily series is not drawn as a trend')
   assert(page.includes('setPreset(null)'), 'a hand-edited range does not keep the month preset pressed')
   assert(page.includes('за часом готелю'), 'the hotel clock used for the snapshot stays visible')
+  assert(page.includes('hotelUpdatedAtLabel') && page.includes('Оновлено о') === false, 'freshness uses the shared fetch-time helper')
+  assert(page.includes('dataUpdatedAt'), 'overview uses the successful query time, not a live clock')
+  assert(!page.includes('Перегляд зараз') && !page.includes('Date.now()'), 'overview does not present a ticking clock as data time')
   assert(page.includes('sellablePercent') && page.includes('Немає продаваних місць.'), 'a null occupancy percent is explained from the night snapshot')
   assert(page.includes('useOperationsBoard') && page.includes('occupancyForNight') && !page.includes('summary.occupancy'), 'selected-date occupancy comes from the calendar night, not the today summary')
 

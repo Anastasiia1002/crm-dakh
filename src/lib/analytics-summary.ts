@@ -219,13 +219,52 @@ export function moneyOrUnavailable(value: AnalyticsMoney | AnalyticsUnavailable)
   return formatMoneyAmount(value.amount)
 }
 
-/** Staff copy: replace API status tokens with Ukrainian labels. */
-export function analyticsDefinitionForStaff(text: string | undefined) {
+/** Staff copy for the same server metrics, without field names or enum tokens. */
+export const STAFF_ANALYTICS_DEFINITIONS: Record<string, string> = {
+  bookingValue:
+    'Сума вартості бронювань у фільтрі. Це не отримані кошти. Скасовані входять, лише якщо їх вибрано серед статусів.',
+  revenue: 'Фактичні оплати мінус повернення. Облік оплат не ведеться — сума не виводиться зі статусу.',
+  averageCheck: 'Середня вартість бронювання в цьому наборі.',
+  outstanding: 'Сума, яку ще мають сплатити. Недоступно, поки немає обліку оплат.',
+  discounts: 'Сума знижок у тому самому наборі, що й вартість бронювань.',
+  total: 'Скільки бронювань у фільтрі. Одне бронювання на кілька номерів рахується один раз.',
+  cancelled: 'Зараз мають статус «Скасовано».',
+  completed: 'Зараз мають статус «Виселено» (гість виїхав).',
+  incomplete: 'Ще не виїхали: очікує підтвердження, підтверджено, заселено або не заїхав.',
+  currentlyCancelled: 'У цій вибірці зараз «Скасовано» (після фільтра дат і номерів).',
+  cancelledDuringPeriod:
+    'Скасовані в обраному періоді за часом готелю. Ті самі фільтри номерів і статусів.',
+  sources: 'Звідки створили бронювання. Невідоме джерело показується окремо.',
+  accommodations:
+    'Скільки бронювань займають цей номер або будиночок. Бронювання на два номери входить у обидва рядки, у загальному підсумку — один раз.',
+  guests:
+    'Унікальні гості без скасованих. Новий клієнт: перше нескасоване проживання в готелі потрапляє в період. Повторний візит: не перше проживання в готелі.',
+}
+
+const TECHNICAL_HINT = /guestId|BookingSource|totalAmount|discountAmount|cancelledAt|PENDING|CONFIRMED|CHECKED_IN|CHECKED_OUT|CANCELLED|NO_SHOW/
+
+/** Prefer staff copy; otherwise strip API tokens from the server definition. */
+export function analyticsDefinitionForStaff(text: string | undefined, key?: string) {
+  if (key && STAFF_ANALYTICS_DEFINITIONS[key]) return STAFF_ANALYTICS_DEFINITIONS[key]
   if (!text) return undefined
-  return (Object.keys(bookingStatusLabel) as BookingStatus[]).reduce(
+  const replaced = (Object.keys(bookingStatusLabel) as BookingStatus[]).reduce(
     (next, status) => next.replaceAll(status, bookingStatusLabel[status]),
     text,
   )
+  return replaced
+    .replaceAll('guestId', 'гість')
+    .replaceAll('BookingSource', 'джерело')
+    .replaceAll('totalAmount', 'вартість')
+    .replaceAll('discountAmount', 'знижка')
+    .replaceAll('cancelledAt', 'час скасування')
+}
+
+export function analyticsStaffHint(key: string, serverText?: string) {
+  return analyticsDefinitionForStaff(serverText, key)
+}
+
+export function analyticsHintLooksTechnical(text: string | undefined) {
+  return Boolean(text && TECHNICAL_HINT.test(text))
 }
 
 /** Keep the URL contract: omitted = all, rooms=none = explicit empty, otherwise selected ids. */

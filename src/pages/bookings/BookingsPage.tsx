@@ -6,12 +6,13 @@ import { AdminBookingTable } from '@/components/bookings/AdminBookingTable'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Pagination } from '@/components/ui/pagination'
+import { AccommodationSelectGroups } from '@/components/bookings/AccommodationSelectGroups'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { PageSkeleton } from '@/components/ui/page-status'
 import { EmptyState } from '@/components/ui/states'
 import { useAdminBookings } from '@/hooks/useBookings'
 import { useAllAdminRooms } from '@/hooks/useHotel'
-import { ACCOMMODATION_FALLBACK_LABEL, bookingRoomFilterLabel } from '@/lib/accommodation-labels'
+import { ACCOMMODATION_FALLBACK_LABEL } from '@/lib/accommodation-labels'
 import { adminBookingDateFilterReady } from '@/lib/admin-booking-view'
 import { errorMessage } from '@/lib/errors'
 import { adminBookingSourceLabel, bookingStatusLabel } from '@/lib/labels'
@@ -163,11 +164,7 @@ export function BookingsPage() {
               {roomId !== 'all' && !(rooms.data ?? []).some((item) => item.id === roomId) ? (
                 <SelectItem value={roomId}>{ACCOMMODATION_FALLBACK_LABEL}</SelectItem>
               ) : null}
-              {(rooms.data ?? []).map((item) => (
-                <SelectItem key={item.id} value={item.id}>
-                  {bookingRoomFilterLabel(item, roomTypes.data?.find((type) => type.id === item.roomTypeId)?.name)}
-                </SelectItem>
-              ))}
+              <AccommodationSelectGroups rooms={rooms.data ?? []} roomTypes={roomTypes.data ?? []} />
             </SelectContent>
           </Select>
           {rooms.isError ? (
