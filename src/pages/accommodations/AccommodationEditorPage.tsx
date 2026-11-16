@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { listAllRooms } from '@/api/accommodations'
 import { AmenityPicker } from '@/components/accommodations/AmenityPicker'
 import { AccommodationPhotoGallery } from '@/components/accommodations/AccommodationPhotoGallery'
+import { UnitHistory } from '@/components/accommodations/UnitHistory'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Field } from '@/components/ui/field'
@@ -501,7 +502,7 @@ export function AccommodationEditorPage() {
           </Field>
         </section>
 
-        <section className="pb-24">
+        <section className="space-y-8 pb-24">
           {item && assignedType.data ? (
             <AccommodationPhotoGallery roomTypeId={assignedType.data.id} canWrite={canWrite} />
           ) : (
@@ -510,6 +511,7 @@ export function AccommodationEditorPage() {
               <p className="text-sm text-muted-foreground">Фото можна додати після збереження розміщення.</p>
             </div>
           )}
+          {item ? <UnitHistory roomId={item.id} /> : null}
         </section>
 
         <div className="sticky bottom-0 z-10 flex flex-col-reverse gap-2 border-t border-border bg-background py-3 sm:flex-row sm:justify-end">

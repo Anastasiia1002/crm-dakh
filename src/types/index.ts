@@ -369,6 +369,82 @@ export type RoomPrice = {
   updatedAt: string
 }
 
+export type PriceWorkspaceInput = {
+  roomIds: string[]
+  firstNight: string
+  lastNight: string
+  price?: string
+  minStay?: number
+  maxStay?: number | null
+  byWeekday?: boolean
+  weekdayPrices?: string[]
+  replaceOverlaps?: boolean
+  previewToken?: string
+}
+
+export type PriceWorkspacePreview = {
+  firstNight: string
+  lastNight: string
+  exclusiveEnd: string
+  nightCount: number
+  ratePlanId: string
+  price: string
+  weekdayPrices: string[] | null
+  units: Array<{
+    roomId: string
+    roomTypeId: string
+    number: string
+    name: string | null
+    nights: Array<{ date: string; oldPrice: string | null; newPrice: string }>
+    overlaps: Array<{
+      id: string
+      roomId: string | null
+      startDate: string
+      endDate: string
+      lastNight: string
+      price: string
+      weekdayPrices: string | null
+    }>
+  }>
+  overlaps: Array<{
+    id: string
+    roomId: string | null
+    startDate: string
+    endDate: string
+    lastNight: string
+    price: string
+    weekdayPrices: string | null
+  }>
+  needsReplace: boolean
+  previewToken: string
+}
+
+export type RoomHistoryItem = {
+  kind: 'booking' | 'block'
+  id: string
+  startDate: string
+  endDate: string
+  bookingId: string | null
+  guestName: string | null
+  status: string | null
+  blockType: RoomBlockType | null
+  reason: string | null
+}
+
+export type RoomHistoryPage = {
+  items: RoomHistoryItem[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
+  retention: {
+    deletedBlocksRetained: false
+    priorAssignmentsRetained: false
+  }
+}
+
 export type RatesPage<T> = {
   items: T[]
   pagination: {

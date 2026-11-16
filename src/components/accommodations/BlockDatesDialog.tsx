@@ -21,12 +21,15 @@ import { useCreateAdminRoomBlock } from '@/hooks/useHotel'
 import { createSubmitLock } from '@/lib/booking-form'
 import { repairBlockEndDate } from '@/lib/calendar-selection'
 import { unitDisplayLabel } from '@/lib/accommodation-labels'
-import { nightsLabel } from '@/lib/format'
 import {
+  BLOCK_DIALOG_DESCRIPTION,
+  BLOCK_END_DATE_HINT,
+  BLOCK_END_DATE_LABEL,
   BLOCK_NOTE_MAX,
   BLOCK_REASON_OPTIONS,
   blockConfirmMessage,
   blockConflictMessage,
+  blockPreviewMessage,
   blockedNights,
   blockWriteFromReason,
   type BlockReasonId,
@@ -185,9 +188,7 @@ export function BlockDatesDialog({
           >
             <DialogHeader>
               <DialogTitle>Заблокувати дати</DialogTitle>
-              <DialogDescription>
-                Період напіввідкритий: [початок, кінець). Дата закінчення залишається вільною для заїзду.
-              </DialogDescription>
+              <DialogDescription>{BLOCK_DIALOG_DESCRIPTION}</DialogDescription>
             </DialogHeader>
             {roomLocked ? (
               <p className="text-sm">{roomLabel}</p>
@@ -227,7 +228,11 @@ export function BlockDatesDialog({
                   })}
                 />
               </Field>
-              <Field label="Кінець (не включно)" error={form.formState.errors.endDate?.message}>
+              <Field
+                label={BLOCK_END_DATE_LABEL}
+                hint={BLOCK_END_DATE_HINT}
+                error={form.formState.errors.endDate?.message}
+              >
                 <Input type="date" disabled={!canWrite} {...form.register('endDate')} />
               </Field>
             </div>
@@ -254,8 +259,7 @@ export function BlockDatesDialog({
             </Field>
             {nights.length > 0 ? (
               <p className="text-sm text-muted-foreground">
-                Буде заблоковано {nightsLabel(nights.length)}: {nights.join(', ')}. {values.endDate} залишиться вільною,
-                якщо немає іншого зайняття.
+                {blockPreviewMessage(values.startDate, values.endDate)}
               </p>
             ) : null}
             <DialogFooter>

@@ -97,7 +97,7 @@ export function BlockDetailsDialog({
                   <dd>{formatDate(block.startDate)}</dd>
                 </div>
                 <div>
-                  <dt className="text-muted-foreground">Кінець (не включно)</dt>
+                  <dt className="text-muted-foreground">Дата виїзду (не входить)</dt>
                   <dd>{formatDate(block.endDate)}</dd>
                 </div>
                 <div>

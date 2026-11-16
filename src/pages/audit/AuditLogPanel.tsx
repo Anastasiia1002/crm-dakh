@@ -168,7 +168,8 @@ export function AuditLogPanel() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <p className="max-w-3xl text-sm text-muted-foreground">
-          Історія змін у готелі. Час показано за київським поясом. Записи не редагуються.
+          Журнал змін у готелі доступний власнику. Паролі й секрети сюди не потрапляють. Час за київським поясом.
+          Записи не редагуються.
         </p>
         {canExport ? (
           <Button variant="outline" onClick={() => void onExport()} disabled={exporting}>

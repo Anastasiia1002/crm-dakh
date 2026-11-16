@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { useDeferredValue, useMemo, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { toast } from 'sonner'
+import { exportAdminBookingsCsv } from '@/api/admin-bookings'
 import { listAllRoomTypes } from '@/api/accommodations'
 import { AdminBookingTable } from '@/components/bookings/AdminBookingTable'
 import { Button } from '@/components/ui/button'
@@ -13,7 +15,8 @@ import { EmptyState } from '@/components/ui/states'
 import { useAdminBookings } from '@/hooks/useBookings'
 import { useAllAdminRooms } from '@/hooks/useHotel'
 import { ACCOMMODATION_FALLBACK_LABEL } from '@/lib/accommodation-labels'
-import { adminBookingDateFilterReady } from '@/lib/admin-booking-view'
+import { adminBookingDateFilterReady, toAdminBookingListQuery } from '@/lib/admin-booking-view'
+import { downloadBookingsCsv, downloadCsvBlob } from '@/lib/booking-export'
 import { errorMessage } from '@/lib/errors'
 import { adminBookingSourceLabel, bookingStatusLabel } from '@/lib/labels'
 import { CATALOG_STALE_TIME } from '@/lib/queryClient'
@@ -44,6 +47,7 @@ export function BookingsPage() {
   const [cancelledFrom] = useState(() => dateParam(searchParams.get('cancelledFrom')))
   const [cancelledTo] = useState(() => dateParam(searchParams.get('cancelledTo')))
   const [page, setPage] = useState(1)
+  const [exporting, setExporting] = useState(false)
 
   const dateGuard = adminBookingDateFilterReady(checkIn, checkOut)
   const filters: AdminBookingListFilters = useMemo(
@@ -97,9 +101,43 @@ export function BookingsPage() {
           placeholder="Пошук за гостем, телефоном або email"
           className="lg:max-w-xl"
         />
-        <Button asChild>
-          <Link to="/admin/bookings/new">Нове бронювання</Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!bookings.data?.items.length}
+            onClick={() => {
+              const items = bookings.data?.items ?? []
+              if (items.length === 0) {
+                toast.error('Немає рядків для експорту')
+                return
+              }
+              downloadBookingsCsv(items)
+            }}
+          >
+            Експорт сторінки
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={exporting || (!dateGuard.ok && Boolean(checkIn || checkOut))}
+            onClick={() => {
+              const query = toAdminBookingListQuery({ ...filters, page: 1, limit: PAGE_SIZE })
+              setExporting(true)
+              void exportAdminBookingsCsv(query)
+                .then((blob) => {
+                  downloadCsvBlob(blob, 'bronjuvannja.csv')
+                })
+                .catch((error) => toast.error(errorMessage(error)))
+                .finally(() => setExporting(false))
+            }}
+          >
+            {exporting ? 'Експорт…' : 'Експортувати за фільтрами'}
+          </Button>
+          <Button asChild>
+            <Link to="/admin/bookings/new">Нове бронювання</Link>
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
@@ -203,6 +241,12 @@ export function BookingsPage() {
           </button>
         ) : null}
       </div>
+
+      <p className="text-xs text-muted-foreground">
+        «Експортувати за фільтрами» забирає всі рядки поточного фільтра з сервера, не лише цю сторінку. Експорт
+        сторінки лишається для швидкої вибірки. Окремого дозволу bookings.export немає — використовується той самий
+        доступ, що й до списку бронювань.
+      </p>
 
       {!dateGuard.ok && dateGuard.message ? (
         <p className="text-sm text-muted-foreground">{dateGuard.message}</p>

@@ -71,7 +71,7 @@ export const ratePlanTypeLabel: Record<RatePlanType, string> = {
 }
 
 export const roomStatusLabel: Record<RoomStatus, string> = {
-  AVAILABLE: 'Вільний',
+  AVAILABLE: 'У роботі',
   MAINTENANCE: 'Обслуговування',
   OUT_OF_ORDER: 'Не працює',
   INACTIVE: 'Неактивний',

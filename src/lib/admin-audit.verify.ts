@@ -13,7 +13,7 @@ function assert(condition: boolean, message: string) {
   if (!condition) throw new Error(message)
 }
 
-assert(canReadAudit('owner') && canReadAudit('admin') && canReadAudit('manager'), 'audit read roles')
+assert(canReadAudit('owner') && !canReadAudit('admin') && !canReadAudit('manager'), 'audit journal is owner-only')
 assert(!canReadAudit('receptionist'), 'receptionist cannot read audit')
 assert(canExportAudit('owner') && !canExportAudit('admin') && !canExportAudit('manager'), 'export is owner only')
 assert(hasPermission('owner', 'audit.export'), 'owner catalog includes export')
@@ -52,8 +52,8 @@ assert(page.items[0]?.actor?.role === 'admin', 'backend role mapped')
 assert(page.items[0]?.description === 'Створено бронювання', 'ukrainian description kept')
 
 assert(usersPageTabsFor('owner').join() === 'users,invitations,audit', 'owner sees all users-page tabs')
-assert(usersPageTabsFor('admin').join() === 'users,invitations,audit', 'admin sees all users-page tabs')
-assert(usersPageTabsFor('manager').join() === 'users,invitations,audit', 'manager sees all users-page tabs')
+assert(usersPageTabsFor('admin').join() === 'users,invitations', 'admin has users without the journal')
+assert(usersPageTabsFor('manager').join() === 'users,invitations', 'manager has users without the journal')
 assert(usersPageTabsFor('receptionist').length === 0, 'receptionist has no users-page tabs')
 assert(parseUsersPageTab('audit', ['audit']) === 'audit', 'audit-only roles stay on the journal tab')
 assert(parseUsersPageTab('users', ['audit']) === 'audit', 'unauthorized tab falls back to an allowed tab')

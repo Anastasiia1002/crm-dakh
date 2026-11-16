@@ -27,7 +27,7 @@ export const primaryNav: NavItem[] = [
   { to: '/admin/calendar', label: 'Шахматка', icon: CalendarDays },
   { to: '/admin/guests', label: 'Клієнти', icon: ContactRound },
   { to: '/admin/accommodations', label: 'Номери та будиночки', icon: BedDouble },
-  { to: '/admin/rates', label: 'Тарифи', icon: Tags },
+  { to: '/admin/rates', label: 'Ціни', icon: Tags },
   { to: '/admin/services', label: 'Послуги', icon: ConciergeBell },
   { to: '/admin/promo-codes', label: 'Промокоди', icon: Ticket },
 ]

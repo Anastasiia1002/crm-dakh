@@ -15,6 +15,7 @@ import {
   getRoomTypes,
   listAmenities,
   listRoomBlocks,
+  listRoomHistory,
   listAllRooms,
   listRooms,
   listRoomTypeImages,
@@ -48,6 +49,8 @@ import {
   listRoomPrices,
   previewDayPrice,
   previewLengthStay,
+  previewPriceWorkspace,
+  applyPriceWorkspace,
   savePricePeriod,
   saveRatePlan,
   updateCancellationPolicy,
@@ -471,6 +474,31 @@ export function useDeleteAdminRoomPrice() {
   return useMutation({
     mutationFn: deleteRoomPrice,
     onSuccess: () => refresh(['admin-room-prices', 'admin-room-price']),
+  })
+}
+
+export function usePreviewPriceWorkspace() {
+  return useMutation({
+    mutationFn: previewPriceWorkspace,
+  })
+}
+
+export function useApplyPriceWorkspace() {
+  const refresh = useRefresh()
+  return useMutation({
+    mutationFn: applyPriceWorkspace,
+    onSuccess: () => refresh(['admin-room-prices', 'admin-room-price', 'admin-day-price-rules']),
+  })
+}
+
+export function useAdminRoomHistory(
+  roomId: string | undefined,
+  query: { page?: number; limit?: number; from?: string; to?: string } = {},
+) {
+  return useQuery({
+    queryKey: ['admin-room-history', roomId, query],
+    queryFn: ({ signal }) => listRoomHistory(roomId!, query, signal),
+    enabled: Boolean(roomId),
   })
 }
 

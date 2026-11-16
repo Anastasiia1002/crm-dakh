@@ -8,6 +8,13 @@ import type { RoomBlockType } from '@/types'
 
 export const BLOCK_NOTE_MAX = 500
 
+export const BLOCK_DIALOG_DESCRIPTION =
+  'Закрийте ночі, коли сюди не можна селити гостей. Дата виїзду не блокується — цього дня знову можна заїхати.'
+
+export const BLOCK_END_DATE_LABEL = 'Дата виїзду'
+
+export const BLOCK_END_DATE_HINT = 'Цей день не входить у блокування і знову доступний для заїзду.'
+
 export const BLOCK_REASON_OPTIONS = [
   { id: 'repair', type: 'MAINTENANCE', label: 'Ремонт', defaultNote: 'Ремонт' },
   {
@@ -64,6 +71,12 @@ export function blockReasonLabel(block: { type: RoomBlockType; reason: string | 
     return `${roomBlockTypeLabel[block.type]} · ${reason}`
   }
   return roomBlockTypeLabel[block.type]
+}
+
+export function blockPreviewMessage(startDate: string, endDate: string) {
+  const nights = blockedNights(startDate, endDate)
+  if (nights.length === 0) return null
+  return `Буде закрито ${nightsLabel(nights.length)}: ${nights.join(', ')}. ${endDate} залишиться днем виїзду: тоді знову можна заселити гостя, якщо немає бронювання.`
 }
 
 export function blockedNights(startDate: string, endDate: string): string[] {

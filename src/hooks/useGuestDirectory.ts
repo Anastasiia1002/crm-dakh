@@ -13,12 +13,13 @@ import type { GuestDirectoryQuery, GuestHistoryQuery, GuestWriteInput } from '@/
 import type { GuestImportDuplicateMode, GuestImportMapping } from '@/lib/guest-import'
 import { OPERATIONAL_STALE_TIME } from '@/lib/queryClient'
 
-export function useGuestList(query: GuestDirectoryQuery) {
+export function useGuestList(query: GuestDirectoryQuery, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['admin-guests', query],
     queryFn: ({ signal }) => listAdminGuests(query, signal),
     staleTime: OPERATIONAL_STALE_TIME,
     placeholderData: (previous) => previous,
+    enabled: options?.enabled ?? true,
   })
 }
 

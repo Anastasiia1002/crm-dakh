@@ -3,7 +3,7 @@ import { isRecoverableConnectionError } from '@/lib/session-policy'
 import type { RatePlan, RatePlanType, RatesPage } from '@/types'
 
 const RATE_TYPES: readonly RatePlanType[] = ['STANDARD', 'NON_REFUNDABLE', 'SPECIAL']
-const INTERNAL_ONLY_RATE_PLAN_CODES = new Set(['catalog-test-100', 'staging-public-e2e'])
+const INTERNAL_ONLY_RATE_PLAN_CODES = new Set(['catalog-test-100', 'staging-public-e2e', 'client-test-standard'])
 
 const CONTRACT_ERROR = 'Сервер не повернув коректний тариф. Оновлення недоступне, значення не підставляється.'
 
@@ -23,7 +23,7 @@ export const RATE_PLAN_SITE_LABEL: Record<RatePlanSiteState, string> = {
 export const RATE_PLAN_CURRENCY_LABEL = 'грн'
 
 export const RATE_PLAN_PRICE_NOTE =
-  'У тарифі немає окремої ціни. Нічна ціна задається періодами нижче і зберігається лише в гривнях (UAH). Зміна тарифу не переписує нічні ціни вже створених бронювань.'
+  'Тариф — це умови продажу (стандартний, без повернення), а не вибір номера чи будиночка. Ціну за ніч задають періоди нижче, лише в гривнях. Зміна тарифу не змінює ціни вже створених бронювань.'
 
 export const PUBLIC_OFFER_CONFIRM_TITLE = 'Показати тариф на сайті?'
 

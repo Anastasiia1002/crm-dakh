@@ -19,6 +19,8 @@ import type {
   LengthStayDiscountUpdateInput,
   LengthStayPreview,
   PricePeriod,
+  PriceWorkspaceInput,
+  PriceWorkspacePreview,
   RatePlan,
   RatePlanCreateInput,
   RatePlanListQuery,
@@ -300,6 +302,14 @@ export async function updateRoomPrice(id: string, input: RoomPriceUpdateInput): 
 
 export async function deleteRoomPrice(id: string): Promise<{ ok: true }> {
   return apiRequest(`/api/admin/rates/prices/${id}`, { method: 'DELETE' })
+}
+
+export async function previewPriceWorkspace(input: PriceWorkspaceInput): Promise<PriceWorkspacePreview> {
+  return apiRequest('/api/admin/rates/prices/preview', { method: 'POST', body: input })
+}
+
+export async function applyPriceWorkspace(input: PriceWorkspaceInput): Promise<PriceWorkspacePreview> {
+  return apiRequest('/api/admin/rates/prices/apply', { method: 'POST', body: input })
 }
 
 export async function listDayPriceRules(query: DayPriceRuleListQuery = {}): Promise<RatesPage<DayPriceRule>> {

@@ -10,7 +10,15 @@ import { Pagination } from '@/components/ui/pagination'
 import { EmptyState, LoadingState } from '@/components/ui/states'
 import { useAuth } from '@/hooks/useAuth'
 import { useExportGuests, useGuestList } from '@/hooks/useGuestDirectory'
-import { LAST_VISIT_FILTERS, type GuestDirectoryQuery, type LastVisitFilter, guestFailure, guestFailureMessage } from '@/lib/admin-guests'
+import {
+  LAST_VISIT_FILTERS,
+  type GuestDirectoryQuery,
+  type LastVisitFilter,
+  guestDirectoryIsUnfiltered,
+  guestFailure,
+  guestFailureMessage,
+  guestHeadlineCounts,
+} from '@/lib/admin-guests'
 import { formatCount } from '@/lib/format'
 import { canExportGuests, canImportGuests, canWriteGuests } from '@/lib/roles'
 
@@ -61,7 +69,16 @@ export function GuestsPage() {
   }, [page, search, lastVisitFilter, visitCountMin, visitCountMax, registeredFrom, registeredTo, sort, order])
 
   const guests = useGuestList(query)
+  const showHeadline = guestDirectoryIsUnfiltered(query)
+  const withoutVisitsQuery = useGuestList(
+    { page: 1, limit: 1, lastVisit: 'never' },
+    { enabled: showHeadline },
+  )
   const failure = guests.isError ? guestFailure(guests.error) : null
+  const headline =
+    showHeadline && guests.data && withoutVisitsQuery.data
+      ? guestHeadlineCounts(guests.data.total, withoutVisitsQuery.data.total)
+      : null
 
   function patch(next: Record<string, string | null>) {
     const copy = new URLSearchParams(params)
@@ -120,12 +137,32 @@ export function GuestsPage() {
       />
 
       {guests.data ? (
-        <dl className="border-y border-border py-4">
-          <dt className="text-[11px] tracking-[0.12em] text-muted uppercase">
-            {search.trim() || lastVisitFilter !== 'all' ? 'Знайдено' : 'Усього клієнтів'}
-          </dt>
-          <dd className="mt-1 font-serif text-[1.7rem] leading-none tabular-nums">{formatCount(guests.data.total)}</dd>
-        </dl>
+        headline ? (
+          <dl className="grid gap-6 border-y border-border py-4 sm:grid-cols-3">
+            <div>
+              <dt className="text-[11px] tracking-[0.12em] text-muted uppercase">Усього</dt>
+              <dd className="mt-1 font-serif text-[1.7rem] leading-none tabular-nums">{formatCount(headline.total)}</dd>
+            </div>
+            <div>
+              <dt className="text-[11px] tracking-[0.12em] text-muted uppercase">Нові</dt>
+              <dd className="mt-1 font-serif text-[1.7rem] leading-none tabular-nums">
+                {formatCount(headline.withoutVisits)}
+              </dd>
+              <p className="mt-1 text-xs text-muted-foreground">Ще без візитів</p>
+            </div>
+            <div>
+              <dt className="text-[11px] tracking-[0.12em] text-muted uppercase">З візитами</dt>
+              <dd className="mt-1 font-serif text-[1.7rem] leading-none tabular-nums">
+                {formatCount(headline.withVisits)}
+              </dd>
+            </div>
+          </dl>
+        ) : (
+          <dl className="border-y border-border py-4">
+            <dt className="text-[11px] tracking-[0.12em] text-muted uppercase">Знайдено</dt>
+            <dd className="mt-1 font-serif text-[1.7rem] leading-none tabular-nums">{formatCount(guests.data.total)}</dd>
+          </dl>
+        )
       ) : null}
 
       {guests.isLoading ? <LoadingState /> : null}

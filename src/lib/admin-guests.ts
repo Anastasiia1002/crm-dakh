@@ -122,6 +122,23 @@ export type GuestDirectoryQuery = {
   order?: 'asc' | 'desc'
 }
 
+export function guestDirectoryIsUnfiltered(query: GuestDirectoryQuery) {
+  return (
+    !query.search?.trim() &&
+    (!query.lastVisit || query.lastVisit === 'all') &&
+    query.visitCountMin === undefined &&
+    query.visitCountMax === undefined &&
+    !query.registeredFrom &&
+    !query.registeredTo
+  )
+}
+
+export function guestHeadlineCounts(total: number, withoutVisits: number) {
+  const safeTotal = Math.max(0, total)
+  const never = Math.min(safeTotal, Math.max(0, withoutVisits))
+  return { total: safeTotal, withoutVisits: never, withVisits: safeTotal - never }
+}
+
 export type GuestWriteInput = {
   firstName: string
   lastName: string

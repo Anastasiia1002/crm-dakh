@@ -18,8 +18,8 @@ export function GuestExportDialog({
         <DialogHeader>
           <DialogTitle>Експорт клієнтів</DialogTitle>
           <DialogDescription>
-            Експортуються лише клієнти цього готелю з урахуванням пошуку та фільтрів. Внутрішні коментарі та email не
-            входять у файл.
+            Для внутрішніх звітів. Експортуються клієнти цього готелю з урахуванням пошуку та фільтрів. Внутрішні
+            коментарі та email не входять у файл.
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-2 sm:flex-row">

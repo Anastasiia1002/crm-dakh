@@ -15,6 +15,8 @@ import {
   guestProfilePath,
   guestSaveHint,
   guestStayRoomLabel,
+  guestDirectoryIsUnfiltered,
+  guestHeadlineCounts,
   parseGuestDirectoryPage,
   parseGuestHistoryPage,
   parseGuestProfile,
@@ -215,6 +217,9 @@ assert(directory.includes('Імпорт') && directory.includes('GuestImportDial
 assert(directory.includes('sort') && directory.includes('order'), 'directory sends sort to the API')
 assert(canWriteGuests('receptionist') && !canExportGuests('receptionist'), 'reception can write clients but not export')
 assert(!canExportGuests('manager') && !canExportGuests('admin') && canExportGuests('owner'), 'only owner exports guests')
+assert(guestHeadlineCounts(10, 3).withVisits === 7 && guestHeadlineCounts(10, 3).withoutVisits === 3, 'headline splits never-visited')
+assert(guestDirectoryIsUnfiltered({ page: 1, limit: 20 }), 'default directory is unfiltered')
+assert(!guestDirectoryIsUnfiltered({ page: 1, limit: 20, lastVisit: 'never' }), 'never-visited is a filter')
 assert(canImportGuests('owner') && canImportGuests('admin'), 'owner and admin can import guests')
 assert(!canImportGuests('manager') && !canImportGuests('receptionist'), 'desk roles cannot import guests')
 assert(directory.includes('guests.data.total'), 'total comes from the page payload')

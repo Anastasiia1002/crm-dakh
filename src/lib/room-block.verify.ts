@@ -14,9 +14,12 @@ import {
   showCalendarBlockButton,
 } from './calendar-selection'
 import {
+  BLOCK_DIALOG_DESCRIPTION,
+  BLOCK_END_DATE_LABEL,
   BLOCK_REASON_OPTIONS,
   blockConfirmMessage,
   blockConflictMessage,
+  blockPreviewMessage,
   blockReasonLabel,
   blockWriteFromReason,
   blockedNights,
@@ -56,6 +59,16 @@ assert(
   'unblock confirmation copy',
 )
 assert(blockReasonLabel({ type: 'MAINTENANCE', reason: 'Ремонт' }) === 'Ремонт', 'display repair note')
+assert(
+  blockPreviewMessage('2027-01-05', '2027-01-08') ===
+    'Буде закрито 3 ночі: 2027-01-05, 2027-01-06, 2027-01-07. 2027-01-08 залишиться днем виїзду: тоді знову можна заселити гостя, якщо немає бронювання.',
+  'preview names checkout rather than occupancy',
+)
+assert(!BLOCK_DIALOG_DESCRIPTION.includes('напіввідкритий'), 'staff copy avoids interval jargon')
+assert(BLOCK_END_DATE_LABEL === 'Дата виїзду', 'end field is checkout')
+const dialog = readFileSync(new URL('../components/accommodations/BlockDatesDialog.tsx', import.meta.url), 'utf8')
+assert(dialog.includes('BLOCK_DIALOG_DESCRIPTION'), 'block dialog uses shared intro')
+assert(!dialog.includes('зайняття'), 'block dialog does not say зайняття')
 console.log('PASS: half-open confirmation copy')
 
 const bookingConflict = new ApiError(

@@ -94,6 +94,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
       permission !== 'users.invite' &&
       permission !== 'users.deactivate' &&
       permission !== 'users.roles.manage' &&
+      permission !== 'audit.read' &&
       permission !== 'audit.export',
   ),
   manager: [
@@ -105,7 +106,6 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     'users.read',
     'users.invite',
     'users.deactivate',
-    'audit.read',
   ],
   receptionist: STAFF_OPERATIONS,
 }
