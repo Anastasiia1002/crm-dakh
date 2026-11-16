@@ -53,6 +53,8 @@ import { formatDate, formatMoneyAmount, normalizeMoneyString, parseStayNights } 
 import { ratePlanTypeLabel } from '@/lib/labels'
 import { canManageRates } from '@/lib/roles'
 import type { RatePlan, RatePlanType, RoomPrice } from '@/types'
+import { exclusiveEndFromLastNight, lastNightFromExclusiveEnd } from '@/lib/price-nights'
+import { PriceWorkspace } from './PriceWorkspace'
 import { StayPricingSections } from './StayPricingSections'
 
 const PAGE_SIZE = 20
@@ -152,6 +154,7 @@ export function RatesPage() {
 
   return (
     <div className="space-y-14">
+      <PriceWorkspace />
       <section>
         <SectionHeading
           title="Тарифні плани"
@@ -276,7 +279,8 @@ export function RatesPage() {
           }
         />
         <p className="mb-4 max-w-2xl text-sm text-muted-foreground">
-          Тут задають ціну за ніч для номера чи будиночка. Дата «до» уже не входить у період. Сума в гривнях.
+          Тут задають ціну за ніч для категорії. Дати «Перша ніч» і «Остання ніч» включні; на сервері кінець
+          зберігається як наступний день, який уже не входить. Сума в гривнях.
         </p>
         <div className="mb-4 max-w-sm">
           <RatePlanPicker
@@ -320,8 +324,8 @@ export function RatesPage() {
                   <TableCell>{planNameById.get(price.ratePlanId) ?? '—'}</TableCell>
                   <TableCell>{roomTypeNameById.get(price.roomTypeId) ?? '—'}</TableCell>
                   <TableCell>
-                    {formatDate(price.startDate)} — {formatDate(price.endDate)}
-                    <span className="block text-xs text-muted-foreground">[початок, кінець)</span>
+                    {formatDate(price.startDate)} — {formatDate(lastNightFromExclusiveEnd(price.endDate))}
+                    <span className="block text-xs text-muted-foreground">перша й остання ніч включно</span>
                   </TableCell>
                   <TableCell className="tabular-nums">{formatMoneyAmount(price.price)}</TableCell>
                   <TableCell>
@@ -379,7 +383,7 @@ export function RatesPage() {
         title="Видалити ціну?"
         description={
           pendingDelete
-            ? `${formatDate(pendingDelete.startDate)} — ${formatDate(pendingDelete.endDate)} · ${formatMoneyAmount(pendingDelete.price)}`
+            ? `${formatDate(pendingDelete.startDate)} — ${formatDate(lastNightFromExclusiveEnd(pendingDelete.endDate))} · ${formatMoneyAmount(pendingDelete.price)}`
             : ''
         }
         confirmLabel="Видалити"
@@ -649,8 +653,8 @@ const priceSchema = z
   .object({
     ratePlanId: z.string().min(1, 'Оберіть тариф'),
     roomTypeId: z.string().min(1, 'Оберіть категорію'),
-    startDate: z.string().regex(DATE_RE, 'Дата у форматі РРРР-ММ-ДД'),
-    endDate: z.string().regex(DATE_RE, 'Дата у форматі РРРР-ММ-ДД'),
+    firstNight: z.string().regex(DATE_RE, 'Дата у форматі РРРР-ММ-ДД'),
+    lastNight: z.string().regex(DATE_RE, 'Дата у форматі РРРР-ММ-ДД'),
     price: z
       .string()
       .trim()
@@ -660,11 +664,11 @@ const priceSchema = z
     active: z.enum(['yes', 'no']),
   })
   .superRefine((values, ctx) => {
-    if (values.endDate <= values.startDate) {
+    if (values.lastNight < values.firstNight) {
       ctx.addIssue({
         code: 'custom',
-        path: ['endDate'],
-        message: 'Дата кінця має бути пізніше за дату початку',
+        path: ['lastNight'],
+        message: 'Остання ніч має бути не раніше за першу',
       })
     }
     const minStay = parseStayNights(values.minStay)
@@ -713,8 +717,8 @@ function PriceDialog({
     values: {
       ratePlanId: item?.ratePlanId ?? '',
       roomTypeId: item?.roomTypeId ?? '',
-      startDate: item?.startDate ?? '',
-      endDate: item?.endDate ?? '',
+      firstNight: item?.startDate ?? '',
+      lastNight: item ? lastNightFromExclusiveEnd(item.endDate) : '',
       price: item?.price ?? '',
       minStay: item ? String(item.minStay) : '1',
       maxStay: item?.maxStay === null || item?.maxStay === undefined ? '' : String(item.maxStay),
@@ -761,8 +765,8 @@ function PriceDialog({
               const input = {
                 ratePlanId: values.ratePlanId,
                 roomTypeId: values.roomTypeId,
-                startDate: values.startDate,
-                endDate: values.endDate,
+                startDate: values.firstNight,
+                endDate: exclusiveEndFromLastNight(values.lastNight),
                 price,
                 minStay,
                 maxStay,
@@ -798,15 +802,15 @@ function PriceDialog({
             />
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Початок" error={form.formState.errors.startDate?.message}>
-              <Input type="date" disabled={!canWrite} {...form.register('startDate')} />
+            <Field label="Перша ніч" error={form.formState.errors.firstNight?.message}>
+              <Input type="date" disabled={!canWrite} {...form.register('firstNight')} />
             </Field>
             <Field
-              label="До (цей день уже не входить)"
-              error={form.formState.errors.endDate?.message}
-              hint="Остання ніч за цією ціною — день перед цією датою."
+              label="Остання ніч"
+              error={form.formState.errors.lastNight?.message}
+              hint="Включно. На сервер зберігається наступний день, який уже не входить."
             >
-              <Input type="date" disabled={!canWrite} {...form.register('endDate')} />
+              <Input type="date" disabled={!canWrite} {...form.register('lastNight')} />
             </Field>
           </div>
           <Field label="Ціна за ніч, ₴" error={form.formState.errors.price?.message}>

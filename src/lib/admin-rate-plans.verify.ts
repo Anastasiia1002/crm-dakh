@@ -66,6 +66,7 @@ try {
 assert(guessed, 'a non-boolean publicOfferable is rejected')
 
 assert(isInternalOnlyRatePlanCode('catalog-test-100'), 'catalog test is internal')
+assert(isInternalOnlyRatePlanCode('client-test-standard'), 'client test standard is internal')
 assert(isInternalOnlyRatePlanCode('STAGING-PUBLIC-E2E'), 'QA code is internal ignoring case')
 assert(!isInternalOnlyRatePlanCode('STANDARD'), 'commercial codes are not internal')
 
@@ -82,6 +83,9 @@ assert(pageSource.includes('canEditPublicOfferable'), 'toggle is role and intern
 assert(pageSource.includes('toast.success') && pageSource.includes('await update.mutateAsync'), 'save waits for the API')
 assert(!pageSource.includes('publicOfferable: true //') && !pageSource.includes("publicOfferable ?? true"), 'no optimistic true fallback')
 assert(pageSource.includes('StayPricingSections'), 'existing pricing screens remain')
+assert(pageSource.includes('PriceWorkspace'), 'daily pricing workspace is the default rates view')
+assert(pageSource.includes('firstNight'), 'period dialog uses inclusive first night')
+assert(pageSource.includes('lastNightFromExclusiveEnd'), 'existing catalog ends convert to last night')
 assert(types.includes('publicOfferable: boolean'), 'RatePlan requires the flag')
 assert(pageSource.includes('RATE_PLAN_CONTRACT'), 'contract errors surface in the rates UI')
 assert(!pageSource.includes('mocks/db'), 'rates page does not read mock inventory')
@@ -115,7 +119,7 @@ assert(classifyRatePlanSaveError(new ApiError('no', 403, 'FORBIDDEN')) === 'forb
 assert(classifyRatePlanSaveError(new ApiError('bad', 400, 'VALIDATION_ERROR', ['code: має містити лише великі латинські літери'])) === 'validation', 'validation error')
 assert(RATE_PLAN_UNCERTAIN_MESSAGE.includes('Не надсилайте'), 'uncertain copy forbids a blind retry')
 assert(RATE_PLAN_PRICE_NOTE.includes('не вибір номера'), 'tariff is not the room picker')
-assert(pageSource.includes('До (цей день уже не входить)'), 'price period end is staff-readable')
+assert(pageSource.includes('Остання ніч'), 'price period end is staff-readable as an inclusive last night')
 
 const uah = formatMoneyAmount('2000.00')
 assert(uah.includes('₴') && !uah.includes('USD') && !uah.includes('$'), 'prices render in hryvnia')

@@ -3,7 +3,7 @@ import { isRecoverableConnectionError } from '@/lib/session-policy'
 import type { RatePlan, RatePlanType, RatesPage } from '@/types'
 
 const RATE_TYPES: readonly RatePlanType[] = ['STANDARD', 'NON_REFUNDABLE', 'SPECIAL']
-const INTERNAL_ONLY_RATE_PLAN_CODES = new Set(['catalog-test-100', 'staging-public-e2e'])
+const INTERNAL_ONLY_RATE_PLAN_CODES = new Set(['catalog-test-100', 'staging-public-e2e', 'client-test-standard'])
 
 const CONTRACT_ERROR = 'Сервер не повернув коректний тариф. Оновлення недоступне, значення не підставляється.'
 

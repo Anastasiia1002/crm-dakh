@@ -369,6 +369,60 @@ export type RoomPrice = {
   updatedAt: string
 }
 
+export type PriceWorkspaceInput = {
+  ratePlanId: string
+  roomTypeId: string
+  firstNight: string
+  lastNight: string
+  price: string
+  minStay?: number
+  maxStay?: number | null
+  byWeekday?: boolean
+  weekdayPrice?: string
+  weekendPrice?: string
+  weekendDays?: number[]
+  replaceOverlaps?: boolean
+}
+
+export type PriceWorkspacePreview = {
+  firstNight: string
+  lastNight: string
+  exclusiveEnd: string
+  nightCount: number
+  ratePlanId: string
+  roomTypeId: string
+  price: string
+  byWeekday: boolean
+  overlaps: Array<{ id: string; startDate: string; endDate: string; lastNight: string; price: string }>
+  needsReplace: boolean
+}
+
+export type RoomHistoryItem = {
+  kind: 'booking' | 'block'
+  id: string
+  startDate: string
+  endDate: string
+  bookingId: string | null
+  guestName: string | null
+  status: string | null
+  blockType: RoomBlockType | null
+  reason: string | null
+}
+
+export type RoomHistoryPage = {
+  items: RoomHistoryItem[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
+  retention: {
+    deletedBlocksRetained: false
+    priorAssignmentsRetained: false
+  }
+}
+
 export type RatesPage<T> = {
   items: T[]
   pagination: {

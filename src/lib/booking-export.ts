@@ -32,12 +32,15 @@ export function bookingsPageCsv(items: readonly AdminBookingListItem[]) {
   return `\uFEFF${[HEADERS, ...rows].map((row) => row.map(csvCell).join(';')).join('\n')}`
 }
 
-export function downloadBookingsCsv(items: readonly AdminBookingListItem[]) {
-  const blob = new Blob([bookingsPageCsv(items)], { type: 'text/csv;charset=utf-8' })
+export function downloadCsvBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = 'bronjuvannja.csv'
+  link.download = filename
   link.click()
   URL.revokeObjectURL(url)
+}
+
+export function downloadBookingsCsv(items: readonly AdminBookingListItem[]) {
+  downloadCsvBlob(new Blob([bookingsPageCsv(items)], { type: 'text/csv;charset=utf-8' }), 'bronjuvannja.csv')
 }

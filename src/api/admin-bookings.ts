@@ -1,4 +1,4 @@
-import { apiRequest } from '@/lib/api-client'
+import { apiBlob, apiRequest } from '@/lib/api-client'
 import { ApiError } from '@/lib/api-error'
 import { sanitizeAdminBookingCreateBody, sanitizeAdminBookingQuoteBody } from '@/lib/admin-booking-view'
 import type {
@@ -26,6 +26,29 @@ function querySuffix(params: Record<string, string | number | boolean | undefine
   }
   const suffix = search.toString()
   return suffix ? `?${suffix}` : ''
+}
+
+export async function exportAdminBookingsCsv(query: AdminBookingListQuery = {}, signal?: AbortSignal): Promise<Blob> {
+  return apiBlob(
+    `/api/admin/bookings/export${querySuffix({
+      status: query.status,
+      source: query.source,
+      id: query.id,
+      roomId: query.roomId,
+      roomTypeId: query.roomTypeId,
+      checkIn: query.checkIn,
+      checkOut: query.checkOut,
+      createdFrom: query.createdFrom,
+      createdTo: query.createdTo,
+      createdLocalFrom: query.createdLocalFrom,
+      createdLocalTo: query.createdLocalTo,
+      cancelledFrom: query.cancelledFrom,
+      cancelledTo: query.cancelledTo,
+      search: query.search?.trim() || undefined,
+    })}`,
+    'text/csv',
+    { signal },
+  )
 }
 
 export async function listAdminBookings(

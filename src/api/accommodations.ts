@@ -21,6 +21,7 @@ import type {
   RoomTypeListQuery,
   RoomTypeUpdateInput,
   RoomUpdateInput,
+  RoomHistoryPage,
 } from '@/types'
 
 function clone<T>(value: T): T {
@@ -229,6 +230,22 @@ export async function updateRoom(id: string, input: RoomUpdateInput): Promise<Ac
     method: 'PATCH',
     body,
   })
+}
+
+export async function listRoomHistory(
+  roomId: string,
+  query: { page?: number; limit?: number; from?: string; to?: string } = {},
+  signal?: AbortSignal,
+): Promise<RoomHistoryPage> {
+  return apiRequest(
+    `/api/admin/accommodations/rooms/${roomId}/history${querySuffix({
+      page: query.page,
+      limit: query.limit,
+      from: query.from,
+      to: query.to,
+    })}`,
+    { signal },
+  )
 }
 
 export async function listRoomBlocks(roomId: string, signal?: AbortSignal): Promise<Block[]> {
