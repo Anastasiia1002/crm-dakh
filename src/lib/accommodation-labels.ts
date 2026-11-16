@@ -90,6 +90,27 @@ export function bookingRoomFilterLabel(
   return label
 }
 
+export const ROOM_KIND_GROUP_LABEL = 'Номери'
+export const COTTAGE_KIND_GROUP_LABEL = 'Будиночки'
+
+/** Bookings and analytics pickers: rooms first, then cottages. Unknown types stay with rooms. */
+export function roomsGroupedByKind<T extends { roomTypeId: string }>(
+  rooms: readonly T[],
+  types: readonly { id: string; kind: RoomTypeKind }[],
+) {
+  const kindByType = new Map(types.map((type) => [type.id, type.kind]))
+  const numbered: T[] = []
+  const cottages: T[] = []
+  for (const room of rooms) {
+    if (kindByType.get(room.roomTypeId) === 'COTTAGE') cottages.push(room)
+    else numbered.push(room)
+  }
+  return [
+    { id: 'ROOM' as const, label: ROOM_KIND_GROUP_LABEL, items: numbered },
+    { id: 'COTTAGE' as const, label: COTTAGE_KIND_GROUP_LABEL, items: cottages },
+  ].filter((group) => group.items.length > 0)
+}
+
 /** Append a booking's room when the loaded catalog does not already contain its id. */
 export function withReferencedRoom<T extends { id: string }>(rooms: readonly T[], referenced: T | null | undefined): T[] {
   if (!referenced || rooms.some((room) => room.id === referenced.id)) return [...rooms]

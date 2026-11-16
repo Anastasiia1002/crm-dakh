@@ -5,6 +5,16 @@ import { cn } from '@/lib/utils'
 
 export const Select = SelectPrimitive.Root
 export const SelectValue = SelectPrimitive.Value
+export const SelectGroup = SelectPrimitive.Group
+
+export function SelectLabel({ className, ...props }: ComponentProps<typeof SelectPrimitive.Label>) {
+  return (
+    <SelectPrimitive.Label
+      className={cn('px-3 py-1.5 text-[11px] tracking-[0.12em] text-muted uppercase', className)}
+      {...props}
+    />
+  )
+}
 
 export function SelectTrigger({ className, children, ...props }: ComponentProps<typeof SelectPrimitive.Trigger>) {
   return (

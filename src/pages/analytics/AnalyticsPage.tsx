@@ -16,7 +16,7 @@ import {
   ANALYTICS_NONE,
   ANALYTICS_STATUSES,
   analyticsDateTypeLabel,
-  analyticsDefinitionForStaff,
+  analyticsStaffHint,
   analyticsPeriodReady,
   nextAnalyticsKindCategoryFilter,
   analyticsPresetRange,
@@ -221,27 +221,27 @@ function AnalyticsBody({ summary, filters }: { summary: AdminAnalyticsSummary; f
         <Kpi
           label="Вартість бронювань"
           value={moneyOrUnavailable(summary.financial.bookingValue)}
-          hint={analyticsDefinitionForStaff(definitions.bookingValue)}
+          hint={analyticsStaffHint('bookingValue', definitions.bookingValue)}
         />
         <Kpi
           label="Дохід"
           value={moneyOrUnavailable(summary.financial.revenue)}
-          hint={analyticsDefinitionForStaff(definitions.revenue)}
+          hint={analyticsStaffHint('revenue', definitions.revenue)}
         />
         <Kpi
           label="Середній чек"
           value={moneyOrUnavailable(summary.financial.averageCheck)}
-          hint={analyticsDefinitionForStaff(definitions.averageCheck)}
+          hint={analyticsStaffHint('averageCheck', definitions.averageCheck)}
         />
         <Kpi
           label="Очікує на оплату"
           value={moneyOrUnavailable(summary.financial.outstanding)}
-          hint={analyticsDefinitionForStaff(definitions.outstanding)}
+          hint={analyticsStaffHint('outstanding', definitions.outstanding)}
         />
         <Kpi
           label="Сума знижок"
           value={moneyOrUnavailable(summary.financial.discounts)}
-          hint={analyticsDefinitionForStaff(definitions.discounts)}
+          hint={analyticsStaffHint('discounts', definitions.discounts)}
         />
       </KpiGroup>
 
@@ -253,12 +253,12 @@ function AnalyticsBody({ summary, filters }: { summary: AdminAnalyticsSummary; f
           </Link>
         }
       >
-        <Kpi label="Всього клієнтів" value={formatCount(summary.guests.unique)} hint={analyticsDefinitionForStaff(definitions.guests)} />
-        <Kpi label="Нові клієнти" value={formatCount(summary.guests.new)} hint={analyticsDefinitionForStaff(definitions.guests)} />
+        <Kpi label="Всього клієнтів" value={formatCount(summary.guests.unique)} hint={analyticsStaffHint('guests', definitions.guests)} />
+        <Kpi label="Нові клієнти" value={formatCount(summary.guests.new)} hint={analyticsStaffHint('guests', definitions.guests)} />
         <Kpi
           label="Повторні візити"
           value={formatCount(summary.guests.repeatVisits)}
-          hint={analyticsDefinitionForStaff(definitions.guests)}
+          hint={analyticsStaffHint('guests', definitions.guests)}
         />
       </KpiGroup>
 
@@ -266,25 +266,25 @@ function AnalyticsBody({ summary, filters }: { summary: AdminAnalyticsSummary; f
         <Kpi
           label="Всього бронювань"
           value={formatCount(summary.bookings.total)}
-          hint={analyticsDefinitionForStaff(definitions.total)}
+          hint={analyticsStaffHint('total', definitions.total)}
           to={bookingListHref(filters, 'all')}
         />
         <Kpi
           label="Скасовані"
           value={formatCount(summary.bookings.cancelled)}
-          hint={analyticsDefinitionForStaff(definitions.cancelled)}
+          hint={analyticsStaffHint('cancelled', definitions.cancelled)}
           to={bookingListHref(filters, 'cancelled')}
         />
         <Kpi
           label="Виконані"
           value={formatCount(summary.bookings.completed)}
-          hint={analyticsDefinitionForStaff(definitions.completed)}
+          hint={analyticsStaffHint('completed', definitions.completed)}
           to={bookingListHref(filters, 'completed')}
         />
         <Kpi
           label="Незавершені"
           value={formatCount(summary.bookings.incomplete)}
-          hint={analyticsDefinitionForStaff(definitions.incomplete)}
+          hint={analyticsStaffHint('incomplete', definitions.incomplete)}
         />
       </KpiGroup>
 
@@ -292,23 +292,23 @@ function AnalyticsBody({ summary, filters }: { summary: AdminAnalyticsSummary; f
         <Kpi
           label="Скасовані зараз"
           value={`${formatCount(summary.cancellations.currentlyCancelled.count)} · ${formatMoneyAmount(summary.cancellations.currentlyCancelled.amount)}`}
-          hint={analyticsDefinitionForStaff(definitions.currentlyCancelled)}
+          hint={analyticsStaffHint('currentlyCancelled', definitions.currentlyCancelled)}
           to={bookingListHref(filters, 'cancelled')}
         />
         <Kpi
           label="Скасовані за період"
           value={`${formatCount(summary.cancellations.cancelledDuringPeriod.count)} · ${formatMoneyAmount(summary.cancellations.cancelledDuringPeriod.amount)}`}
-          hint={analyticsDefinitionForStaff(definitions.cancelledDuringPeriod)}
+          hint={analyticsStaffHint('cancelledDuringPeriod', definitions.cancelledDuringPeriod)}
         />
       </KpiGroup>
 
       <div className="grid gap-8 lg:grid-cols-2">
-        <ChartCard title="Джерела бронювань" hint={analyticsDefinitionForStaff(definitions.sources)} empty={empty || summary.sources.length === 0}>
+        <ChartCard title="Джерела бронювань" hint={analyticsStaffHint('sources', definitions.sources)} empty={empty || summary.sources.length === 0}>
           {summary.sources.map((row) => (
             <BarRow key={row.source} label={row.label} value={`${formatCount(row.count)} · ${row.percent}%`} percent={row.percent} />
           ))}
         </ChartCard>
-        <ChartCard title="Броні по номерах" hint={analyticsDefinitionForStaff(definitions.accommodations)} empty={empty || summary.accommodations.length === 0}>
+        <ChartCard title="Броні по номерах" hint={analyticsStaffHint('accommodations', definitions.accommodations)} empty={empty || summary.accommodations.length === 0}>
           {summary.accommodations.map((row) => (
             <BarRow
               key={row.roomId}

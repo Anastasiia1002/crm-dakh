@@ -13,6 +13,8 @@ import {
   defaultAnalyticsFilters,
   filterAnalyticsAccommodationOptions,
   analyticsDefinitionForStaff,
+  analyticsHintLooksTechnical,
+  analyticsStaffHint,
   groupAnalyticsAccommodationOptions,
   nextAnalyticsKindCategoryFilter,
   moneyOrUnavailable,
@@ -119,6 +121,23 @@ function main() {
   assert(Array.isArray(keptCottages) && keptCottages.join() === ids[1], 'clearing rooms keeps selected cottages')
   assert(analyticsDefinitionForStaff('PENDING, CHECKED_IN also NO_SHOW')?.includes('Очікує підтвердження'), 'staff copy uses Ukrainian statuses')
   assert(!analyticsDefinitionForStaff('PENDING')?.includes('PENDING'), 'API status tokens stay out of the staff hint')
+  const guestsHint = analyticsStaffHint(
+    'guests',
+    'Унікальний guestId. Скасовані не входять. Новий клієнт: перше нескасоване бронювання гостя в цьому готелі є в вибірці (за датою заїзду, потім id). Повторний візит: нескасоване бронювання у вибірці, яке не є першим у готелі.',
+  )
+  const sourcesHint = analyticsStaffHint('sources', 'Групування за збереженим BookingSource. Невідоме значення показується окремо.')
+  const unitsHint = analyticsStaffHint(
+    'accommodations',
+    'Кількість бронювань, які займають цей номер. Бронювання на два номери входить у обидва рядки, але в KPI — один раз.',
+  )
+  const financeHint = analyticsStaffHint(
+    'bookingValue',
+    'Сума знімків ціни (totalAmount) бронювань у фільтрі. Це цінність бронювання, не отримані кошти. Скасовані входять лише якщо їх вибрано серед статусів.',
+  )
+  assert(!analyticsHintLooksTechnical(guestsHint), 'guest KPIs do not mention guestId')
+  assert(!analyticsHintLooksTechnical(sourcesHint), 'source chart does not mention BookingSource')
+  assert(!analyticsHintLooksTechnical(unitsHint), 'unit chart does not mention KPI as a token')
+  assert(!analyticsHintLooksTechnical(financeHint) && financeHint?.includes('не отримані кошти'), 'finance copy keeps the unpaid meaning')
 
   const page = readFileSync(new URL('../pages/analytics/AnalyticsPage.tsx', import.meta.url), 'utf8')
   assert(page.includes('AccommodationMultiSelect'), 'accommodations use a searchable multi-select')
@@ -126,6 +145,7 @@ function main() {
   assert(page.includes("'Номери'") && page.includes("'Будиночки'"), 'categories are split by kind')
   assert(page.includes('Відкрити клієнтів'), 'guest KPIs link to the clients directory')
   assert(page.includes('tabular-nums'), 'kpi figures use tabular numbers')
+  assert(page.includes("analyticsStaffHint('sources'") && page.includes("analyticsStaffHint('accommodations'"), 'source and unit copy uses staff hints')
   assert(page.includes('useAdminAnalyticsSummary'), 'page reads the analytics endpoint')
   assert(!page.includes('mocks/db') && !page.includes('getDashboard'), 'no mock dashboard data')
   assert(page.includes("label=\"Дохід\"") && page.includes('summary.financial.revenue'), 'income kpi is present')

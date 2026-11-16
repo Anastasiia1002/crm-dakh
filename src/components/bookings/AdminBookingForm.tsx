@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { AccommodationSelectGroups } from '@/components/bookings/AccommodationSelectGroups'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { listAdminBookingGuests, quoteAdminBooking } from '@/api/admin-bookings'
@@ -796,11 +797,7 @@ export function AdminBookingForm({
                 <SelectValue placeholder="Оберіть розміщення" />
               </SelectTrigger>
               <SelectContent>
-                {roomChoices.map((room) => (
-                  <SelectItem key={room.id} value={room.id}>
-                    {bookingRoomFilterLabel(room, roomTypes.find((type) => type.id === room.roomTypeId)?.name)}
-                  </SelectItem>
-                ))}
+                <AccommodationSelectGroups rooms={roomChoices} roomTypes={roomTypes} />
               </SelectContent>
             </Select>
           </Field>

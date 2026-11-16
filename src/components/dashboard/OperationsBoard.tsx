@@ -20,7 +20,7 @@ import { QueryErrorState } from '@/components/ui/page-status'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useOperationsBoard } from '@/hooks/useOperationsBoard'
 import { adminBookingRef } from '@/lib/admin-booking-view'
-import { addCalendarDays, formatHotelClock, todayIso } from '@/lib/dates'
+import { addCalendarDays, hotelUpdatedAtLabel, todayIso } from '@/lib/dates'
 import { formatCount, formatDate } from '@/lib/format'
 import { occupancyPercentLabel } from '@/lib/dashboard-summary'
 import { ApiError } from '@/lib/api-error'
@@ -102,6 +102,10 @@ export function OperationsBoard({
   const safePage = Math.min(page, pageCount)
   const visible = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
   const occupancy = board.calendar.data ? occupancyForNight(board.calendar.data, date) : null
+  const updatedAtLabel = hotelUpdatedAtLabel(
+    Math.max(board.movements.dataUpdatedAt, board.created.dataUpdatedAt, board.calendar.dataUpdatedAt) || undefined,
+    timeZone,
+  )
   const attention = attentionBookings(split.inHouse, split.arrivals)
   const activeQuery = queryForTab(tab, board)
   const loading = activeQuery.isPending
@@ -127,10 +131,9 @@ export function OperationsBoard({
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-sm text-muted-foreground">Стан на {formatDate(date)}</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Дані з {formatHotelClock(new Date(board.movements.dataUpdatedAt || Date.now()), timeZone)} за часом готелю (
-            {timeZone}).
-          </p>
+          {updatedAtLabel ? (
+            <p className="mt-1 text-xs text-muted-foreground">{updatedAtLabel} за часом готелю.</p>
+          ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button type="button" variant="outline" aria-label="Попередній день" onClick={() => onDate(addCalendarDays(date, -1))}>

@@ -5,6 +5,9 @@
 import { readFileSync } from 'node:fs'
 import {
   bookingRoomFilterLabel,
+  COTTAGE_KIND_GROUP_LABEL,
+  ROOM_KIND_GROUP_LABEL,
+  roomsGroupedByKind,
   chessboardRoomLabel,
   isTechnicalUnitCode,
   referencedRoomOption,
@@ -105,6 +108,18 @@ assert(
   bookingRoomFilterLabel({ name: 'Кімната Буковина', number: '14/1', active: true }, 'Номер') === 'Кімната Буковина · 14/1',
   'booking filter keeps the physical number',
 )
+const groupedUnits = roomsGroupedByKind(
+  [
+    { id: 'c1', roomTypeId: 'cottage' },
+    { id: 'r1', roomTypeId: 'room' },
+  ],
+  [
+    { id: 'room', kind: 'ROOM' },
+    { id: 'cottage', kind: 'COTTAGE' },
+  ],
+)
+assert(groupedUnits[0]?.label === ROOM_KIND_GROUP_LABEL && groupedUnits[0]?.items[0]?.id === 'r1', 'rooms list first')
+assert(groupedUnits[1]?.label === COTTAGE_KIND_GROUP_LABEL && groupedUnits[1]?.items[0]?.id === 'c1', 'cottages list second')
 const missing = referencedRoomOption({
   rooms: [],
   roomId: 'room-archived',
@@ -158,6 +173,7 @@ assert(chessboard.includes('onEmpty(room.roomId'), 'chessboard selection keeps r
 assert(chessboard.includes('onBooking(bar.bookingId)'), 'chessboard booking click keeps bookingId')
 const bookingForm = readFileSync(new URL('../components/bookings/AdminBookingForm.tsx', import.meta.url), 'utf8')
 assert(bookingForm.includes('bookingRoomFilterLabel'), 'booking room picker uses the shared label')
+assert(bookingForm.includes('AccommodationSelectGroups'), 'booking form groups rooms and cottages')
 assert(bookingForm.includes('roomId'), 'booking form still submits roomId')
 const router = readFileSync(new URL('../router/index.tsx', import.meta.url), 'utf8')
 assert(router.includes("path: 'accommodations'"), 'accommodations route remains')
@@ -172,7 +188,7 @@ assert(rates.includes('ScrollableFormDialog'), 'pinned pricing footer stays in p
 assert(rates.includes('lengthStayRoomTypeIdsForSave'), 'length-stay save waits for a complete room list')
 assert(rates.includes('roomTypeIds,'), 'length-stay payload still sends roomTypeIds')
 const bookingsPage = readFileSync(new URL('../pages/bookings/BookingsPage.tsx', import.meta.url), 'utf8')
-assert(bookingsPage.includes('bookingRoomFilterLabel'), 'booking filter uses the shared label')
+assert(bookingsPage.includes('AccommodationSelectGroups'), 'booking filter groups rooms and cottages')
 assert(bookingsPage.includes('useAllAdminRooms'), 'booking filter loads every room page')
 assert(!bookingsPage.includes('roomDisplayName'), 'booking filter does not use the raw number helper')
 

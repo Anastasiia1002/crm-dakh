@@ -10,6 +10,12 @@ export function formatHotelClock(now = new Date(), timeZone = HOTEL_TIME_ZONE) {
   }).format(now)
 }
 
+/** Successful query time in the hotel zone. Omit when nothing has loaded yet. */
+export function hotelUpdatedAtLabel(updatedAt: number | undefined, timeZone = HOTEL_TIME_ZONE) {
+  if (!updatedAt) return null
+  return `Оновлено о ${formatHotelClock(new Date(updatedAt), timeZone)}`
+}
+
 export function todayIso(now = new Date(), timeZone = HOTEL_TIME_ZONE) {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone,

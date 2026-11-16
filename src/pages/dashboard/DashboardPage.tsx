@@ -15,7 +15,7 @@ import {
   parseDashboardPeriod,
   type AdminDashboardSummary,
 } from '@/lib/dashboard-summary'
-import { addCalendarDays, formatHotelClock, HOTEL_TIME_ZONE, todayIso } from '@/lib/dates'
+import { addCalendarDays, hotelUpdatedAtLabel, HOTEL_TIME_ZONE } from '@/lib/dates'
 import { formatCount, formatDate } from '@/lib/format'
 
 type Preset = 'month' | '7' | '30' | null
@@ -99,10 +99,11 @@ export function DashboardPage() {
             <p className="mt-1 text-sm text-muted-foreground">
               {period.ok ? `${formatDate(from)} — ${formatDate(to)}` : 'Оберіть період'}
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Перегляд зараз, {formatDate(todayIso(new Date(), timezoneLabel))} {formatHotelClock(new Date(), timezoneLabel)} (
-              {timezoneLabel}).
-            </p>
+            {hotelUpdatedAtLabel(summary.dataUpdatedAt, timezoneLabel) ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {hotelUpdatedAtLabel(summary.dataUpdatedAt, timezoneLabel)} за часом готелю.
+              </p>
+            ) : null}
           </div>
           <div className="flex flex-wrap items-end gap-2">
           <div className="flex rounded-md border border-border bg-surface p-0.5">
