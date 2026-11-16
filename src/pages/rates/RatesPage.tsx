@@ -276,7 +276,7 @@ export function RatesPage() {
           }
         />
         <p className="mb-4 max-w-2xl text-sm text-muted-foreground">
-          Період діє як піввідкритий інтервал [дата початку, дата кінця). Ціна зберігається як десятковий рядок.
+          Тут задають ціну за ніч для номера чи будиночка. Дата «до» уже не входить у період. Сума в гривнях.
         </p>
         <div className="mb-4 max-w-sm">
           <RatePlanPicker
@@ -802,9 +802,9 @@ function PriceDialog({
               <Input type="date" disabled={!canWrite} {...form.register('startDate')} />
             </Field>
             <Field
-              label="Кінець (не включно)"
+              label="До (цей день уже не входить)"
               error={form.formState.errors.endDate?.message}
-              hint="Піввідкритий інтервал [початок, кінець)"
+              hint="Остання ніч за цією ціною — день перед цією датою."
             >
               <Input type="date" disabled={!canWrite} {...form.register('endDate')} />
             </Field>

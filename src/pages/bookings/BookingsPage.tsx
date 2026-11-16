@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useDeferredValue, useMemo, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { toast } from 'sonner'
 import { listAllRoomTypes } from '@/api/accommodations'
 import { AdminBookingTable } from '@/components/bookings/AdminBookingTable'
 import { Button } from '@/components/ui/button'
@@ -14,6 +15,7 @@ import { useAdminBookings } from '@/hooks/useBookings'
 import { useAllAdminRooms } from '@/hooks/useHotel'
 import { ACCOMMODATION_FALLBACK_LABEL } from '@/lib/accommodation-labels'
 import { adminBookingDateFilterReady } from '@/lib/admin-booking-view'
+import { downloadBookingsCsv } from '@/lib/booking-export'
 import { errorMessage } from '@/lib/errors'
 import { adminBookingSourceLabel, bookingStatusLabel } from '@/lib/labels'
 import { CATALOG_STALE_TIME } from '@/lib/queryClient'
@@ -97,9 +99,26 @@ export function BookingsPage() {
           placeholder="Пошук за гостем, телефоном або email"
           className="lg:max-w-xl"
         />
-        <Button asChild>
-          <Link to="/admin/bookings/new">Нове бронювання</Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!bookings.data?.items.length}
+            onClick={() => {
+              const items = bookings.data?.items ?? []
+              if (items.length === 0) {
+                toast.error('Немає рядків для експорту')
+                return
+              }
+              downloadBookingsCsv(items)
+            }}
+          >
+            Експорт сторінки
+          </Button>
+          <Button asChild>
+            <Link to="/admin/bookings/new">Нове бронювання</Link>
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
@@ -203,6 +222,11 @@ export function BookingsPage() {
           </button>
         ) : null}
       </div>
+
+      <p className="text-xs text-muted-foreground">
+        Експорт сторінки — поточний фільтр і ця сторінка списку, для внутрішніх звітів. Гостьового вивантаження з
+        адмінки немає.
+      </p>
 
       {!dateGuard.ok && dateGuard.message ? (
         <p className="text-sm text-muted-foreground">{dateGuard.message}</p>

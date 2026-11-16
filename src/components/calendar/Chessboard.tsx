@@ -1,6 +1,8 @@
 import { format } from 'date-fns'
 import { uk } from 'date-fns/locale'
+import { chessboardStickyLabel, COTTAGE_KIND_GROUP_LABEL, ROOM_KIND_GROUP_LABEL } from '@/lib/accommodation-labels'
 import { calendarDayOfMonth, calendarWeekday, todayIso } from '@/lib/dates'
+import { roomTypeKindLabel } from '@/lib/labels'
 import { cn } from '@/lib/utils'
 import type { ChessboardAdminBar, ChessboardModel } from '@/types'
 
@@ -49,7 +51,12 @@ export function Chessboard({
     <div className="overflow-auto scroll-thin border-y border-border">
       <div className="min-w-max">
         <div className="sticky top-0 z-20 flex bg-background">
-          <div className="sticky left-0 z-30 w-52 shrink-0 border-r border-b border-border bg-background" />
+          <div className="sticky left-0 z-30 flex w-[19rem] shrink-0 border-r border-b border-border bg-background">
+            <div className="w-52 shrink-0" />
+            <div className="flex w-24 items-end px-2 pb-2 text-[10px] tracking-[0.12em] text-muted uppercase">
+              Тип
+            </div>
+          </div>
           <div className="flex" style={{ width }}>
             {dates.map((date) => {
               const day = calendarWeekday(date)
@@ -75,8 +82,13 @@ export function Chessboard({
           </div>
         </div>
 
-        {groups.map((group) => (
+        {groups.map((group, index) => (
           <div key={group.roomTypeId}>
+            {group.kind !== 'UNKNOWN' && group.kind !== groups[index - 1]?.kind ? (
+              <div className="sticky left-0 border-b border-border bg-surface-muted px-3 py-2 text-[11px] font-medium tracking-[0.14em] text-foreground uppercase">
+                {group.kind === 'COTTAGE' ? COTTAGE_KIND_GROUP_LABEL : ROOM_KIND_GROUP_LABEL}
+              </div>
+            ) : null}
             <div className="sticky left-0 border-b border-border bg-surface-muted/60 px-3 py-2 text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
               {group.displayName}
               {group.kind === 'UNKNOWN' ? ' · тип невідомий' : ''}
@@ -100,17 +112,25 @@ export function Chessboard({
                 })
                 .filter((item) => item.span > 0 && item.start < dates.length)
 
+              const sticky = chessboardStickyLabel({
+                groupTitle: group.displayName,
+                displayTitle: room.displayTitle,
+                displayCode: room.displayCode,
+              })
+              const kindWord =
+                room.kind === 'ROOM' || room.kind === 'COTTAGE' ? roomTypeKindLabel[room.kind] : '—'
               return (
                 <div key={room.roomId} className="flex border-b border-border">
-                  <div className="sticky left-0 z-10 flex w-52 shrink-0 items-center overflow-hidden border-r border-border bg-background px-3">
-                    <div className="min-w-0">
+                  <div className="sticky left-0 z-10 flex w-[19rem] shrink-0 items-center overflow-hidden border-r border-border bg-background">
+                    <div className="min-w-0 w-52 px-3">
                       <div className="truncate text-sm" title={room.displayTitle}>
-                        {room.displayTitle}
+                        {sticky.title}
                       </div>
-                      {room.displayCode ? (
-                        <div className="truncate text-[11px] text-muted-foreground">{room.displayCode}</div>
+                      {sticky.subtitle ? (
+                        <div className="truncate text-[11px] text-muted-foreground">{sticky.subtitle}</div>
                       ) : null}
                     </div>
+                    <div className="w-24 shrink-0 px-2 text-[11px] text-muted-foreground">{kindWord}</div>
                   </div>
                   <div className="relative h-12" style={{ width }}>
                     <div className="absolute inset-0 flex">

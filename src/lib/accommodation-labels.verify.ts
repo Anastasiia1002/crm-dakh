@@ -9,6 +9,7 @@ import {
   ROOM_KIND_GROUP_LABEL,
   roomsGroupedByKind,
   chessboardRoomLabel,
+  chessboardStickyLabel,
   isTechnicalUnitCode,
   referencedRoomOption,
   roomTypeColumnLabel,
@@ -91,6 +92,22 @@ const namedRow = chessboardRoomLabel({
 })
 assert(namedRow.roomId === 'room-2' && namedRow.number === '14/1', 'named calendar row keeps its identifiers')
 assert(namedRow.title === 'Кімната Буковина' && namedRow.code === '14/1', 'named calendar row shows the physical number once')
+assert(
+  chessboardStickyLabel({
+    groupTitle: '4-кімнатний будиночок до 7 гостей №11',
+    displayTitle: '4-кімнатний будиночок до 7 гостей №11',
+    displayCode: '№11',
+  }).title === '№11',
+  'chessboard row drops a duplicate type title',
+)
+assert(
+  chessboardStickyLabel({
+    groupTitle: 'Номер з терасою',
+    displayTitle: 'Кімната Буковина',
+    displayCode: '14/1',
+  }).title === 'Кімната Буковина',
+  'a unique unit name stays on the row',
+)
 
 const withoutCount = sharedRoomTypeNotice(null)
 const withCount = sharedRoomTypeNotice(3)
@@ -168,7 +185,10 @@ assert(calendar.includes('Заблокувати дати'), 'chessboard can sti
 assert(calendar.includes('listAllRooms'), 'calendar loads every room page for labels')
 assert(calendar.includes('chessboardRoomLabel'), 'calendar uses the shared row label')
 assert(!calendar.includes('number: roomDisplayName'), 'calendar does not overwrite room.number')
-assert(chessboard.includes('room.displayTitle'), 'chessboard shows the display title')
+assert(chessboard.includes('chessboardStickyLabel'), 'chessboard avoids repeating the type heading')
+assert(chessboard.includes('roomTypeKindLabel'), 'chessboard has a room vs cottage column')
+assert(page.includes('Закрито на дати'), 'date blocks are not occupancy')
+assert(page.includes('У роботі'), 'catalog status is not free tonight')
 assert(chessboard.includes('onEmpty(room.roomId'), 'chessboard selection keeps roomId')
 assert(chessboard.includes('onBooking(bar.bookingId)'), 'chessboard booking click keeps bookingId')
 const bookingForm = readFileSync(new URL('../components/bookings/AdminBookingForm.tsx', import.meta.url), 'utf8')
@@ -186,9 +206,11 @@ assert(rates.includes("from '@/lib/accommodation-labels'"), 'rates use the share
 assert(!rates.includes('function unitDisplayTitle'), 'rates no longer keep a second title function')
 assert(rates.includes('ScrollableFormDialog'), 'pinned pricing footer stays in place')
 assert(rates.includes('lengthStayRoomTypeIdsForSave'), 'length-stay save waits for a complete room list')
+assert(rates.includes('Приклад суми проживання'), 'length-stay preview is not a stored subtotal')
 assert(rates.includes('roomTypeIds,'), 'length-stay payload still sends roomTypeIds')
 const bookingsPage = readFileSync(new URL('../pages/bookings/BookingsPage.tsx', import.meta.url), 'utf8')
 assert(bookingsPage.includes('AccommodationSelectGroups'), 'booking filter groups rooms and cottages')
+assert(bookingsPage.includes('downloadBookingsCsv'), 'bookings page can export the current list')
 assert(bookingsPage.includes('useAllAdminRooms'), 'booking filter loads every room page')
 assert(!bookingsPage.includes('roomDisplayName'), 'booking filter does not use the raw number helper')
 

@@ -24,6 +24,7 @@ import {
   toAdminBookingListQuery,
   validateStayDates,
 } from './admin-booking-view'
+import { bookingsPageCsv } from './booking-export'
 import { ApiError } from './api-error'
 import { errorMessage } from './errors'
 import type { AdminBookingDetail, AdminBookingListItem } from '@/types'
@@ -236,6 +237,9 @@ export function runAdminBookingViewChecks(): string[] {
     '409 status transition',
   )
   assert(errorMessage(new ApiError('x', 409, 'ROOM_UNAVAILABLE')).includes('недоступний'), '409 room unavailable')
+  const csv = bookingsPageCsv([baseListItem])
+  assert(csv.includes('Іван Коваль') && csv.includes('Підтверджено'), 'staff csv has guest and status')
+  assert(csv.includes('2026-10-10') && csv.includes('2400.00 UAH'), 'staff csv has stay dates and total')
   results.push('Sanitize + 409 handling PASS')
 
   return results

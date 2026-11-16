@@ -371,7 +371,11 @@ function BookingSettingsForm({ settings, canEdit }: { settings: HotelBookingSett
           }
         })}
       >
-        <Field label="Мінімум годин до заїзду" error={form.formState.errors.minAdvanceHours?.message}>
+        <Field
+          label="Мінімум годин до заїзду"
+          hint="За скільки годин до години заїзду ще можна створити бронювання. 0 — можна в день заїзду, якщо це дозволено нижче."
+          error={form.formState.errors.minAdvanceHours?.message}
+        >
           <Input type="number" min={0} disabled={!canEdit} {...form.register('minAdvanceHours', { valueAsNumber: true })} />
         </Field>
         <Field label="Максимум днів наперед" hint="Порожнє — без обмеження" error={form.formState.errors.maxAdvanceDays?.message}>

@@ -245,8 +245,9 @@ function UnitSection({
         }
       />
       <p className="mb-4 max-w-2xl text-sm text-muted-foreground">
-        Кожен {kind === 'ROOM' ? 'номер' : 'будиночок'} має свою назву, стан і блокування дат. За замовчуванням
-        показано лише активні.
+        «У роботі» означає, що {kind === 'ROOM' ? 'номер' : 'будиночок'} у каталозі, а не що сьогодні вільний.
+        Закриті дати (ремонт чи інша причина) — окремо від заселення. Історія заїздів — у картці клієнта. За
+        замовчуванням показано лише активні.
       </p>
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end">
         <form
@@ -329,7 +330,8 @@ function UnitSection({
                               className="text-left underline-offset-2 hover:underline"
                               onClick={() => setInspecting({ room: item, block })}
                             >
-                              {formatDate(block.startDate)} — {formatDate(block.endDate)} · {blockReasonLabel(block)}
+                              Закрито на дати: {formatDate(block.startDate)} — {formatDate(block.endDate)} ·{' '}
+                              {blockReasonLabel(block)}
                             </button>
                             {canWrite ? (
                               <button
@@ -338,7 +340,7 @@ function UnitSection({
                                 disabled={removeBlock.isPending}
                                 onClick={() => setPendingDelete({ room: item, block })}
                               >
-                                Зняти блокування
+                                Скасувати ці дати
                               </button>
                             ) : null}
                           </div>

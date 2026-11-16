@@ -80,6 +80,19 @@ export function chessboardRoomLabel(input: {
   }
 }
 
+/** Sticky chessboard cell: skip repeating the type heading on every row. */
+export function chessboardStickyLabel(input: {
+  groupTitle: string
+  displayTitle: string
+  displayCode: string | null
+}) {
+  if (input.displayTitle !== input.groupTitle) {
+    return { title: input.displayTitle, subtitle: input.displayCode }
+  }
+  if (input.displayCode) return { title: input.displayCode, subtitle: null }
+  return { title: input.displayTitle, subtitle: null }
+}
+
 /** Booking filter or selector label. An inactive room stays identifiable without a generated slug. */
 export function bookingRoomFilterLabel(
   room: { name: string | null; number: string; active?: boolean },

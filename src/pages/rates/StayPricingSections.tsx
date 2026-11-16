@@ -715,7 +715,10 @@ function LengthStayDialog({
               <Input type="date" className="min-w-0" {...form.register('previewCheckOut')} />
             </Field>
           </div>
-          <Field label="Субсума проживання для перегляду, ₴">
+          <Field
+            label="Приклад суми проживання, ₴"
+            hint="Лише щоб перевірити знижку. У бронювання не записується."
+          >
             <Input inputMode="decimal" {...form.register('previewSubtotal')} />
           </Field>
           <Button
@@ -726,7 +729,7 @@ function LengthStayDialog({
               const checkOut = form.getValues('previewCheckOut')
               const roomSubtotal = normalizeMoneyString(form.getValues('previewSubtotal'))
               if (!checkIn || !checkOut || !roomSubtotal) {
-                toast.error('Вкажіть дати і субсуму для перегляду')
+                toast.error('Вкажіть дати і приклад суми для перегляду')
                 return
               }
               const roomTypeIds = lengthStayRoomTypeIdsForSave({

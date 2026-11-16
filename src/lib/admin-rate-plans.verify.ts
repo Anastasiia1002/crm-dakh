@@ -15,6 +15,7 @@ import {
   parseAdminRatePlanPage,
   PUBLIC_OFFER_CONFIRM_DETAIL,
   PUBLIC_OFFER_CONFIRM_TITLE,
+  RATE_PLAN_PRICE_NOTE,
   RATE_PLAN_SITE_LABEL,
   RATE_PLAN_UNCERTAIN_MESSAGE,
   ratePlanSiteState,
@@ -113,6 +114,8 @@ assert(classifyRatePlanSaveError(new ApiError('down', 503)) === 'uncertain', '5x
 assert(classifyRatePlanSaveError(new ApiError('no', 403, 'FORBIDDEN')) === 'forbidden', 'permission error')
 assert(classifyRatePlanSaveError(new ApiError('bad', 400, 'VALIDATION_ERROR', ['code: має містити лише великі латинські літери'])) === 'validation', 'validation error')
 assert(RATE_PLAN_UNCERTAIN_MESSAGE.includes('Не надсилайте'), 'uncertain copy forbids a blind retry')
+assert(RATE_PLAN_PRICE_NOTE.includes('не вибір номера'), 'tariff is not the room picker')
+assert(pageSource.includes('До (цей день уже не входить)'), 'price period end is staff-readable')
 
 const uah = formatMoneyAmount('2000.00')
 assert(uah.includes('₴') && !uah.includes('USD') && !uah.includes('$'), 'prices render in hryvnia')
