@@ -369,6 +369,31 @@ export type RoomPrice = {
   updatedAt: string
 }
 
+export type CurrentPriceNight = {
+  date: string
+  guestAmount: string | null
+  guestKind: 'public' | 'test' | null
+  scheduledAmount: string | null
+  missing: boolean
+}
+
+export type CurrentPricesCalendarView = {
+  firstNight: string
+  lastNight: string
+  nights: string[]
+  groups: Array<{
+    id: 'ROOM' | 'COTTAGE'
+    label: 'Номери' | 'Будиночки'
+    units: Array<{
+      roomId: string
+      roomTypeId: string
+      number: string
+      name: string | null
+      nights: CurrentPriceNight[]
+    }>
+  }>
+}
+
 export type PriceWorkspaceInput = {
   roomIds: string[]
   firstNight: string
