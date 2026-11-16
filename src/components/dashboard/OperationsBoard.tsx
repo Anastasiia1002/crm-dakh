@@ -20,7 +20,7 @@ import { QueryErrorState } from '@/components/ui/page-status'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useOperationsBoard } from '@/hooks/useOperationsBoard'
 import { adminBookingRef } from '@/lib/admin-booking-view'
-import { addCalendarDays, todayIso } from '@/lib/dates'
+import { addCalendarDays, formatHotelClock, todayIso } from '@/lib/dates'
 import { formatCount, formatDate } from '@/lib/format'
 import { occupancyPercentLabel } from '@/lib/dashboard-summary'
 import { ApiError } from '@/lib/api-error'
@@ -126,13 +126,29 @@ export function OperationsBoard({
     <div className="space-y-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-sm text-muted-foreground">Операційна дата {formatDate(date)}</p>
-          <p className="mt-1 text-xs text-muted-foreground">Часовий пояс готелю: {timeZone}</p>
+          <p className="text-sm text-muted-foreground">Стан на {formatDate(date)}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Дані з {formatHotelClock(new Date(board.movements.dataUpdatedAt || Date.now()), timeZone)} за часом готелю (
+            {timeZone}).
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button type="button" variant="outline" aria-label="Попередній день" onClick={() => onDate(addCalendarDays(date, -1))}>
             <ChevronLeft className="size-4" />
           </Button>
+          <label className="sr-only" htmlFor="operations-date">
+            Обрати дату
+          </label>
+          <Input
+            id="operations-date"
+            type="date"
+            value={date}
+            onChange={(event) => {
+              const next = event.target.value
+              if (/^\d{4}-\d{2}-\d{2}$/.test(next)) onDate(next)
+            }}
+            className="w-40 bg-surface"
+          />
           <Button type="button" variant="outline" onClick={() => onDate(addCalendarDays(date, 1))} aria-label="Наступний день">
             <ChevronRight className="size-4" />
           </Button>
@@ -177,7 +193,7 @@ export function OperationsBoard({
                 {item.label}
                 <Icon className="size-3.5" aria-hidden />
               </span>
-              <span className="mt-2 block font-serif text-3xl leading-none tabular-nums">
+              <span className="mt-2 block font-sans text-3xl font-semibold leading-none tabular-nums tracking-tight">
                 {count.value === null ? '—' : count.complete ? formatCount(count.value) : `${formatCount(count.value)}+`}
               </span>
               <span className="mt-2 block text-xs text-muted-foreground">{item.hint}</span>
@@ -364,7 +380,7 @@ function OccupancyPanel({
   return (
     <div className="rounded-md border border-border bg-surface px-4 py-4">
       <h3 className="font-serif text-xl">Завантаженість</h3>
-      <p className="mt-1 text-sm text-muted-foreground">Знімок на {formatDate(date)}, не підсумок за період.</p>
+      <p className="mt-1 text-sm text-muted-foreground">Стан на {formatDate(date)}</p>
       {loading ? <div className="mt-4 h-16 animate-pulse rounded-md bg-surface-muted" aria-busy="true" /> : null}
       {error ? <QueryErrorState error={error} title="Не вдалося завантажити дані." onRetry={onRetry} /> : null}
       {occupancy ? (
@@ -375,7 +391,7 @@ function OccupancyPanel({
           <div className="col-span-3">
             <div className="mb-1 flex items-baseline justify-between">
               <span className="text-xs text-muted-foreground">Продавані місця</span>
-              <span className="font-serif text-2xl tabular-nums">
+              <span className="font-sans text-2xl font-semibold tabular-nums tracking-tight">
                 {occupancy.percent === null ? '—' : occupancyPercentLabel(occupancy.percent)}
               </span>
             </div>
@@ -452,7 +468,7 @@ function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-1 font-serif text-2xl tabular-nums">{value}</p>
+      <p className="mt-1 font-sans text-2xl font-semibold tabular-nums tracking-tight">{value}</p>
     </div>
   )
 }

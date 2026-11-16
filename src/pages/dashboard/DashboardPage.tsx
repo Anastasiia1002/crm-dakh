@@ -15,7 +15,7 @@ import {
   parseDashboardPeriod,
   type AdminDashboardSummary,
 } from '@/lib/dashboard-summary'
-import { addCalendarDays, HOTEL_TIME_ZONE } from '@/lib/dates'
+import { addCalendarDays, formatHotelClock, HOTEL_TIME_ZONE, todayIso } from '@/lib/dates'
 import { formatCount, formatDate } from '@/lib/format'
 
 type Preset = 'month' | '7' | '30' | null
@@ -99,7 +99,10 @@ export function DashboardPage() {
             <p className="mt-1 text-sm text-muted-foreground">
               {period.ok ? `${formatDate(from)} — ${formatDate(to)}` : 'Оберіть період'}
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">Часовий пояс готелю: {timezoneLabel}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Перегляд зараз, {formatDate(todayIso(new Date(), timezoneLabel))} {formatHotelClock(new Date(), timezoneLabel)} (
+              {timezoneLabel}).
+            </p>
           </div>
           <div className="flex flex-wrap items-end gap-2">
           <div className="flex rounded-md border border-border bg-surface p-0.5">
@@ -188,7 +191,6 @@ function DashboardBody({ summary }: { summary: AdminDashboardSummary }) {
         <KpiCard
           label="Сума бронювань"
           value={bookingValueLabel(summary.bookingValue.amount, summary.bookingValue.currency)}
-          detail="Це не отримані оплати."
           hint="Це не отримані оплати."
         />
         <KpiCard
@@ -219,7 +221,7 @@ function KpiCard({
         <h3 className="text-[11px] tracking-[0.14em] text-muted uppercase">{label}</h3>
         <Hint text={hint} />
       </div>
-      <p className="mt-3 font-serif text-3xl leading-none tabular-nums sm:text-4xl">{value}</p>
+      <p className="mt-3 font-sans text-3xl font-semibold leading-none tabular-nums tracking-tight sm:text-4xl">{value}</p>
       {detail ? <p className="mt-2 text-xs text-muted-foreground">{detail}</p> : null}
     </article>
   )

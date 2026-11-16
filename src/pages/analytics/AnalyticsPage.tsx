@@ -11,11 +11,14 @@ import { AccommodationMultiSelect } from '@/components/analytics/AccommodationMu
 import { useAdminAnalyticsSummary } from '@/hooks/useAdminAnalytics'
 import { useAllAdminRooms, useHotelSettings } from '@/hooks/useHotel'
 import {
+  ANALYTICS_DATE_TYPE_HINT,
   ANALYTICS_DATE_TYPES,
   ANALYTICS_NONE,
   ANALYTICS_STATUSES,
   analyticsDateTypeLabel,
+  analyticsDefinitionForStaff,
   analyticsPeriodReady,
+  nextAnalyticsKindCategoryFilter,
   analyticsPresetRange,
   analyticsSearchParams,
   barPercent,
@@ -29,7 +32,7 @@ import {
 import { bookingRoomFilterLabel } from '@/lib/accommodation-labels'
 import { HOTEL_TIME_ZONE } from '@/lib/dates'
 import { formatCount, formatMoneyAmount } from '@/lib/format'
-import { bookingStatusLabel, roomTypeKindLabel } from '@/lib/labels'
+import { bookingStatusLabel } from '@/lib/labels'
 import { CATALOG_STALE_TIME } from '@/lib/queryClient'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
@@ -73,95 +76,124 @@ export function AnalyticsPage() {
       <div>
         <h2 className="font-serif text-3xl font-medium">Аналітика</h2>
         <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-          Зведення за фільтром на сервері. Операційна сторінка «Огляд готелю» не замінена. Сума бронювання не є
-          отриманим доходом.
+          Спочатку період, потім номери чи будиночки, далі зведення. Статуси можна звузити окремо. Огляд готелю лишається
+          операційною сторінкою. Сума бронювання — не отриманий дохід.
         </p>
       </div>
 
-      <section className="space-y-4 border-y border-border py-5">
-        <div className="flex flex-wrap items-end gap-3">
-          <Filter label="Тип дати">
-            <Select value={filters.dateType} onValueChange={(value) => patch({ dateType: value as AnalyticsFilterState['dateType'] })}>
-              <SelectTrigger className="w-52">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ANALYTICS_DATE_TYPES.map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {analyticsDateTypeLabel[value]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Filter>
-          <Filter label="Період">
-            <div className="flex flex-wrap gap-2">
-              <Button type="button" size="sm" variant="outline" onClick={() => applyPreset('currentMonth')}>
-                Поточний місяць
-              </Button>
-              <Button type="button" size="sm" variant="outline" onClick={() => applyPreset('previousMonth')}>
-                Попередній
-              </Button>
-              <Button type="button" size="sm" variant="outline" onClick={() => applyPreset('nextMonth')}>
-                Наступний
-              </Button>
-              <Button type="button" size="sm" variant="outline" onClick={() => applyPreset('currentYear')}>
-                Рік
-              </Button>
-            </div>
-          </Filter>
-          <Filter label="Від">
-            <Input type="date" value={filters.from} onChange={(event) => patch({ from: event.target.value })} className="w-40" />
-          </Filter>
-          <Filter label="До">
-            <Input type="date" value={filters.to} onChange={(event) => patch({ to: event.target.value })} className="w-40" />
-          </Filter>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Дати включно, інтервал напіввідкритий. Проживання рахується за перетином [заїзд, виїзд). Створення й
-          скасування — за північчю готелю ({summary.data?.timezone ?? timezone}).
-        </p>
-        {!period.ok ? (
-          <p className="text-sm text-destructive" role="alert">
-            {period.message}
+      <section className="space-y-8 border-y border-border py-5">
+        <FilterStep step={1} title="Оберіть період" hint={ANALYTICS_DATE_TYPE_HINT}>
+          <div className="flex flex-wrap items-end gap-3">
+            <Filter label="Які дати в періоді">
+              <Select value={filters.dateType} onValueChange={(value) => patch({ dateType: value as AnalyticsFilterState['dateType'] })}>
+                <SelectTrigger className="w-52">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ANALYTICS_DATE_TYPES.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {analyticsDateTypeLabel[value]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Filter>
+            <Filter label="Період">
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" size="sm" variant="outline" onClick={() => applyPreset('currentMonth')}>
+                  Поточний місяць
+                </Button>
+                <Button type="button" size="sm" variant="outline" onClick={() => applyPreset('previousMonth')}>
+                  Попередній
+                </Button>
+                <Button type="button" size="sm" variant="outline" onClick={() => applyPreset('nextMonth')}>
+                  Наступний
+                </Button>
+                <Button type="button" size="sm" variant="outline" onClick={() => applyPreset('currentYear')}>
+                  Рік
+                </Button>
+              </div>
+            </Filter>
+            <Filter label="Від">
+              <Input type="date" value={filters.from} onChange={(event) => patch({ from: event.target.value })} className="w-40" />
+            </Filter>
+            <Filter label="До">
+              <Input type="date" value={filters.to} onChange={(event) => patch({ to: event.target.value })} className="w-40" />
+            </Filter>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Дати включно. Проживання — ночі між заїздом і виїздом. Створення й скасування — за північчю готелю (
+            {summary.data?.timezone ?? timezone}).
           </p>
-        ) : null}
+          {!period.ok ? (
+            <p className="text-sm text-destructive" role="alert">
+              {period.message}
+            </p>
+          ) : null}
+        </FilterStep>
 
-        <MultiFilter
-          label="Категорії"
-          items={(roomTypes.data ?? []).map((type) => ({
-            id: type.id,
-            label: `${type.name} (${roomTypeKindLabel[type.kind]})`,
-          }))}
-          value={filters.categoryIds}
-          onChange={(categoryIds) => patch({ categoryIds })}
-          loading={roomTypes.isLoading}
-          error={roomTypes.isError}
-        />
-        <AccommodationMultiSelect
-          label="Номери та будиночки"
-          options={(rooms.data ?? []).map((room) => {
-            const type = roomTypes.data?.find((item) => item.id === room.roomTypeId)
-            const typeName = type?.name
-            return {
-              id: room.id,
-              label: bookingRoomFilterLabel(room, typeName),
-              searchText: `${bookingRoomFilterLabel(room, typeName)} ${room.number} ${room.name ?? ''}`,
-              groupId: room.roomTypeId,
-              groupLabel: type ? `${type.name} (${roomTypeKindLabel[type.kind]})` : 'Інше',
-            }
-          })}
-          value={filters.roomIds}
-          onChange={(roomIds) => patch({ roomIds })}
-          loading={rooms.isLoading}
-          error={rooms.isError}
-        />
-        <MultiFilter
-          label="Статуси"
-          items={ANALYTICS_STATUSES.map((status) => ({ id: status, label: bookingStatusLabel[status] }))}
-          value={filters.statuses}
-          onChange={(statuses) => patch({ statuses: statuses as AnalyticsFilterState['statuses'] })}
-        />
+        <FilterStep
+          step={2}
+          title="Оберіть номери та будиночки"
+          hint="Два списки, щоб не змішувати кімнати з будинками. Нижче — пошук конкретного проживання."
+        >
+          <div className="grid gap-6 lg:grid-cols-2">
+            {(['ROOM', 'COTTAGE'] as const).map((kind) => {
+              const allIds = (roomTypes.data ?? []).map((type) => type.id)
+              const kindIds = (roomTypes.data ?? []).filter((type) => type.kind === kind).map((type) => type.id)
+              return (
+                <MultiFilter
+                  key={kind}
+                  label={kind === 'ROOM' ? 'Номери' : 'Будиночки'}
+                  items={(roomTypes.data ?? [])
+                    .filter((type) => type.kind === kind)
+                    .map((type) => ({ id: type.id, label: type.name }))}
+                  value={filters.categoryIds}
+                  onChange={(next) =>
+                    patch({
+                      categoryIds: nextAnalyticsKindCategoryFilter(
+                        filters.categoryIds,
+                        kindIds,
+                        allIds,
+                        next === 'all' ? kindIds : next === ANALYTICS_NONE ? [] : next,
+                      ),
+                    })
+                  }
+                  loading={roomTypes.isLoading}
+                  error={roomTypes.isError}
+                />
+              )
+            })}
+          </div>
+          <AccommodationMultiSelect
+            label="Конкретне проживання"
+            options={(rooms.data ?? []).map((room) => {
+              const type = roomTypes.data?.find((item) => item.id === room.roomTypeId)
+              const typeName = type?.name
+              const kindLabel = type?.kind === 'COTTAGE' ? 'Будиночки' : 'Номери'
+              return {
+                id: room.id,
+                label: bookingRoomFilterLabel(room, typeName),
+                searchText: `${bookingRoomFilterLabel(room, typeName)} ${room.number} ${room.name ?? ''}`,
+                groupId: type?.kind ?? 'ROOM',
+                groupLabel: kindLabel,
+              }
+            })}
+            value={filters.roomIds}
+            onChange={(roomIds) => patch({ roomIds })}
+            loading={rooms.isLoading}
+            error={rooms.isError}
+          />
+        </FilterStep>
+
+        <FilterStep step={3} title="За потреби звузьте статуси" hint="За замовчуванням зведення враховує всі статуси в періоді.">
+          <MultiFilter
+            label="Статуси"
+            items={ANALYTICS_STATUSES.map((status) => ({ id: status, label: bookingStatusLabel[status] }))}
+            value={filters.statuses}
+            onChange={(statuses) => patch({ statuses: statuses as AnalyticsFilterState['statuses'] })}
+          />
+        </FilterStep>
       </section>
 
       {period.ok && summary.isPending ? (
@@ -170,7 +202,12 @@ export function AnalyticsPage() {
         </p>
       ) : null}
       {period.ok && summary.isError ? <QueryErrorState error={summary.error} onRetry={() => void summary.refetch()} /> : null}
-      {period.ok && summary.data ? <AnalyticsBody summary={summary.data} filters={filters} /> : null}
+      {period.ok && summary.data ? (
+        <section className="space-y-8">
+          <h3 className="font-serif text-2xl">4. Зведення</h3>
+          <AnalyticsBody summary={summary.data} filters={filters} />
+        </section>
+      ) : null}
     </div>
   )
 }
@@ -184,71 +221,94 @@ function AnalyticsBody({ summary, filters }: { summary: AdminAnalyticsSummary; f
         <Kpi
           label="Вартість бронювань"
           value={moneyOrUnavailable(summary.financial.bookingValue)}
-          hint={definitions.bookingValue}
+          hint={analyticsDefinitionForStaff(definitions.bookingValue)}
         />
-        <Kpi label="Дохід" value={moneyOrUnavailable(summary.financial.revenue)} hint={definitions.revenue} />
+        <Kpi
+          label="Дохід"
+          value={moneyOrUnavailable(summary.financial.revenue)}
+          hint={analyticsDefinitionForStaff(definitions.revenue)}
+        />
         <Kpi
           label="Середній чек"
           value={moneyOrUnavailable(summary.financial.averageCheck)}
-          hint={definitions.averageCheck}
+          hint={analyticsDefinitionForStaff(definitions.averageCheck)}
         />
         <Kpi
           label="Очікує на оплату"
           value={moneyOrUnavailable(summary.financial.outstanding)}
-          hint={definitions.outstanding}
+          hint={analyticsDefinitionForStaff(definitions.outstanding)}
         />
-        <Kpi label="Сума знижок" value={moneyOrUnavailable(summary.financial.discounts)} hint={definitions.discounts} />
+        <Kpi
+          label="Сума знижок"
+          value={moneyOrUnavailable(summary.financial.discounts)}
+          hint={analyticsDefinitionForStaff(definitions.discounts)}
+        />
+      </KpiGroup>
+
+      <KpiGroup
+        title="Клієнти"
+        action={
+          <Link to="/admin/guests" className="text-sm underline-offset-4 hover:underline">
+            Відкрити клієнтів
+          </Link>
+        }
+      >
+        <Kpi label="Всього клієнтів" value={formatCount(summary.guests.unique)} hint={analyticsDefinitionForStaff(definitions.guests)} />
+        <Kpi label="Нові клієнти" value={formatCount(summary.guests.new)} hint={analyticsDefinitionForStaff(definitions.guests)} />
+        <Kpi
+          label="Повторні візити"
+          value={formatCount(summary.guests.repeatVisits)}
+          hint={analyticsDefinitionForStaff(definitions.guests)}
+        />
       </KpiGroup>
 
       <KpiGroup title="Бронювання">
         <Kpi
           label="Всього бронювань"
           value={formatCount(summary.bookings.total)}
-          hint={definitions.total}
+          hint={analyticsDefinitionForStaff(definitions.total)}
           to={bookingListHref(filters, 'all')}
         />
         <Kpi
           label="Скасовані"
           value={formatCount(summary.bookings.cancelled)}
-          hint={definitions.cancelled}
+          hint={analyticsDefinitionForStaff(definitions.cancelled)}
           to={bookingListHref(filters, 'cancelled')}
         />
         <Kpi
           label="Виконані"
           value={formatCount(summary.bookings.completed)}
-          hint={definitions.completed}
+          hint={analyticsDefinitionForStaff(definitions.completed)}
           to={bookingListHref(filters, 'completed')}
         />
-        <Kpi label="Незавершені" value={formatCount(summary.bookings.incomplete)} hint={definitions.incomplete} />
+        <Kpi
+          label="Незавершені"
+          value={formatCount(summary.bookings.incomplete)}
+          hint={analyticsDefinitionForStaff(definitions.incomplete)}
+        />
       </KpiGroup>
 
       <KpiGroup title="Скасування">
         <Kpi
           label="Скасовані зараз"
           value={`${formatCount(summary.cancellations.currentlyCancelled.count)} · ${formatMoneyAmount(summary.cancellations.currentlyCancelled.amount)}`}
-          hint={definitions.currentlyCancelled}
+          hint={analyticsDefinitionForStaff(definitions.currentlyCancelled)}
           to={bookingListHref(filters, 'cancelled')}
         />
         <Kpi
           label="Скасовані за період"
           value={`${formatCount(summary.cancellations.cancelledDuringPeriod.count)} · ${formatMoneyAmount(summary.cancellations.cancelledDuringPeriod.amount)}`}
-          hint={definitions.cancelledDuringPeriod}
+          hint={analyticsDefinitionForStaff(definitions.cancelledDuringPeriod)}
         />
       </KpiGroup>
 
-      <KpiGroup title="Клієнти">
-        <Kpi label="Всього клієнтів" value={formatCount(summary.guests.unique)} hint={definitions.guests} />
-        <Kpi label="Нові клієнти" value={formatCount(summary.guests.new)} hint={definitions.guests} />
-        <Kpi label="Повторні візити" value={formatCount(summary.guests.repeatVisits)} hint={definitions.guests} />
-      </KpiGroup>
-
       <div className="grid gap-8 lg:grid-cols-2">
-        <ChartCard title="Джерела бронювань" hint={definitions.sources} empty={empty || summary.sources.length === 0}>
+        <ChartCard title="Джерела бронювань" hint={analyticsDefinitionForStaff(definitions.sources)} empty={empty || summary.sources.length === 0}>
           {summary.sources.map((row) => (
             <BarRow key={row.source} label={row.label} value={`${formatCount(row.count)} · ${row.percent}%`} percent={row.percent} />
           ))}
         </ChartCard>
-        <ChartCard title="Броні по номерах" hint={definitions.accommodations} empty={empty || summary.accommodations.length === 0}>
+        <ChartCard title="Броні по номерах" hint={analyticsDefinitionForStaff(definitions.accommodations)} empty={empty || summary.accommodations.length === 0}>
           {summary.accommodations.map((row) => (
             <BarRow
               key={row.roomId}
@@ -260,6 +320,30 @@ function AnalyticsBody({ summary, filters }: { summary: AdminAnalyticsSummary; f
         </ChartCard>
       </div>
     </div>
+  )
+}
+
+function FilterStep({
+  step,
+  title,
+  hint,
+  children,
+}: {
+  step: number
+  title: string
+  hint?: string
+  children: ReactNode
+}) {
+  return (
+    <section className="space-y-3">
+      <div>
+        <h3 className="text-sm font-medium">
+          {step}. {title}
+        </h3>
+        {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
+      </div>
+      {children}
+    </section>
   )
 }
 
@@ -326,10 +410,13 @@ function MultiFilter({
   )
 }
 
-function KpiGroup({ title, children }: { title: string; children: ReactNode }) {
+function KpiGroup({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   return (
     <section className="space-y-3">
-      <h3 className="font-serif text-2xl">{title}</h3>
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <h3 className="font-serif text-2xl">{title}</h3>
+        {action}
+      </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{children}</div>
     </section>
   )
@@ -339,7 +426,7 @@ function Kpi({ label, value, hint, to }: { label: string; value: string; hint?: 
   const body = (
     <article className="min-w-0 space-y-1 border-t border-border pt-3">
       <p className="text-[11px] tracking-[0.12em] text-muted uppercase">{label}</p>
-      <p className="font-serif text-2xl tracking-tight">{value}</p>
+      <p className="font-sans text-3xl font-semibold tabular-nums tracking-tight">{value}</p>
       {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
     </article>
   )

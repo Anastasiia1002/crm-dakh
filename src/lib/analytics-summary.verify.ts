@@ -12,7 +12,9 @@ import {
   bookingListHref,
   defaultAnalyticsFilters,
   filterAnalyticsAccommodationOptions,
+  analyticsDefinitionForStaff,
   groupAnalyticsAccommodationOptions,
+  nextAnalyticsKindCategoryFilter,
   moneyOrUnavailable,
   nextAnalyticsIdFilter,
   parseAdminAnalyticsSummary,
@@ -98,10 +100,32 @@ function main() {
     { id: ids[1]!, label: 'A1', searchText: 'котедж a1', groupId: 't2', groupLabel: 'Котедж (Будиночок)' },
   ])
   assert(grouped.map((group) => group.label).join('|').includes('Стандарт'), 'rooms and cottages are grouped')
-  assert(filterAnalyticsAccommodationOptions(grouped[0]!.items, '101').length === 1, 'search matches a unit number')
+  assert(
+    filterAnalyticsAccommodationOptions(
+      [
+        { id: ids[0]!, label: '101', searchText: 'стандарт 101', groupId: 't1', groupLabel: 'Стандарт (Номер)' },
+        { id: ids[1]!, label: 'A1', searchText: 'котедж a1', groupId: 't2', groupLabel: 'Котедж (Будиночок)' },
+      ],
+      '101',
+    ).length === 1,
+    'search matches a unit number',
+  )
+  const byKind = groupAnalyticsAccommodationOptions([
+    { id: ids[1]!, label: 'A1', searchText: 'котедж', groupId: 'COTTAGE', groupLabel: 'Будиночки' },
+    { id: ids[0]!, label: '101', searchText: 'номер', groupId: 'ROOM', groupLabel: 'Номери' },
+  ])
+  assert(byKind[0]?.label === 'Номери' && byKind[1]?.label === 'Будиночки', 'room units list before cottages')
+  const keptCottages = nextAnalyticsKindCategoryFilter('all', [ids[0]!], ids, [])
+  assert(Array.isArray(keptCottages) && keptCottages.join() === ids[1], 'clearing rooms keeps selected cottages')
+  assert(analyticsDefinitionForStaff('PENDING, CHECKED_IN also NO_SHOW')?.includes('Очікує підтвердження'), 'staff copy uses Ukrainian statuses')
+  assert(!analyticsDefinitionForStaff('PENDING')?.includes('PENDING'), 'API status tokens stay out of the staff hint')
 
   const page = readFileSync(new URL('../pages/analytics/AnalyticsPage.tsx', import.meta.url), 'utf8')
   assert(page.includes('AccommodationMultiSelect'), 'accommodations use a searchable multi-select')
+  assert(page.includes('Які дати в періоді') && page.includes('FilterStep'), 'period is explained before the other filters')
+  assert(page.includes("'Номери'") && page.includes("'Будиночки'"), 'categories are split by kind')
+  assert(page.includes('Відкрити клієнтів'), 'guest KPIs link to the clients directory')
+  assert(page.includes('tabular-nums'), 'kpi figures use tabular numbers')
   assert(page.includes('useAdminAnalyticsSummary'), 'page reads the analytics endpoint')
   assert(!page.includes('mocks/db') && !page.includes('getDashboard'), 'no mock dashboard data')
   assert(page.includes("label=\"Дохід\"") && page.includes('summary.financial.revenue'), 'income kpi is present')

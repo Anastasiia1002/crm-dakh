@@ -2,6 +2,7 @@ import { ApiError } from '@/lib/api-error'
 import { addCalendarDays, HOTEL_TIME_ZONE, todayIso } from '@/lib/dates'
 import { formatMoneyAmount } from '@/lib/format'
 import { DASHBOARD_MAX_PERIOD_DAYS, parseDashboardPeriod } from '@/lib/dashboard-summary'
+import { bookingStatusLabel } from '@/lib/labels'
 import type { BookingStatus } from '@/types'
 
 export const ADMIN_ANALYTICS_SUMMARY_QUERY_KEY = ['admin-analytics-summary'] as const
@@ -21,12 +22,15 @@ export const ANALYTICS_STATUSES: BookingStatus[] = [
 ]
 
 export const analyticsDateTypeLabel: Record<AnalyticsDateType, string> = {
-  stay: 'Дати відпочинку',
-  created: 'Дата створення',
-  checkIn: 'Дата заїзду',
-  checkOut: 'Дата виїзду',
-  cancelled: 'Дата скасування',
+  stay: 'Проживання в періоді',
+  created: 'Створені в періоді',
+  checkIn: 'Заїзд у періоді',
+  checkOut: 'Виїзд у періоді',
+  cancelled: 'Скасовані в періоді',
 }
+
+export const ANALYTICS_DATE_TYPE_HINT =
+  'Це не календар готелю, а правило відбору: за якою датою бронювання потрапляє в період.'
 
 export type AnalyticsPeriodPreset = 'currentMonth' | 'previousMonth' | 'nextMonth' | 'currentYear' | 'custom'
 
@@ -215,6 +219,15 @@ export function moneyOrUnavailable(value: AnalyticsMoney | AnalyticsUnavailable)
   return formatMoneyAmount(value.amount)
 }
 
+/** Staff copy: replace API status tokens with Ukrainian labels. */
+export function analyticsDefinitionForStaff(text: string | undefined) {
+  if (!text) return undefined
+  return (Object.keys(bookingStatusLabel) as BookingStatus[]).reduce(
+    (next, status) => next.replaceAll(status, bookingStatusLabel[status]),
+    text,
+  )
+}
+
 /** Keep the URL contract: omitted = all, rooms=none = explicit empty, otherwise selected ids. */
 export function nextAnalyticsIdFilter(selected: readonly string[], allIds: readonly string[]) {
   if (selected.length === 0) return ANALYTICS_NONE
@@ -222,6 +235,18 @@ export function nextAnalyticsIdFilter(selected: readonly string[], allIds: reado
     return 'all' as const
   }
   return [...selected]
+}
+
+/** Merge a room-or-cottage category subset into the shared category filter. */
+export function nextAnalyticsKindCategoryFilter(
+  current: string[] | typeof ANALYTICS_NONE | 'all',
+  kindIds: readonly string[],
+  allIds: readonly string[],
+  nextKind: readonly string[],
+) {
+  const selected = current === 'all' ? [...allIds] : current === ANALYTICS_NONE ? [] : [...current]
+  const withoutKind = selected.filter((id) => !kindIds.includes(id))
+  return nextAnalyticsIdFilter([...withoutKind, ...nextKind.filter((id) => kindIds.includes(id))], allIds)
 }
 
 export type AnalyticsAccommodationOption = {
@@ -253,7 +278,8 @@ export function groupAnalyticsAccommodationOptions(options: readonly AnalyticsAc
       groups[existing]!.items.push(option)
     }
   }
-  return groups
+  const rank = (label: string) => (label.startsWith('Номер') ? 0 : label.startsWith('Будиноч') ? 1 : 2)
+  return groups.sort((a, b) => rank(a.label) - rank(b.label) || a.label.localeCompare(b.label, 'uk'))
 }
 
 function parseIdFilter(raw: string | null): string[] | typeof ANALYTICS_NONE | 'all' {

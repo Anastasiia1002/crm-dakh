@@ -120,6 +120,7 @@ function main() {
     assert(dialog.confirmLabel.length > 0, `${dialog.action} has a confirm label`)
   }
   assert(bookingStatusDialog('check-in', reference).description.includes('Заселено'), 'check-in states the status change')
+  assert(bookingStatusDialog('check-in', reference).description.includes('Скасувати'), 'check-in explains that dismiss does not change status')
   assert(bookingStatusDialog('no-show', reference).description.includes('Не заїхав'), 'no-show states that the stay is closed')
   assert(bookingStatusDialog('cancel', reference).description.includes('скасоване'), 'cancel states that the booking is cancelled')
   assert(
