@@ -370,18 +370,16 @@ export type RoomPrice = {
 }
 
 export type PriceWorkspaceInput = {
-  ratePlanId: string
-  roomTypeId: string
+  roomIds: string[]
   firstNight: string
   lastNight: string
-  price: string
+  price?: string
   minStay?: number
   maxStay?: number | null
   byWeekday?: boolean
-  weekdayPrice?: string
-  weekendPrice?: string
-  weekendDays?: number[]
+  weekdayPrices?: string[]
   replaceOverlaps?: boolean
+  previewToken?: string
 }
 
 export type PriceWorkspacePreview = {
@@ -390,11 +388,35 @@ export type PriceWorkspacePreview = {
   exclusiveEnd: string
   nightCount: number
   ratePlanId: string
-  roomTypeId: string
   price: string
-  byWeekday: boolean
-  overlaps: Array<{ id: string; startDate: string; endDate: string; lastNight: string; price: string }>
+  weekdayPrices: string[] | null
+  units: Array<{
+    roomId: string
+    roomTypeId: string
+    number: string
+    name: string | null
+    nights: Array<{ date: string; oldPrice: string | null; newPrice: string }>
+    overlaps: Array<{
+      id: string
+      roomId: string | null
+      startDate: string
+      endDate: string
+      lastNight: string
+      price: string
+      weekdayPrices: string | null
+    }>
+  }>
+  overlaps: Array<{
+    id: string
+    roomId: string | null
+    startDate: string
+    endDate: string
+    lastNight: string
+    price: string
+    weekdayPrices: string | null
+  }>
   needsReplace: boolean
+  previewToken: string
 }
 
 export type RoomHistoryItem = {

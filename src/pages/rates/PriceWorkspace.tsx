@@ -2,8 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { listAllRoomTypes } from '@/api/accommodations'
-import { AccommodationSelectGroups } from '@/components/bookings/AccommodationSelectGroups'
-import { RatePlanPicker } from '@/components/rates/RatePlanPicker'
+import { UnitMultiSelect } from '@/components/rates/UnitMultiSelect'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -11,14 +10,8 @@ import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAuth } from '@/hooks/useAuth'
-import {
-  useAdminRatePlans,
-  useAllAdminRooms,
-  useApplyPriceWorkspace,
-  usePreviewPriceWorkspace,
-} from '@/hooks/useHotel'
+import { useAllAdminRooms, useApplyPriceWorkspace, usePreviewPriceWorkspace } from '@/hooks/useHotel'
 import { unitDisplayTitle } from '@/lib/accommodation-labels'
-import { pickDefaultCommercialRatePlan } from '@/lib/default-rate-plan'
 import { ApiError } from '@/lib/api-error'
 import { errorMessage } from '@/lib/errors'
 import { formatDate, formatMoneyAmount, normalizeMoneyString } from '@/lib/format'
@@ -32,6 +25,16 @@ import { CATALOG_STALE_TIME } from '@/lib/queryClient'
 import { canManageRates } from '@/lib/roles'
 import type { PriceWorkspacePreview } from '@/types'
 
+const WEEKDAY_FIELDS = [
+  { id: 0, label: 'Понеділок' },
+  { id: 1, label: 'Вівторок' },
+  { id: 2, label: 'Середа' },
+  { id: 3, label: 'Четвер' },
+  { id: 4, label: 'Пʼятниця' },
+  { id: 5, label: 'Субота' },
+  { id: 6, label: 'Неділя' },
+] as const
+
 export function PriceWorkspace() {
   const { user } = useAuth()
   const canWrite = canManageRates(user?.role)
@@ -41,35 +44,25 @@ export function PriceWorkspace() {
     queryFn: ({ signal }) => listAllRoomTypes({}, signal),
     staleTime: CATALOG_STALE_TIME,
   })
-  const plansQuery = useAdminRatePlans({ page: 1, limit: 100, active: true })
-  const choice = useMemo(
-    () => pickDefaultCommercialRatePlan(plansQuery.data?.items ?? []),
-    [plansQuery.data?.items],
-  )
   const [preset, setPreset] = useState<PricePeriodPresetId>('current-month')
   const range = pricePeriodRange(preset)
-  const [unitId, setUnitId] = useState('')
-  const [ratePlanId, setRatePlanId] = useState('')
+  const [roomIds, setRoomIds] = useState<string[]>([])
   const [firstNight, setFirstNight] = useState(range.firstNight)
   const [lastNight, setLastNight] = useState(range.lastNight)
   const [price, setPrice] = useState('')
   const [byWeekday, setByWeekday] = useState(false)
-  const [weekdayPrice, setWeekdayPrice] = useState('')
-  const [weekendPrice, setWeekendPrice] = useState('')
+  const [weekdayPrices, setWeekdayPrices] = useState(['', '', '', '', '', '', ''])
   const [preview, setPreview] = useState<PriceWorkspacePreview | null>(null)
   const [confirmReplace, setConfirmReplace] = useState(false)
   const previewMutation = usePreviewPriceWorkspace()
   const applyMutation = useApplyPriceWorkspace()
 
-  const selectedUnit = (rooms.data ?? []).find((room) => room.id === unitId)
-  const roomTypeId = selectedUnit?.roomTypeId ?? ''
-  const typeName = types.data?.find((type) => type.id === roomTypeId)?.name
-  const affectedUnits = (rooms.data ?? []).filter((room) => room.roomTypeId === roomTypeId)
+  const selectedUnits = useMemo(
+    () => (rooms.data ?? []).filter((room) => roomIds.includes(room.id)),
+    [rooms.data, roomIds],
+  )
+  const typeName = (roomTypeId: string) => types.data?.find((type) => type.id === roomTypeId)?.name
   const nightCount = inclusiveNightCount(firstNight, lastNight)
-  const resolvedPlanId = ratePlanId || (choice.mode === 'auto' ? choice.plan.id : '')
-  const resolvedPlan =
-    (plansQuery.data?.items ?? []).find((plan) => plan.id === resolvedPlanId) ??
-    (choice.mode === 'auto' && choice.plan.id === resolvedPlanId ? choice.plan : undefined)
 
   function applyPreset(next: PricePeriodPresetId) {
     setPreset(next)
@@ -79,21 +72,17 @@ export function PriceWorkspace() {
     setPreview(null)
   }
 
-  function workspaceBody(replaceOverlaps = false) {
-    const catalogPrice = normalizeMoneyString(byWeekday ? weekdayPrice || price : price)
-    const weekday = byWeekday ? normalizeMoneyString(weekdayPrice) : null
-    const weekend = byWeekday ? normalizeMoneyString(weekendPrice) : null
+  function workspaceBody(replaceOverlaps = false, previewToken?: string) {
+    const weekday = byWeekday ? weekdayPrices.map((value) => normalizeMoneyString(value) ?? '') : undefined
     return {
-      ratePlanId: resolvedPlanId,
-      roomTypeId,
+      roomIds,
       firstNight,
       lastNight,
-      price: catalogPrice ?? '',
+      price: byWeekday ? undefined : (normalizeMoneyString(price) ?? ''),
       byWeekday,
-      weekdayPrice: weekday ?? undefined,
-      weekendPrice: weekend ?? undefined,
-      weekendDays: byWeekday ? [5, 6] : undefined,
+      weekdayPrices: weekday,
       replaceOverlaps,
+      previewToken,
     }
   }
 
@@ -102,25 +91,21 @@ export function PriceWorkspace() {
       toast.error('Список розміщень завантажено не повністю. Збереження скасовано.')
       return null
     }
-    if (!roomTypeId) {
+    if (roomIds.length === 0) {
       toast.error('Оберіть номер або будиночок')
-      return null
-    }
-    if (!resolvedPlanId) {
-      toast.error('Оберіть тариф, який редагується')
-      return null
-    }
-    if (choice.mode === 'choose' && choice.reason === 'test-only' && !ratePlanId) {
-      toast.error('Тестовий тариф не підставляється для публічних цін. Оберіть комерційний тариф.')
       return null
     }
     if (nightCount < 1) {
       toast.error('Остання ніч має бути не раніше за першу')
       return null
     }
-    const body = workspaceBody(false)
-    if (!body.price || (byWeekday && (!body.weekdayPrice || !body.weekendPrice))) {
+    const body = workspaceBody(false, preview?.previewToken)
+    if (!byWeekday && !body.price) {
       toast.error('Вкажіть ціну за ніч у гривнях')
+      return null
+    }
+    if (byWeekday && body.weekdayPrices?.some((value) => !value)) {
+      toast.error('Вкажіть сім сум з понеділка по неділю')
       return null
     }
     try {
@@ -134,13 +119,17 @@ export function PriceWorkspace() {
     }
   }
 
-  async function save(replaceOverlaps: boolean) {
+  async function save(replaceOverlaps: boolean, previewToken = preview?.previewToken) {
     if (!canWrite) {
       toast.error('Недостатньо прав для цієї дії')
       return
     }
+    if (!previewToken) {
+      toast.error('Спочатку перегляньте зміни')
+      return
+    }
     try {
-      const result = await applyMutation.mutateAsync(workspaceBody(replaceOverlaps))
+      const result = await applyMutation.mutateAsync(workspaceBody(replaceOverlaps, previewToken))
       setPreview(result)
       setConfirmReplace(false)
       toast.success(`Збережено ${result.nightCount} ${nightsWord(result.nightCount)}`)
@@ -152,10 +141,10 @@ export function PriceWorkspace() {
   return (
     <section className="space-y-6">
       <div>
-        <h1 className="font-serif text-3xl font-medium">Встановлення цін</h1>
+        <h1 className="font-serif text-3xl font-medium">Ціни</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-          Тут ви можете встановити ціни, які в майбутньому зможете корегувати. Ціна застосовується до категорії
-          розміщення, у гривнях. Уже створені бронювання зберігають записані нічні суми.
+          Ціна записується для обраних номерів і будиночків, у гривнях. Категорія типу більше не змінює сусідні
+          одиниці. Уже створені бронювання зберігають записані нічні суми.
         </p>
       </div>
 
@@ -174,70 +163,26 @@ export function PriceWorkspace() {
         </Select>
       </Field>
 
-      <Field label="Номер або будиночок">
-        <Select
-          value={unitId || undefined}
-          onValueChange={(value) => {
-            setUnitId(value)
+      <Field label="Номери та будиночки">
+        <UnitMultiSelect
+          rooms={rooms.data ?? []}
+          roomTypes={types.data ?? []}
+          value={roomIds}
+          loading={rooms.isLoading || types.isLoading}
+          error={rooms.isError || types.isError}
+          onChange={(next) => {
+            setRoomIds(next)
             setPreview(null)
           }}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Оберіть номер або будиночок" />
-          </SelectTrigger>
-          <SelectContent>
-            <AccommodationSelectGroups rooms={rooms.data ?? []} roomTypes={types.data ?? []} />
-          </SelectContent>
-        </Select>
-        {rooms.isError || types.isError ? (
-          <p className="mt-1 text-xs text-destructive">Не вдалося завантажити повний список розміщень.</p>
-        ) : null}
+        />
       </Field>
 
-      {roomTypeId ? (
+      {selectedUnits.length > 0 ? (
         <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
-          Ціна застосовується до категорії «{typeName ?? '—'}». Будуть змінені:{' '}
-          {affectedUnits.map((unit) => unitDisplayTitle(unit, typeName)).join(', ') || 'фізичних одиниць ще немає'}.
+          Будуть змінені:{' '}
+          {selectedUnits.map((unit) => unitDisplayTitle(unit, typeName(unit.roomTypeId))).join(', ')}.
         </p>
       ) : null}
-
-      <Field
-        label="Тариф"
-        hint={
-          choice.mode === 'auto'
-            ? 'Підставлено єдиний активний комерційний стандартний тариф. Тестові коди не використовуються.'
-            : choice.reason === 'test-only'
-              ? 'Є лише тестові тарифи. Для публічних цін оберіть комерційний тариф явно.'
-              : choice.reason === 'none'
-                ? 'Немає активного комерційного тарифу. Створіть його в блоці тарифних планів нижче.'
-                : 'Кілька тарифів підходять. Оберіть, який саме редагується.'
-        }
-      >
-        {choice.mode === 'auto' && !ratePlanId ? (
-          <p className="text-sm">
-            Редагується тариф {choice.plan.name} ({choice.plan.code}).{' '}
-            <button type="button" className="underline underline-offset-4" onClick={() => setRatePlanId(choice.plan.id)}>
-              Змінити
-            </button>
-          </p>
-        ) : (
-          <RatePlanPicker
-            value={resolvedPlanId}
-            activeOnly
-            placeholder="Оберіть тариф"
-            onChange={(value) => {
-              setRatePlanId(value)
-              setPreview(null)
-            }}
-          />
-        )}
-        {resolvedPlan ? (
-          <p className="mt-1 text-xs text-muted-foreground">
-            Зміни підуть у тариф {resolvedPlan.name} ({resolvedPlan.code}
-            {resolvedPlan.publicOfferable ? ', можна пропонувати на сайті' : ', лише в адмінці'}).
-          </p>
-        ) : null}
-      </Field>
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Перша ніч">
@@ -250,7 +195,7 @@ export function PriceWorkspace() {
             }}
           />
         </Field>
-        <Field label="Остання ніч" hint="Включно. На сервері зберігається як дата кінця, яка вже не входить.">
+        <Field label="Остання ніч" hint="Включно. Дата виїзду не тарифікується.">
           <Input
             type="date"
             value={lastNight}
@@ -273,34 +218,46 @@ export function PriceWorkspace() {
             setPreview(null)
           }}
         />
-        Ціна залежить від дня тижня
+        Окремі ціни з понеділка по неділю
       </label>
-      {byWeekday ? (
-        <p className="text-xs text-muted-foreground">
-          У DAKH це накладка будень/вихідні на ціну категорії, а не сім окремих сум як у BookMeNow.
-        </p>
-      ) : null}
 
       {byWeekday ? (
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Будні, грн">
-            <Input inputMode="decimal" value={weekdayPrice} onChange={(event) => setWeekdayPrice(event.target.value)} />
-          </Field>
-          <Field label="Вихідні, грн">
-            <Input inputMode="decimal" value={weekendPrice} onChange={(event) => setWeekendPrice(event.target.value)} />
-          </Field>
+          {WEEKDAY_FIELDS.map((day) => (
+            <Field key={day.id} label={`${day.label}, грн`}>
+              <Input
+                inputMode="decimal"
+                value={weekdayPrices[day.id]}
+                onChange={(event) => {
+                  const next = [...weekdayPrices]
+                  next[day.id] = event.target.value
+                  setWeekdayPrices(next)
+                  setPreview(null)
+                }}
+              />
+            </Field>
+          ))}
         </div>
       ) : (
-        <Field label="Ціна (грн)" hint="Вкажіть ціну за ніч">
-          <Input inputMode="decimal" value={price} onChange={(event) => setPrice(event.target.value)} />
+        <Field label="Ціна (грн)" hint="Вкажіть одну ціну за кожну ніч періоду">
+          <Input
+            inputMode="decimal"
+            value={price}
+            onChange={(event) => {
+              setPrice(event.target.value)
+              setPreview(null)
+            }}
+          />
         </Field>
       )}
 
       {preview && !preview.needsReplace ? (
-        <p className="text-sm">
-          {preview.nightCount} {nightsWord(preview.nightCount)} · {formatMoneyAmount(preview.price)} · без заміни
-          наявних періодів.
-        </p>
+        <div className="space-y-2 text-sm">
+          <p>
+            {preview.nightCount} {nightsWord(preview.nightCount)} · без заміни наявних періодів для обраних одиниць.
+          </p>
+          <PreviewNights preview={preview} />
+        </div>
       ) : null}
 
       <div className="flex flex-wrap justify-end gap-2">
@@ -313,7 +270,7 @@ export function PriceWorkspace() {
           onClick={() => {
             void (async () => {
               if (preview && !preview.needsReplace) {
-                await save(false)
+                await save(false, preview.previewToken)
                 return
               }
               if (preview?.needsReplace) {
@@ -321,7 +278,7 @@ export function PriceWorkspace() {
                 return
               }
               const result = await runPreview()
-              if (result && !result.needsReplace) await save(false)
+              if (result && !result.needsReplace) await save(false, result.previewToken)
             })()
           }}
         >
@@ -332,27 +289,46 @@ export function PriceWorkspace() {
       <ConfirmDialog
         open={confirmReplace}
         title="Замінити наявні ціни?"
-        description={
-          preview?.overlaps.length
-            ? `Перетин на ${preview.overlaps
-                .map(
-                  (row) =>
-                    `${formatDate(row.startDate)} — ${formatDate(row.lastNight)} (${formatMoneyAmount(row.price)})`,
-                )
-                .join('; ')}. Нова ціна покриє ${preview.nightCount} ${nightsWord(preview.nightCount)}.`
-            : ''
-        }
+        description={replaceCopy(preview)}
         confirmLabel="Замінити"
         pending={applyMutation.isPending}
         onOpenChange={(open) => {
           if (!open) setConfirmReplace(false)
         }}
         onConfirm={() => {
-          void save(true)
+          void save(true, preview?.previewToken)
         }}
       />
     </section>
   )
+}
+
+function PreviewNights({ preview }: { preview: PriceWorkspacePreview }) {
+  return (
+    <ul className="space-y-1 text-xs text-muted-foreground">
+      {preview.units.map((unit) => (
+        <li key={unit.roomId}>
+          {unit.name ?? unit.number}:{' '}
+          {unit.nights
+            .slice(0, 7)
+            .map(
+              (night) =>
+                `${formatDate(night.date)} ${night.oldPrice ? formatMoneyAmount(night.oldPrice) : '—'}/${formatMoneyAmount(night.newPrice)}`,
+            )
+            .join('; ')}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function replaceCopy(preview: PriceWorkspacePreview | null) {
+  if (!preview) return ''
+  const units = preview.units.map((unit) => unit.name ?? unit.number).join(', ')
+  const overlaps = preview.overlaps
+    .map((row) => `${formatDate(row.startDate)} — ${formatDate(row.lastNight)} (${formatMoneyAmount(row.price)})`)
+    .join('; ')
+  return `Одиниці: ${units}. Перетин: ${overlaps || 'немає збережених цін одиниці'}. Нова ціна покриє ${preview.nightCount} ${nightsWord(preview.nightCount)}.`
 }
 
 function nightsWord(count: number) {
@@ -368,6 +344,15 @@ function workspaceError(error: unknown) {
     if (error.status === 403) return 'Недостатньо прав для цієї дії'
     if (error.code === 'ROOM_PRICE_OVERLAP') {
       return 'Період перетинається з наявною ціною. Перегляньте дати перед заміною.'
+    }
+    if (error.code === 'PRICE_PREVIEW_STALE') {
+      return 'Каталог змінився після перегляду. Оновіть перегляд перед збереженням.'
+    }
+    if (error.code === 'RATE_PLAN_AMBIGUOUS') {
+      return 'Кілька комерційних тарифів підходять. Ціни не записано.'
+    }
+    if (error.code === 'RATE_PLAN_TEST_ONLY' || error.code === 'RATE_PLAN_MISSING') {
+      return error.message || 'Немає однозначного комерційного тарифу для запису цін.'
     }
     if (error.details?.length) return error.details.join('. ')
     if (error.message) return error.message
