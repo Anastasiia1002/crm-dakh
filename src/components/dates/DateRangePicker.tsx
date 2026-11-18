@@ -88,16 +88,14 @@ export function DateRangePicker({
     }
   }, [open])
 
-  const display =
-    mode === 'single'
-      ? start
-        ? formatDate(start)
-        : placeholder || 'Оберіть дату'
-      : start && end
-        ? `${formatDate(start)} — ${formatDate(end)}`
-        : start
-          ? `${formatDate(start)} — …`
-          : placeholder || 'Оберіть першу, потім останню ніч'
+  const startDisplay = start ? formatDate(start) : placeholder || 'Перша ніч'
+  const endDisplay = end ? formatDate(end) : start ? '…' : 'Остання ніч'
+  const singleDisplay = start ? formatDate(start) : placeholder || 'Оберіть дату'
+
+  function openPicker() {
+    if (disabled) return
+    setOpen(true)
+  }
 
   function dateClosed(date: string) {
     if (closedBefore && date < closedBefore) return true
@@ -133,23 +131,55 @@ export function DateRangePicker({
 
   return (
     <div ref={rootRef} className="relative min-w-0">
-      <button
-        id={id}
-        type="button"
-        disabled={disabled}
-        aria-labelledby={labelId}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        onClick={() => {
-          if (disabled) return
-          setOpen((value) => !value)
-        }}
-        className="flex h-10 w-full min-w-[16rem] items-center rounded-md border border-input bg-background px-3 text-left text-sm disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        <span id={labelId} className={start ? 'text-foreground' : 'text-muted-foreground'}>
-          {display}
-        </span>
-      </button>
+      {mode === 'single' ? (
+        <button
+          id={id}
+          type="button"
+          disabled={disabled}
+          aria-labelledby={labelId}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          onClick={openPicker}
+          className="flex h-10 w-full min-w-[16rem] items-center rounded-md border border-input bg-background px-3 text-left text-sm disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <span id={labelId} className={start ? 'text-foreground' : 'text-muted-foreground'}>
+            {singleDisplay}
+          </span>
+        </button>
+      ) : (
+        <div className="grid grid-cols-2 gap-2">
+          <label className="flex min-w-0 flex-col gap-1">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">З</span>
+            <button
+              id={id}
+              type="button"
+              disabled={disabled}
+              aria-labelledby={labelId}
+              aria-haspopup="dialog"
+              aria-expanded={open}
+              onClick={openPicker}
+              className="flex h-10 w-full items-center rounded-md border border-input bg-background px-3 text-left text-sm disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <span id={labelId} className={start ? 'text-foreground' : 'text-muted-foreground'}>
+                {startDisplay}
+              </span>
+            </button>
+          </label>
+          <label className="flex min-w-0 flex-col gap-1">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">По</span>
+            <button
+              type="button"
+              disabled={disabled}
+              aria-haspopup="dialog"
+              aria-expanded={open}
+              onClick={openPicker}
+              className="flex h-10 w-full items-center rounded-md border border-input bg-background px-3 text-left text-sm disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <span className={end ? 'text-foreground' : 'text-muted-foreground'}>{endDisplay}</span>
+            </button>
+          </label>
+        </div>
+      )}
       {open ? (
         <div
           role="dialog"

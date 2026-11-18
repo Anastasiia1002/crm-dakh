@@ -39,7 +39,19 @@ const WEEKDAY_FIELDS = [
   { id: 6, label: 'Неділя' },
 ] as const
 
-export function PriceWorkspace({ onBack }: { onBack?: () => void }) {
+export function PriceWorkspace({
+  onBack,
+  onSaved,
+  initialFirstNight,
+  initialLastNight,
+  initialRoomIds = [],
+}: {
+  onBack?: () => void
+  onSaved?: (next: { firstNight: string; lastNight: string; roomIds: string[] }) => void
+  initialFirstNight?: string
+  initialLastNight?: string
+  initialRoomIds?: string[]
+}) {
   const { user } = useAuth()
   const canWrite = canManageRates(user?.role)
   const canOpenBooking = hasPermission(user?.role, 'bookings.read')
@@ -51,9 +63,9 @@ export function PriceWorkspace({ onBack }: { onBack?: () => void }) {
   })
   const [preset, setPreset] = useState<PricePeriodPresetId>('current-month')
   const range = pricePeriodRange(preset)
-  const [roomIds, setRoomIds] = useState<string[]>([])
-  const [firstNight, setFirstNight] = useState(range.firstNight)
-  const [lastNight, setLastNight] = useState(range.lastNight)
+  const [roomIds, setRoomIds] = useState<string[]>(initialRoomIds)
+  const [firstNight, setFirstNight] = useState(initialFirstNight ?? range.firstNight)
+  const [lastNight, setLastNight] = useState(initialLastNight ?? range.lastNight)
   const [price, setPrice] = useState('')
   const [byWeekday, setByWeekday] = useState(false)
   const [weekdayPrices, setWeekdayPrices] = useState(['', '', '', '', '', '', ''])
@@ -157,6 +169,11 @@ export function PriceWorkspace({ onBack }: { onBack?: () => void }) {
       setConfirmReplace(false)
       setConfirmBookings(false)
       toast.success(savedCopy(result))
+      onSaved?.({
+        firstNight: result.firstNight,
+        lastNight: result.lastNight,
+        roomIds,
+      })
     } catch (error) {
       if (error instanceof ApiError && (error.code === 'PRICE_PREVIEW_STALE' || error.code === 'PRICE_BOOKINGS_NEED_ACK')) {
         const refreshed = await runPreview()
@@ -223,7 +240,7 @@ export function PriceWorkspace({ onBack }: { onBack?: () => void }) {
         </p>
       ) : null}
 
-      <Field label="Ночі" hint="Перший клік — перша ніч, другий — остання. Минулі ночі недоступні.">
+      <Field label="Ночі" hint="Оберіть «З» і «По» в одному календарі. Минулі ночі недоступні.">
         <DateRangePicker
           start={firstNight}
           end={lastNight}

@@ -85,6 +85,8 @@ assert(!pageSource.includes('Додати тариф'), 'rate-plan management is
 assert(workspace.includes('firstNight'), 'period dialog uses inclusive first night')
 assert(workspace.includes('lastNight'), 'price period end is an inclusive last night')
 assert(workspace.includes('DateRangePicker'), 'price period uses the shared range picker')
+assert(workspace.includes('onSaved'), 'successful apply returns to the calendar')
+assert(pageSource.includes('onSaved'), 'rates page closes the editor after a successful apply')
 assert(workspace.includes('roomIds'), 'workspace sends physical unit ids')
 assert(workspace.includes('previewToken'), 'apply requires the preview token')
 assert(types.includes('publicOfferable: boolean'), 'RatePlan requires the flag')

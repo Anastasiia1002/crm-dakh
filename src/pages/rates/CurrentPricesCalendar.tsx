@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { DateRangePicker } from '@/components/dates/DateRangePicker'
 import { Button } from '@/components/ui/button'
 import { Field } from '@/components/ui/field'
@@ -24,22 +24,30 @@ function PriceCell({ night }: { night: CurrentPriceNight }) {
   return <p className="font-medium tabular-nums">{formatMoneyAmount(night.amount)}</p>
 }
 
-export function CurrentPricesCalendar({ onEditPrices }: { onEditPrices: () => void }) {
+export function CurrentPricesCalendar({
+  firstNight,
+  lastNight,
+  preset,
+  highlightedRoomIds = [],
+  onRangeChange,
+  onEditPrices,
+}: {
+  firstNight: string
+  lastNight: string
+  preset: PricePeriodPresetId
+  highlightedRoomIds?: string[]
+  onRangeChange: (next: { preset: PricePeriodPresetId; firstNight: string; lastNight: string }) => void
+  onEditPrices: () => void
+}) {
   const { user } = useAuth()
   const canWrite = canManageRates(user?.role)
-  const initial = pricePeriodRange('current-month')
-  const [preset, setPreset] = useState<PricePeriodPresetId>('current-month')
-  const [firstNight, setFirstNight] = useState(initial.firstNight)
-  const [lastNight, setLastNight] = useState(initial.lastNight)
   const nightCount = inclusiveNightCount(firstNight, lastNight)
   const rangeOk = nightCount > 0 && nightCount <= CURRENT_PRICES_MAX_NIGHTS
   const calendar = useCurrentPricesCalendar(rangeOk ? { firstNight, lastNight } : undefined)
 
   function applyPreset(next: PricePeriodPresetId) {
-    setPreset(next)
     const range = pricePeriodRange(next)
-    setFirstNight(range.firstNight)
-    setLastNight(range.lastNight)
+    onRangeChange({ preset: next, firstNight: range.firstNight, lastNight: range.lastNight })
   }
 
   const groups = calendar.data?.groups ?? []
@@ -83,9 +91,11 @@ export function CurrentPricesCalendar({ onEditPrices }: { onEditPrices: () => vo
             end={lastNight}
             allowPast
             onChange={({ start, end }) => {
-              setPreset('current-month')
-              setFirstNight(start)
-              if (end) setLastNight(end)
+              onRangeChange({
+                preset: 'current-month',
+                firstNight: start,
+                lastNight: end || lastNight,
+              })
             }}
           />
         </Field>
@@ -123,7 +133,10 @@ export function CurrentPricesCalendar({ onEditPrices }: { onEditPrices: () => vo
                 </TableHeader>
                 <TableBody>
                   {group.units.map((unit) => (
-                    <TableRow key={unit.roomId}>
+                    <TableRow
+                      key={unit.roomId}
+                      className={highlightedRoomIds.includes(unit.roomId) ? 'bg-[#efe7dc]/60' : undefined}
+                    >
                       <TableCell className="sticky left-0 z-10 bg-background font-medium">
                         {unitDisplayTitle({ name: unit.name, number: unit.number })}
                       </TableCell>
