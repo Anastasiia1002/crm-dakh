@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { firstEnabledFocusDate, nextInclusiveRange } from '@/lib/date-range-selection'
 import { formatInclusiveDateRange } from '@/lib/format'
 import { addCalendarDays, todayIso } from '@/lib/dates'
 import {
@@ -59,27 +60,30 @@ export function DateRangePicker({
   const closedBefore = allowPast ? minDate : minDate && minDate > today ? minDate : today
   const [open, setOpen] = useState(false)
   const [month, setMonth] = useState(() => monthKey(start || end || today))
-  const [draftStart, setDraftStart] = useState(start)
+  const [draft, setDraft] = useState<DateRangeValue>({ start, end: end ?? '' })
   const [focusDate, setFocusDate] = useState(start || today)
   const rootRef = useRef<HTMLDivElement>(null)
   const gridRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
   const labelId = useId()
   const dates = useMemo(() => monthGrid(month), [month])
 
   useEffect(() => {
-    if (!open) {
-      setDraftStart(start)
-      if (start) setMonth(monthKey(start))
-    }
-  }, [open, start])
+    if (open) return
+    setDraft({ start, end: end ?? '' })
+    if (start) setMonth(monthKey(start))
+  }, [open, start, end])
 
   useEffect(() => {
     if (!open) return
     function onPointer(event: MouseEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false)
+      if (!rootRef.current?.contains(event.target as Node)) closePicker(false)
     }
     function onKey(event: KeyboardEvent) {
-      if (event.key === 'Escape') setOpen(false)
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        closePicker(true)
+      }
     }
     document.addEventListener('mousedown', onPointer)
     document.addEventListener('keydown', onKey)
@@ -89,73 +93,86 @@ export function DateRangePicker({
     }
   }, [open])
 
-  useEffect(() => {
-    if (!open) return
-    const active = gridRef.current?.querySelector<HTMLButtonElement>('button[tabindex="0"]')
-    active?.focus()
-  }, [open, month, focusDate])
-
+  const picking = Boolean(draft.start && !draft.end)
+  const displayStart = picking ? draft.start : start
+  const displayEnd = picking ? '' : end
   const display =
     mode === 'single'
       ? start
         ? formatInclusiveDateRange(start, start)
         : placeholder || 'Оберіть дату'
-      : start && end
-        ? formatInclusiveDateRange(start, end)
-        : start
-          ? formatInclusiveDateRange(start)
+      : displayStart && displayEnd
+        ? formatInclusiveDateRange(displayStart, displayEnd)
+        : displayStart
+          ? formatInclusiveDateRange(displayStart)
           : placeholder || 'Оберіть період'
-
-  function togglePicker() {
-    if (disabled) return
-    setOpen((value) => !value)
-  }
 
   function dateClosed(date: string) {
     if (closedBefore && date < closedBefore) return true
     return false
   }
 
+  function focusDay(date: string) {
+    const enabled = firstEnabledFocusDate(date, closedBefore) || date
+    setFocusDate(enabled)
+    setMonth(monthKey(enabled))
+    requestAnimationFrame(() => {
+      gridRef.current?.querySelector<HTMLButtonElement>(`button[aria-label="${enabled}"]`)?.focus()
+    })
+  }
+
+  function closePicker(returnFocus: boolean) {
+    setOpen(false)
+    if (returnFocus) triggerRef.current?.focus()
+  }
+
+  function openPicker() {
+    if (disabled) return
+    const nextOpen = !open
+    setOpen(nextOpen)
+    if (nextOpen) {
+      setDraft({ start, end: end ?? '' })
+      const preferred = start || today
+      requestAnimationFrame(() => focusDay(preferred))
+    }
+  }
+
   function selectDate(date: string) {
     if (disabled || dateClosed(date)) return
     if (mode === 'single') {
       onChange({ start: date, end: date })
-      setOpen(false)
+      closePicker(true)
       return
     }
-    if (!draftStart || (start && end)) {
-      setDraftStart(date)
-      onChange({ start: date, end: '' })
-      return
-    }
-    const nextStart = date < draftStart ? date : draftStart
-    const nextEnd = date < draftStart ? draftStart : date
-    onChange({ start: nextStart, end: nextEnd })
-    setDraftStart(nextStart)
-    setOpen(false)
+    const next = nextInclusiveRange(draft, date)
+    setDraft(next)
+    onChange(next)
+    if (next.end) closePicker(true)
   }
 
   function moveFocus(delta: number) {
     const next = addCalendarDays(focusDate, delta)
-    setFocusDate(next)
-    setMonth(monthKey(next))
+    focusDay(next)
   }
 
   const previousMonthEnabled = !disabled && canBrowsePreviousMonth(month, today, allowPast || !closedBefore)
+  const rangeStart = picking ? draft.start : start
+  const rangeEnd = picking ? draft.start : end
 
   return (
     <div ref={rootRef} className="relative min-w-0">
       <button
+        ref={triggerRef}
         id={id}
         type="button"
         disabled={disabled}
         aria-labelledby={labelId}
         aria-haspopup="dialog"
         aria-expanded={open}
-        onClick={togglePicker}
+        onClick={openPicker}
         className="flex h-10 w-full min-w-0 items-center rounded-md border border-input bg-background px-3 text-left text-sm disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <span id={labelId} className={start ? 'text-foreground' : 'text-muted-foreground'}>
+        <span id={labelId} className={displayStart ? 'text-foreground' : 'text-muted-foreground'}>
           {display}
         </span>
       </button>
@@ -163,7 +180,7 @@ export function DateRangePicker({
         <div
           role="dialog"
           aria-label="Календар періоду"
-          className="absolute z-50 mt-2 w-[min(100vw-2rem,22rem)] rounded-lg border border-border bg-background p-3 shadow-lg"
+          className="absolute z-50 mt-2 w-[min(100vw-2rem,22rem)] max-w-full rounded-lg border border-border bg-background p-3 shadow-lg"
         >
           <div className="mb-3 flex items-center justify-between gap-2">
             <button
@@ -214,9 +231,8 @@ export function DateRangePicker({
           >
             {dates.map((date) => {
               const closed = dateClosed(date)
-              const rangeEnd = mode === 'single' ? start : end || draftStart
-              const inRange = Boolean(start && rangeEnd && date >= start && date <= rangeEnd)
-              const isEdge = date === start || date === rangeEnd
+              const inRange = Boolean(rangeStart && rangeEnd && date >= rangeStart && date <= rangeEnd)
+              const isEdge = date === rangeStart || date === rangeEnd
               return (
                 <button
                   key={date}

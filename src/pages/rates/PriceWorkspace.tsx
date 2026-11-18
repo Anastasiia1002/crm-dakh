@@ -248,7 +248,7 @@ export function PriceWorkspace({
           minDate={today}
           onChange={({ start, end }) => {
             setFirstNight(start)
-            if (end) setLastNight(end)
+            setLastNight(end)
             setPreview(null)
           }}
         />

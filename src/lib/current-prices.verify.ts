@@ -30,6 +30,8 @@ assert(calendar.includes('allowPast'), 'read-only calendar keeps past nights sel
 assert(calendar.includes('Ціну не задано') || calendar.includes('CURRENT_PRICE_LABEL.missing'), 'unset cells keep staff copy')
 assert(page.includes('CurrentPricesCalendar') && page.includes('PriceWorkspace'), 'Ціни defaults to the calendar and keeps the editor')
 assert(page.includes('onSaved') && page.includes('roomIds'), 'successful apply returns to the calendar with the same units and nights')
+assert(!calendar.includes('end || lastNight'), 'first click does not keep the previous last night')
+assert(calendar.includes('visibleRange'), 'calendar query stays on the last complete range while picking')
 assert(hooks.includes("queryKey: ['admin-current-prices'"), 'calendar query is read-only')
 assert(hooks.includes("'admin-current-prices'"), 'apply refreshes the calendar after a write elsewhere')
 
@@ -38,6 +40,8 @@ const workspace = readFileSync(new URL('../pages/rates/PriceWorkspace.tsx', impo
 assert(picker.includes('formatInclusiveDateRange'), 'range field shows one formatted period')
 assert(!picker.includes('>З<') && !picker.includes('>По<'), 'range picker no longer splits З and По')
 assert(picker.includes('inRange'), 'selected nights stay highlighted')
+assert(picker.includes('nextInclusiveRange'), 'picker completes the range on the second click')
+assert(picker.includes('triggerRef'), 'Escape returns focus to the period trigger')
 assert(calendar.includes('label="Період"'), 'current prices period uses the shared field label')
 assert(workspace.includes('label="Період"'), 'editor period uses the shared field label')
 assert(!workspace.includes('type="date"'), 'editor does not use native date inputs')
