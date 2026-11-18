@@ -371,10 +371,9 @@ export type RoomPrice = {
 
 export type CurrentPriceNight = {
   date: string
-  guestAmount: string | null
-  guestKind: 'public' | 'test' | null
-  scheduledAmount: string | null
+  amount: string | null
   missing: boolean
+  source: 'commercial' | 'fallback' | 'missing'
 }
 
 export type CurrentPricesCalendarView = {
@@ -405,6 +404,7 @@ export type PriceWorkspaceInput = {
   weekdayPrices?: string[]
   replaceOverlaps?: boolean
   previewToken?: string
+  acknowledgeAffectedBookings?: boolean
 }
 
 export type PriceWorkspacePreview = {
@@ -442,6 +442,14 @@ export type PriceWorkspacePreview = {
   }>
   needsReplace: boolean
   previewToken: string
+  affectedBookings: Array<{
+    id: string
+    roomId: string
+    checkIn: string
+    checkOut: string
+    guestName: string
+  }>
+  requiresBookingAck: boolean
 }
 
 export type RoomHistoryItem = {

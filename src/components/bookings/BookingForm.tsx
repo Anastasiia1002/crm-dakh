@@ -3,6 +3,7 @@ import { useMemo } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { Link } from 'react-router-dom'
 import { z } from 'zod'
+import { DateRangePicker } from '@/components/dates/DateRangePicker'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Field } from '@/components/ui/field'
@@ -10,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { addDaysIso, roomDisplayName } from '@/lib/dates'
+import { exclusiveEndFromLastNight, lastNightFromExclusiveEnd } from '@/lib/price-nights'
 import { formatMoney } from '@/lib/format'
 import { bookingSourceLabel, paymentMethodLabel, paymentStatusLabel, serviceUnitLabel } from '@/lib/labels'
 import { quoteStay } from '@/lib/pricing'
@@ -307,11 +309,19 @@ export function BookingForm({
                 )}
               />
             </Field>
-            <Field label="Заїзд" error={form.formState.errors.checkIn?.message}>
-              <Input type="date" {...form.register('checkIn')} />
-            </Field>
-            <Field label="Виїзд" error={form.formState.errors.checkOut?.message}>
-              <Input type="date" {...form.register('checkOut')} />
+            <Field
+              label="Проживання"
+              error={form.formState.errors.checkIn?.message || form.formState.errors.checkOut?.message}
+            >
+              <DateRangePicker
+                start={form.watch('checkIn')}
+                end={form.watch('checkOut') ? lastNightFromExclusiveEnd(form.watch('checkOut')) : ''}
+                allowPast
+                onChange={({ start, end }) => {
+                  form.setValue('checkIn', start, { shouldValidate: true })
+                  if (end) form.setValue('checkOut', exclusiveEndFromLastNight(end), { shouldValidate: true })
+                }}
+              />
             </Field>
             <Field label="Час заїзду" error={form.formState.errors.checkInTime?.message}>
               <Input type="time" {...form.register('checkInTime')} />

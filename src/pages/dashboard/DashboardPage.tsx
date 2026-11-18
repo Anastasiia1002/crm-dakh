@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import { DateRangePicker } from '@/components/dates/DateRangePicker'
 import { OperationsBoard } from '@/components/dashboard/OperationsBoard'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { QueryErrorState } from '@/components/ui/page-status'
 import { useAdminDashboardSummary } from '@/hooks/useAdminDashboard'
 import { useHotelSettings } from '@/hooks/useHotel'
@@ -118,29 +118,17 @@ export function DashboardPage() {
             </PresetButton>
           </div>
           <label className="space-y-1">
-            <span className="block text-[11px] tracking-[0.12em] text-muted uppercase">Від</span>
-            <Input
-              type="date"
-              value={from}
-              onChange={(event) => {
+            <span className="block text-[11px] tracking-[0.12em] text-muted uppercase">Період</span>
+            <DateRangePicker
+              start={from}
+              end={to}
+              allowPast
+              onChange={({ start, end }) => {
                 setEdited(true)
                 setPreset(null)
-                setFrom(event.target.value)
+                setFrom(start)
+                if (end) setTo(end)
               }}
-              className="w-36 bg-surface"
-            />
-          </label>
-          <label className="space-y-1">
-            <span className="block text-[11px] tracking-[0.12em] text-muted uppercase">До</span>
-            <Input
-              type="date"
-              value={to}
-              onChange={(event) => {
-                setEdited(true)
-                setPreset(null)
-                setTo(event.target.value)
-              }}
-              className="w-36 bg-surface"
             />
           </label>
           <Button

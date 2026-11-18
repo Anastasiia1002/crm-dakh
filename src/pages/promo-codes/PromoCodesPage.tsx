@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ScrollableFormDialog, formDialogGridClass, formDialogSelectContentClass } from '@/components/pricing/ScrollableFormDialog'
 import { Dialog } from '@/components/ui/dialog'
+import { DateRangePicker } from '@/components/dates/DateRangePicker'
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -251,14 +252,23 @@ function PromoDialog({
               <Input inputMode="decimal" disabled={!canWrite} {...form.register('discountValue')} />
             </Field>
           </div>
-          <div className={formDialogGridClass}>
-            <Field label="Діє з" hint="Порожнє поле — без дати початку" error={form.formState.errors.validFrom?.message}>
-              <Input type="date" className="min-w-0" disabled={!canWrite} {...form.register('validFrom')} />
-            </Field>
-            <Field label="Діє до" hint="Останній день включно. Порожнє поле — без кінця" error={form.formState.errors.validTo?.message}>
-              <Input type="date" className="min-w-0" disabled={!canWrite} {...form.register('validTo')} />
-            </Field>
-          </div>
+          <Field
+            label="Період дії"
+            hint="Порожнє поле — без обмеження. Останній день включно."
+            error={form.formState.errors.validFrom?.message || form.formState.errors.validTo?.message}
+          >
+            <DateRangePicker
+              start={form.watch('validFrom')}
+              end={form.watch('validTo')}
+              allowPast
+              disabled={!canWrite}
+              placeholder="Без обмеження дат"
+              onChange={({ start, end }) => {
+                form.setValue('validFrom', start, { shouldValidate: true })
+                form.setValue('validTo', end, { shouldValidate: true })
+              }}
+            />
+          </Field>
           <Field label="Ліміт використань" hint="Порожнє поле — без ліміту. Уже використані рази змінити не можна." error={form.formState.errors.usageLimit?.message}>
             <Input inputMode="numeric" disabled={!canWrite} {...form.register('usageLimit')} />
           </Field>

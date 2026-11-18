@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { exportAdminBookingsCsv } from '@/api/admin-bookings'
 import { listAllRoomTypes } from '@/api/accommodations'
 import { AdminBookingTable } from '@/components/bookings/AdminBookingTable'
+import { DateRangePicker } from '@/components/dates/DateRangePicker'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Pagination } from '@/components/ui/pagination'
@@ -142,26 +143,16 @@ export function BookingsPage() {
 
       <div className="flex flex-wrap items-end gap-3">
         <span className="pb-2 text-[11px] tracking-[0.14em] text-muted uppercase">Фільтри</span>
-        <Filter label="Період від">
-          <Input
-            type="date"
-            value={checkIn}
-            onChange={(event) => {
-              setCheckIn(event.target.value)
+        <Filter label="Період">
+          <DateRangePicker
+            start={checkIn}
+            end={checkOut}
+            allowPast
+            onChange={({ start, end }) => {
+              setCheckIn(start)
+              if (end) setCheckOut(end)
               setPage(1)
             }}
-            className="w-40"
-          />
-        </Filter>
-        <Filter label="Період до">
-          <Input
-            type="date"
-            value={checkOut}
-            onChange={(event) => {
-              setCheckOut(event.target.value)
-              setPage(1)
-            }}
-            className="w-40"
           />
         </Filter>
         <Filter label="Статус">

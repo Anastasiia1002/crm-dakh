@@ -53,7 +53,7 @@ function main() {
   assert(page.includes('Не вдалося завантажити дані.') && page.includes('onRetry'), 'a failed summary can be retried')
   assert(page.includes('Стан на'), 'today occupancy is a date snapshot, not a period total')
   assert(page.includes('QueryErrorState'), 'summary errors can be retried')
-  assert(page.includes('type="date"') && page.includes('operations-date'), 'staff can pick a hotel day instead of only stepping')
+  assert(page.includes('operations-date'), 'staff can pick a hotel day instead of only stepping')
   assert(page.includes('Огляд готелю'), 'the page title is the hotel overview')
   assert(page.includes('aria-busy'), 'loading exposes a busy state')
   assert(page.includes('grid-cols-1') && page.includes('xl:grid-cols-4'), 'kpi cards reflow')

@@ -1,3 +1,4 @@
+import { DateRangePicker } from '@/components/dates/DateRangePicker'
 import { Input } from '@/components/ui/input'
 import { LAST_VISIT_FILTERS, type LastVisitFilter } from '@/lib/admin-guests'
 
@@ -100,13 +101,17 @@ export function GuestFilters({
           <span className="text-muted-foreground">Візитів до</span>
           <Input type="number" min={0} value={visitCountMax} onChange={(event) => onVisitCountMax(event.target.value)} />
         </label>
-        <label className="space-y-1 text-sm">
-          <span className="text-muted-foreground">Реєстрація від</span>
-          <Input type="date" value={registeredFrom} onChange={(event) => onRegisteredFrom(event.target.value)} />
-        </label>
-        <label className="space-y-1 text-sm">
-          <span className="text-muted-foreground">Реєстрація до</span>
-          <Input type="date" value={registeredTo} onChange={(event) => onRegisteredTo(event.target.value)} />
+        <label className="space-y-1 text-sm sm:col-span-2">
+          <span className="text-muted-foreground">Реєстрація</span>
+          <DateRangePicker
+            start={registeredFrom}
+            end={registeredTo}
+            allowPast
+            onChange={({ start, end }) => {
+              onRegisteredFrom(start)
+              if (end) onRegisteredTo(end)
+            }}
+          />
         </label>
         <label className="space-y-1 text-sm">
           <span className="text-muted-foreground">Сортування</span>

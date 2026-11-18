@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
+import { DateRangePicker } from '@/components/dates/DateRangePicker'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -13,13 +14,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Field } from '@/components/ui/field'
-import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/hooks/useAuth'
 import { useCreateAdminRoomBlock } from '@/hooks/useHotel'
 import { createSubmitLock } from '@/lib/booking-form'
 import { repairBlockEndDate } from '@/lib/calendar-selection'
+import { exclusiveEndFromLastNight, lastNightFromExclusiveEnd } from '@/lib/price-nights'
 import { unitDisplayLabel } from '@/lib/accommodation-labels'
 import {
   BLOCK_DIALOG_DESCRIPTION,
@@ -212,30 +213,26 @@ export function BlockDatesDialog({
                 </Select>
               </Field>
             )}
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Початок" error={form.formState.errors.startDate?.message}>
-                <Input
-                  type="date"
-                  disabled={!canWrite}
-                  {...form.register('startDate', {
-                    onChange: (event) => {
-                      const startDate = event.target.value
-                      const endDate = repairBlockEndDate(startDate, form.getValues('endDate'))
-                      if (endDate !== form.getValues('endDate')) {
-                        form.setValue('endDate', endDate, { shouldValidate: true })
-                      }
-                    },
-                  })}
-                />
-              </Field>
-              <Field
-                label={BLOCK_END_DATE_LABEL}
-                hint={BLOCK_END_DATE_HINT}
-                error={form.formState.errors.endDate?.message}
-              >
-                <Input type="date" disabled={!canWrite} {...form.register('endDate')} />
-              </Field>
-            </div>
+            <Field
+              label={BLOCK_END_DATE_LABEL}
+              hint={BLOCK_END_DATE_HINT}
+              error={form.formState.errors.startDate?.message || form.formState.errors.endDate?.message}
+            >
+              <DateRangePicker
+                start={form.watch('startDate')}
+                end={form.watch('endDate') ? lastNightFromExclusiveEnd(form.watch('endDate')) : ''}
+                allowPast={false}
+                disabled={!canWrite}
+                onChange={({ start, end }) => {
+                  form.setValue('startDate', start, { shouldValidate: true })
+                  if (end) {
+                    form.setValue('endDate', repairBlockEndDate(start, exclusiveEndFromLastNight(end)), {
+                      shouldValidate: true,
+                    })
+                  }
+                }}
+              />
+            </Field>
             <Field label="Причина">
               <Select
                 value={values.reasonId}
