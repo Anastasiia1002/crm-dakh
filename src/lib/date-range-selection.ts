@@ -29,3 +29,14 @@ export function firstEnabledFocusDate(preferred: string, closedBefore?: string) 
   if (closedBefore && preferred < closedBefore) return closedBefore
   return preferred
 }
+
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/
+
+/** Prefer the day that currently has DOM focus over React focusDate. */
+export function keyboardDayFromTarget(target: unknown, fallback: string) {
+  const label =
+    target && typeof target === 'object' && 'getAttribute' in target && typeof target.getAttribute === 'function'
+      ? String(target.getAttribute('aria-label') ?? '')
+      : ''
+  return ISO_DAY.test(label) ? label : fallback
+}

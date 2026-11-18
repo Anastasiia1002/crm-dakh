@@ -42,6 +42,8 @@ assert(!picker.includes('>З<') && !picker.includes('>По<'), 'range picker no 
 assert(picker.includes('inRange'), 'selected nights stay highlighted')
 assert(picker.includes('nextInclusiveRange'), 'picker completes the range on the second click')
 assert(picker.includes('triggerRef'), 'Escape returns focus to the period trigger')
+assert(picker.includes('keyboardDayFromTarget'), 'keyboard selection follows the focused day')
+assert(!picker.includes('requestAnimationFrame'), 'picker focus is not delayed past the next click')
 assert(calendar.includes('label="Період"'), 'current prices period uses the shared field label')
 assert(workspace.includes('label="Період"'), 'editor period uses the shared field label')
 assert(!workspace.includes('type="date"'), 'editor does not use native date inputs')
