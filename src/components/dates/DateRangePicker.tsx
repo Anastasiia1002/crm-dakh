@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
-import { formatDate } from '@/lib/format'
+import { formatInclusiveDateRange } from '@/lib/format'
 import { addCalendarDays, todayIso } from '@/lib/dates'
 import {
   canBrowsePreviousMonth,
@@ -62,6 +62,7 @@ export function DateRangePicker({
   const [draftStart, setDraftStart] = useState(start)
   const [focusDate, setFocusDate] = useState(start || today)
   const rootRef = useRef<HTMLDivElement>(null)
+  const gridRef = useRef<HTMLDivElement>(null)
   const labelId = useId()
   const dates = useMemo(() => monthGrid(month), [month])
 
@@ -88,13 +89,26 @@ export function DateRangePicker({
     }
   }, [open])
 
-  const startDisplay = start ? formatDate(start) : placeholder || 'Перша ніч'
-  const endDisplay = end ? formatDate(end) : start ? '…' : 'Остання ніч'
-  const singleDisplay = start ? formatDate(start) : placeholder || 'Оберіть дату'
+  useEffect(() => {
+    if (!open) return
+    const active = gridRef.current?.querySelector<HTMLButtonElement>('button[tabindex="0"]')
+    active?.focus()
+  }, [open, month, focusDate])
 
-  function openPicker() {
+  const display =
+    mode === 'single'
+      ? start
+        ? formatInclusiveDateRange(start, start)
+        : placeholder || 'Оберіть дату'
+      : start && end
+        ? formatInclusiveDateRange(start, end)
+        : start
+          ? formatInclusiveDateRange(start)
+          : placeholder || 'Оберіть період'
+
+  function togglePicker() {
     if (disabled) return
-    setOpen(true)
+    setOpen((value) => !value)
   }
 
   function dateClosed(date: string) {
@@ -131,58 +145,24 @@ export function DateRangePicker({
 
   return (
     <div ref={rootRef} className="relative min-w-0">
-      {mode === 'single' ? (
-        <button
-          id={id}
-          type="button"
-          disabled={disabled}
-          aria-labelledby={labelId}
-          aria-haspopup="dialog"
-          aria-expanded={open}
-          onClick={openPicker}
-          className="flex h-10 w-full min-w-[16rem] items-center rounded-md border border-input bg-background px-3 text-left text-sm disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <span id={labelId} className={start ? 'text-foreground' : 'text-muted-foreground'}>
-            {singleDisplay}
-          </span>
-        </button>
-      ) : (
-        <div className="grid grid-cols-2 gap-2">
-          <label className="flex min-w-0 flex-col gap-1">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">З</span>
-            <button
-              id={id}
-              type="button"
-              disabled={disabled}
-              aria-labelledby={labelId}
-              aria-haspopup="dialog"
-              aria-expanded={open}
-              onClick={openPicker}
-              className="flex h-10 w-full items-center rounded-md border border-input bg-background px-3 text-left text-sm disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <span id={labelId} className={start ? 'text-foreground' : 'text-muted-foreground'}>
-                {startDisplay}
-              </span>
-            </button>
-          </label>
-          <label className="flex min-w-0 flex-col gap-1">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">По</span>
-            <button
-              type="button"
-              disabled={disabled}
-              aria-haspopup="dialog"
-              aria-expanded={open}
-              onClick={openPicker}
-              className="flex h-10 w-full items-center rounded-md border border-input bg-background px-3 text-left text-sm disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <span className={end ? 'text-foreground' : 'text-muted-foreground'}>{endDisplay}</span>
-            </button>
-          </label>
-        </div>
-      )}
+      <button
+        id={id}
+        type="button"
+        disabled={disabled}
+        aria-labelledby={labelId}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={togglePicker}
+        className="flex h-10 w-full min-w-0 items-center rounded-md border border-input bg-background px-3 text-left text-sm disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <span id={labelId} className={start ? 'text-foreground' : 'text-muted-foreground'}>
+          {display}
+        </span>
+      </button>
       {open ? (
         <div
           role="dialog"
+          aria-label="Календар періоду"
           className="absolute z-50 mt-2 w-[min(100vw-2rem,22rem)] rounded-lg border border-border bg-background p-3 shadow-lg"
         >
           <div className="mb-3 flex items-center justify-between gap-2">
@@ -211,6 +191,7 @@ export function DateRangePicker({
             ))}
           </div>
           <div
+            ref={gridRef}
             className="grid grid-cols-7 gap-1"
             onKeyDown={(event) => {
               if (event.key === 'ArrowLeft') {

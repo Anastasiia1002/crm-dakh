@@ -3,6 +3,7 @@
  */
 import { readFileSync } from 'node:fs'
 import { CURRENT_PRICE_LABEL, CURRENT_PRICES_MAX_NIGHTS, currentPriceAmount } from './current-prices.js'
+import { formatInclusiveDateRange } from './format.js'
 
 function assert(condition: boolean, message: string) {
   if (!condition) throw new Error(message)
@@ -34,11 +35,17 @@ assert(hooks.includes("'admin-current-prices'"), 'apply refreshes the calendar a
 
 const picker = readFileSync(new URL('../components/dates/DateRangePicker.tsx', import.meta.url), 'utf8')
 const workspace = readFileSync(new URL('../pages/rates/PriceWorkspace.tsx', import.meta.url), 'utf8')
-assert(picker.includes('>З<') && picker.includes('>По<'), 'range picker shows З and По in one control')
+assert(picker.includes('formatInclusiveDateRange'), 'range field shows one formatted period')
+assert(!picker.includes('>З<') && !picker.includes('>По<'), 'range picker no longer splits З and По')
 assert(picker.includes('inRange'), 'selected nights stay highlighted')
+assert(calendar.includes('label="Період"'), 'current prices period uses the shared field label')
+assert(workspace.includes('label="Період"'), 'editor period uses the shared field label')
 assert(!workspace.includes('type="date"'), 'editor does not use native date inputs')
 assert(workspace.includes('allowPast={false}'), 'editor blocks past nights')
 assert(workspace.includes('onSaved'), 'successful apply closes through the parent')
 assert(!workspace.includes('Тестова ціна') && !workspace.includes('Збережено на потім') && !workspace.includes('Не опубліковано'), 'daily editor has no unpublished labels')
+assert(formatInclusiveDateRange('2026-11-18', '2026-11-30') === '18–30 листопада 2026', 'same-month period copy')
+assert(formatInclusiveDateRange('2026-11-18', '2026-12-05') === '18 листопада – 5 грудня 2026', 'cross-month period copy')
+assert(formatInclusiveDateRange('2026-12-30', '2027-01-02') === '30 грудня 2026 – 2 січня 2027', 'cross-year period copy')
 
 console.log('PASS: current prices calendar shows effective amounts')

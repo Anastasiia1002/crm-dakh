@@ -71,7 +71,7 @@ export function CurrentPricesCalendar({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Період">
+        <Field label="Шаблон">
           <Select value={preset} onValueChange={(value: PricePeriodPresetId) => applyPreset(value)}>
             <SelectTrigger>
               <SelectValue />
@@ -85,7 +85,7 @@ export function CurrentPricesCalendar({
             </SelectContent>
           </Select>
         </Field>
-        <Field label="Ночі">
+        <Field label="Період">
           <DateRangePicker
             start={firstNight}
             end={lastNight}
