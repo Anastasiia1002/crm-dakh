@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { DateRangePicker } from '@/components/dates/DateRangePicker'
 import { Button } from '@/components/ui/button'
 import { Field } from '@/components/ui/field'
@@ -42,8 +42,17 @@ export function CurrentPricesCalendar({
   const { user } = useAuth()
   const canWrite = canManageRates(user?.role)
   const nightCount = inclusiveNightCount(firstNight, lastNight)
-  const rangeOk = nightCount > 0 && nightCount <= CURRENT_PRICES_MAX_NIGHTS
-  const calendar = useCurrentPricesCalendar(rangeOk ? { firstNight, lastNight } : undefined)
+  const rangeTooLong = nightCount > CURRENT_PRICES_MAX_NIGHTS
+  const inverted = Boolean(firstNight && lastNight && nightCount <= 0)
+  const [visibleRange, setVisibleRange] = useState({ firstNight, lastNight })
+  useEffect(() => {
+    if (nightCount > 0 && !rangeTooLong) {
+      setVisibleRange({ firstNight, lastNight })
+    }
+  }, [firstNight, lastNight, nightCount, rangeTooLong])
+  const calendar = useCurrentPricesCalendar(
+    inclusiveNightCount(visibleRange.firstNight, visibleRange.lastNight) > 0 ? visibleRange : undefined,
+  )
 
   function applyPreset(next: PricePeriodPresetId) {
     const range = pricePeriodRange(next)
@@ -94,19 +103,18 @@ export function CurrentPricesCalendar({
               onRangeChange({
                 preset: 'current-month',
                 firstNight: start,
-                lastNight: end || lastNight,
+                lastNight: end,
               })
             }}
           />
         </Field>
       </div>
 
-      {!rangeOk ? (
-        <p className="text-sm text-destructive">
-          {nightCount <= 0
-            ? 'Оберіть період, де остання ніч не раніше за першу.'
-            : `Показуйте не більше ніж ${CURRENT_PRICES_MAX_NIGHTS} ночей.`}
-        </p>
+      {inverted ? (
+        <p className="text-sm text-destructive">Оберіть період, де остання ніч не раніше за першу.</p>
+      ) : null}
+      {rangeTooLong ? (
+        <p className="text-sm text-destructive">Показуйте не більше ніж {CURRENT_PRICES_MAX_NIGHTS} ночей.</p>
       ) : null}
 
       {calendar.isLoading && !calendar.data ? <LoadingState /> : null}
