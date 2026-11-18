@@ -9,12 +9,48 @@ function calendarDate(iso: string) {
   return parseISO(iso)
 }
 
+const MONTHS_GENITIVE = [
+  'січня',
+  'лютого',
+  'березня',
+  'квітня',
+  'травня',
+  'червня',
+  'липня',
+  'серпня',
+  'вересня',
+  'жовтня',
+  'листопада',
+  'грудня',
+] as const
+
+function isoParts(iso: string) {
+  const [year, month, day] = iso.split('-').map(Number)
+  return { year, month, day, monthName: MONTHS_GENITIVE[month - 1] }
+}
+
 export function formatDate(iso: string) {
   return format(calendarDate(iso), 'd MMM yyyy', { locale: uk })
 }
 
 export function formatDateShort(iso: string) {
   return format(calendarDate(iso), 'd MMM', { locale: uk })
+}
+
+/** Inclusive night range for the period field, e.g. 18–30 листопада 2026. */
+export function formatInclusiveDateRange(start: string, end?: string) {
+  if (!start) return ''
+  const from = isoParts(start)
+  if (!end) return `${from.day} ${from.monthName} ${from.year} – …`
+  const to = isoParts(end)
+  if (start === end) return `${from.day} ${from.monthName} ${from.year}`
+  if (from.year === to.year && from.month === to.month) {
+    return `${from.day}–${to.day} ${from.monthName} ${from.year}`
+  }
+  if (from.year === to.year) {
+    return `${from.day} ${from.monthName} – ${to.day} ${to.monthName} ${from.year}`
+  }
+  return `${from.day} ${from.monthName} ${from.year} – ${to.day} ${to.monthName} ${to.year}`
 }
 
 export function formatWeekday(iso: string) {

@@ -240,7 +240,7 @@ export function PriceWorkspace({
         </p>
       ) : null}
 
-      <Field label="Ночі" hint="Оберіть «З» і «По» в одному календарі. Минулі ночі недоступні.">
+      <Field label="Період" hint="Перший клік — перша ніч, другий — остання. Минулі ночі недоступні.">
         <DateRangePicker
           start={firstNight}
           end={lastNight}
