@@ -1,5 +1,5 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
-import { firstEnabledFocusDate, nextInclusiveRange } from '@/lib/date-range-selection'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { firstEnabledFocusDate, keyboardDayFromTarget, nextInclusiveRange } from '@/lib/date-range-selection'
 import { formatInclusiveDateRange } from '@/lib/format'
 import { addCalendarDays, todayIso } from '@/lib/dates'
 import {
@@ -62,11 +62,17 @@ export function DateRangePicker({
   const [month, setMonth] = useState(() => monthKey(start || end || today))
   const [draft, setDraft] = useState<DateRangeValue>({ start, end: end ?? '' })
   const [focusDate, setFocusDate] = useState(start || today)
+  const focusDateRef = useRef(focusDate)
   const rootRef = useRef<HTMLDivElement>(null)
   const gridRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const labelId = useId()
   const dates = useMemo(() => monthGrid(month), [month])
+
+  function rememberFocus(date: string) {
+    focusDateRef.current = date
+    setFocusDate(date)
+  }
 
   useEffect(() => {
     if (open) return
@@ -93,6 +99,13 @@ export function DateRangePicker({
     }
   }, [open])
 
+  useLayoutEffect(() => {
+    if (!open) return
+    const node = gridRef.current?.querySelector<HTMLButtonElement>(`button[aria-label="${focusDate}"]`)
+    if (!node || node.disabled) return
+    node.focus()
+  }, [open, focusDate, month])
+
   const picking = Boolean(draft.start && !draft.end)
   const displayStart = picking ? draft.start : start
   const displayEnd = picking ? '' : end
@@ -112,15 +125,6 @@ export function DateRangePicker({
     return false
   }
 
-  function focusDay(date: string) {
-    const enabled = firstEnabledFocusDate(date, closedBefore) || date
-    setFocusDate(enabled)
-    setMonth(monthKey(enabled))
-    requestAnimationFrame(() => {
-      gridRef.current?.querySelector<HTMLButtonElement>(`button[aria-label="${enabled}"]`)?.focus()
-    })
-  }
-
   function closePicker(returnFocus: boolean) {
     setOpen(false)
     if (returnFocus) triggerRef.current?.focus()
@@ -128,17 +132,20 @@ export function DateRangePicker({
 
   function openPicker() {
     if (disabled) return
-    const nextOpen = !open
-    setOpen(nextOpen)
-    if (nextOpen) {
-      setDraft({ start, end: end ?? '' })
-      const preferred = start || today
-      requestAnimationFrame(() => focusDay(preferred))
+    if (open) {
+      closePicker(false)
+      return
     }
+    setDraft({ start, end: end ?? '' })
+    const preferred = firstEnabledFocusDate(start || today, closedBefore) || start || today
+    rememberFocus(preferred)
+    setMonth(monthKey(preferred))
+    setOpen(true)
   }
 
   function selectDate(date: string) {
     if (disabled || dateClosed(date)) return
+    rememberFocus(date)
     if (mode === 'single') {
       onChange({ start: date, end: date })
       closePicker(true)
@@ -151,8 +158,10 @@ export function DateRangePicker({
   }
 
   function moveFocus(delta: number) {
-    const next = addCalendarDays(focusDate, delta)
-    focusDay(next)
+    const next = addCalendarDays(focusDateRef.current, delta)
+    const enabled = firstEnabledFocusDate(next, closedBefore) || next
+    rememberFocus(enabled)
+    setMonth(monthKey(enabled))
   }
 
   const previousMonthEnabled = !disabled && canBrowsePreviousMonth(month, today, allowPast || !closedBefore)
@@ -225,7 +234,7 @@ export function DateRangePicker({
                 moveFocus(7)
               } else if (event.key === 'Enter' || event.key === ' ') {
                 event.preventDefault()
-                selectDate(focusDate)
+                selectDate(keyboardDayFromTarget(event.target, focusDateRef.current))
               }
             }}
           >
@@ -239,7 +248,8 @@ export function DateRangePicker({
                   type="button"
                   disabled={disabled || closed}
                   tabIndex={date === focusDate ? 0 : -1}
-                  onFocus={() => setFocusDate(date)}
+                  onFocus={() => rememberFocus(date)}
+                  onMouseDown={() => rememberFocus(date)}
                   onClick={() => selectDate(date)}
                   className={`h-9 rounded-md text-sm tabular-nums disabled:cursor-not-allowed ${
                     isEdge
