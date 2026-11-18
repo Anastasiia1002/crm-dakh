@@ -373,7 +373,7 @@ export type CurrentPriceNight = {
   date: string
   amount: string | null
   missing: boolean
-  source: 'commercial' | 'fallback' | 'missing'
+  source: 'commercial' | 'missing'
 }
 
 export type CurrentPricesCalendarView = {
