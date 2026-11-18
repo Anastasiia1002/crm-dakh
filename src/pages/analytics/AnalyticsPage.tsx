@@ -2,9 +2,9 @@ import { useQuery } from '@tanstack/react-query'
 import { useMemo, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { listAllRoomTypes } from '@/api/accommodations'
+import { DateRangePicker } from '@/components/dates/DateRangePicker'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Input } from '@/components/ui/input'
 import { QueryErrorState } from '@/components/ui/page-status'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { AccommodationMultiSelect } from '@/components/analytics/AccommodationMultiSelect'
@@ -114,11 +114,13 @@ export function AnalyticsPage() {
                 </Button>
               </div>
             </Filter>
-            <Filter label="Від">
-              <Input type="date" value={filters.from} onChange={(event) => patch({ from: event.target.value })} className="w-40" />
-            </Filter>
-            <Filter label="До">
-              <Input type="date" value={filters.to} onChange={(event) => patch({ to: event.target.value })} className="w-40" />
+            <Filter label="Період">
+              <DateRangePicker
+                start={filters.from}
+                end={filters.to}
+                allowPast
+                onChange={({ start, end }) => patch({ from: start, ...(end ? { to: end } : {}) })}
+              />
             </Filter>
           </div>
           <p className="text-xs text-muted-foreground">

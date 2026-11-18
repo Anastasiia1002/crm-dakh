@@ -496,7 +496,17 @@ export function useApplyPriceWorkspace() {
   const refresh = useRefresh()
   return useMutation({
     mutationFn: applyPriceWorkspace,
-    onSuccess: () => refresh(['admin-room-prices', 'admin-room-price', 'admin-day-price-rules', 'admin-current-prices']),
+    onSuccess: () =>
+      refresh([
+        'admin-room-prices',
+        'admin-room-price',
+        'admin-day-price-rules',
+        'admin-current-prices',
+        'admin-booking-quote',
+        'admin-stay-offers',
+        'calendar',
+        'admin-calendar',
+      ]),
   })
 }
 

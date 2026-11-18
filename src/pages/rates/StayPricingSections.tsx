@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { z } from 'zod'
 import { getRoomType, listAllRoomTypes } from '@/api/accommodations'
 import { getRatePlan } from '@/api/rates'
+import { DateRangePicker } from '@/components/dates/DateRangePicker'
 import { RatePlanPicker } from '@/components/rates/RatePlanPicker'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -37,6 +38,7 @@ import { unitDisplayTitle } from '@/lib/accommodation-labels'
 import { ApiError } from '@/lib/api-error'
 import { errorMessage } from '@/lib/errors'
 import { formatDate, formatMoneyAmount, normalizeMoneyString, parseStayNights } from '@/lib/format'
+import { exclusiveEndFromLastNight, lastNightFromExclusiveEnd } from '@/lib/price-nights'
 import {
   allCategoriesScopeCopy,
   categoryScopeCopy,
@@ -482,18 +484,22 @@ function DayPriceDialog({
               ))}
             </div>
           </Field>
-          <div className={formDialogGridClass}>
-            <Field label="Перша ніч" hint="Ця дата входить у сезон" error={form.formState.errors.startDate?.message}>
-              <Input type="date" className="min-w-0" disabled={!canWrite} {...form.register('startDate')} />
-            </Field>
-            <Field
-              label="Дата після останньої ночі"
-              hint="Остання ніч сезону — попередній день. Сама ця дата не має нічної ціни, як ранок виїзду."
-              error={form.formState.errors.endDate?.message}
-            >
-              <Input type="date" className="min-w-0" disabled={!canWrite} {...form.register('endDate')} />
-            </Field>
-          </div>
+          <Field
+            label="Ночі сезону"
+            hint="Перший клік — перша ніч, другий — остання. Дата виїзду не тарифікується."
+            error={form.formState.errors.startDate?.message || form.formState.errors.endDate?.message}
+          >
+            <DateRangePicker
+              start={form.watch('startDate')}
+              end={form.watch('endDate') ? lastNightFromExclusiveEnd(form.watch('endDate')) : ''}
+              allowPast
+              disabled={!canWrite}
+              onChange={({ start, end }) => {
+                form.setValue('startDate', start, { shouldValidate: true })
+                if (end) form.setValue('endDate', exclusiveEndFromLastNight(end), { shouldValidate: true })
+              }}
+            />
+          </Field>
           <Field label="Стан">
             <Select value={form.watch('active')} onValueChange={(value: 'yes' | 'no') => form.setValue('active', value)} disabled={!canWrite}>
               <SelectTrigger>
@@ -707,14 +713,17 @@ function LengthStayDialog({
               </SelectContent>
             </Select>
           </Field>
-          <div className={formDialogGridClass}>
-            <Field label="Перегляд: заїзд">
-              <Input type="date" className="min-w-0" {...form.register('previewCheckIn')} />
-            </Field>
-            <Field label="Перегляд: виїзд">
-              <Input type="date" className="min-w-0" {...form.register('previewCheckOut')} />
-            </Field>
-          </div>
+          <Field label="Перегляд проживання">
+            <DateRangePicker
+              start={form.watch('previewCheckIn')}
+              end={form.watch('previewCheckOut') ? lastNightFromExclusiveEnd(form.watch('previewCheckOut')) : ''}
+              allowPast
+              onChange={({ start, end }) => {
+                form.setValue('previewCheckIn', start)
+                if (end) form.setValue('previewCheckOut', exclusiveEndFromLastNight(end))
+              }}
+            />
+          </Field>
           <Field
             label="Приклад суми проживання, ₴"
             hint="Лише щоб перевірити знижку. У бронювання не записується."

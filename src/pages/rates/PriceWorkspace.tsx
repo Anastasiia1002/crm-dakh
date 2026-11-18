@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { listAllRoomTypes } from '@/api/accommodations'
+import { DateRangePicker } from '@/components/dates/DateRangePicker'
 import { UnitMultiSelect } from '@/components/rates/UnitMultiSelect'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -13,8 +15,10 @@ import { useAuth } from '@/hooks/useAuth'
 import { useAllAdminRooms, useApplyPriceWorkspace, usePreviewPriceWorkspace } from '@/hooks/useHotel'
 import { unitDisplayTitle } from '@/lib/accommodation-labels'
 import { ApiError } from '@/lib/api-error'
+import { todayIso } from '@/lib/dates'
 import { errorMessage } from '@/lib/errors'
 import { formatDate, formatMoneyAmount, normalizeMoneyString } from '@/lib/format'
+import { hasPermission } from '@/lib/permissions'
 import {
   inclusiveNightCount,
   PRICE_PERIOD_PRESETS,
@@ -35,9 +39,22 @@ const WEEKDAY_FIELDS = [
   { id: 6, label: 'Неділя' },
 ] as const
 
-export function PriceWorkspace({ onBack }: { onBack?: () => void }) {
+export function PriceWorkspace({
+  onBack,
+  onSaved,
+  initialFirstNight,
+  initialLastNight,
+  initialRoomIds = [],
+}: {
+  onBack?: () => void
+  onSaved?: (next: { firstNight: string; lastNight: string; roomIds: string[] }) => void
+  initialFirstNight?: string
+  initialLastNight?: string
+  initialRoomIds?: string[]
+}) {
   const { user } = useAuth()
   const canWrite = canManageRates(user?.role)
+  const canOpenBooking = hasPermission(user?.role, 'bookings.read')
   const rooms = useAllAdminRooms()
   const types = useQuery({
     queryKey: ['admin-room-types-all', { active: undefined }],
@@ -46,14 +63,15 @@ export function PriceWorkspace({ onBack }: { onBack?: () => void }) {
   })
   const [preset, setPreset] = useState<PricePeriodPresetId>('current-month')
   const range = pricePeriodRange(preset)
-  const [roomIds, setRoomIds] = useState<string[]>([])
-  const [firstNight, setFirstNight] = useState(range.firstNight)
-  const [lastNight, setLastNight] = useState(range.lastNight)
+  const [roomIds, setRoomIds] = useState<string[]>(initialRoomIds)
+  const [firstNight, setFirstNight] = useState(initialFirstNight ?? range.firstNight)
+  const [lastNight, setLastNight] = useState(initialLastNight ?? range.lastNight)
   const [price, setPrice] = useState('')
   const [byWeekday, setByWeekday] = useState(false)
   const [weekdayPrices, setWeekdayPrices] = useState(['', '', '', '', '', '', ''])
   const [preview, setPreview] = useState<PriceWorkspacePreview | null>(null)
   const [confirmReplace, setConfirmReplace] = useState(false)
+  const [confirmBookings, setConfirmBookings] = useState(false)
   const previewMutation = usePreviewPriceWorkspace()
   const applyMutation = useApplyPriceWorkspace()
 
@@ -63,6 +81,7 @@ export function PriceWorkspace({ onBack }: { onBack?: () => void }) {
   )
   const typeName = (roomTypeId: string) => types.data?.find((type) => type.id === roomTypeId)?.name
   const nightCount = inclusiveNightCount(firstNight, lastNight)
+  const today = todayIso()
 
   function applyPreset(next: PricePeriodPresetId) {
     setPreset(next)
@@ -72,7 +91,11 @@ export function PriceWorkspace({ onBack }: { onBack?: () => void }) {
     setPreview(null)
   }
 
-  function workspaceBody(replaceOverlaps = false, previewToken?: string) {
+  function workspaceBody(
+    replaceOverlaps = false,
+    previewToken?: string,
+    acknowledgeAffectedBookings?: boolean,
+  ) {
     const weekday = byWeekday ? weekdayPrices.map((value) => normalizeMoneyString(value) ?? '') : undefined
     return {
       roomIds,
@@ -83,6 +106,7 @@ export function PriceWorkspace({ onBack }: { onBack?: () => void }) {
       weekdayPrices: weekday,
       replaceOverlaps,
       previewToken,
+      acknowledgeAffectedBookings,
     }
   }
 
@@ -99,6 +123,10 @@ export function PriceWorkspace({ onBack }: { onBack?: () => void }) {
       toast.error('Остання ніч має бути не раніше за першу')
       return null
     }
+    if (firstNight < today) {
+      toast.error('Не можна змінювати ціни за минулі ночі')
+      return null
+    }
     const body = workspaceBody(false, preview?.previewToken)
     if (!byWeekday && !body.price) {
       toast.error('Вкажіть ціну за ніч у гривнях')
@@ -112,6 +140,7 @@ export function PriceWorkspace({ onBack }: { onBack?: () => void }) {
       const result = await previewMutation.mutateAsync(body)
       setPreview(result)
       if (result.needsReplace) setConfirmReplace(true)
+      if (result.requiresBookingAck) setConfirmBookings(true)
       return result
     } catch (error) {
       toast.error(workspaceError(error))
@@ -119,7 +148,11 @@ export function PriceWorkspace({ onBack }: { onBack?: () => void }) {
     }
   }
 
-  async function save(replaceOverlaps: boolean, previewToken = preview?.previewToken) {
+  async function save(
+    replaceOverlaps: boolean,
+    previewToken = preview?.previewToken,
+    acknowledgeAffectedBookings = Boolean(preview?.requiresBookingAck),
+  ) {
     if (!canWrite) {
       toast.error('Недостатньо прав для цієї дії')
       return
@@ -129,11 +162,28 @@ export function PriceWorkspace({ onBack }: { onBack?: () => void }) {
       return
     }
     try {
-      const result = await applyMutation.mutateAsync(workspaceBody(replaceOverlaps, previewToken))
+      const result = await applyMutation.mutateAsync(
+        workspaceBody(replaceOverlaps, previewToken, acknowledgeAffectedBookings),
+      )
       setPreview(result)
       setConfirmReplace(false)
-      toast.success(`Збережено ${result.nightCount} ${nightsWord(result.nightCount)}`)
+      setConfirmBookings(false)
+      toast.success(savedCopy(result))
+      onSaved?.({
+        firstNight: result.firstNight,
+        lastNight: result.lastNight,
+        roomIds,
+      })
     } catch (error) {
+      if (error instanceof ApiError && (error.code === 'PRICE_PREVIEW_STALE' || error.code === 'PRICE_BOOKINGS_NEED_ACK')) {
+        const refreshed = await runPreview()
+        if (refreshed?.requiresBookingAck) {
+          toast.error('З’явились нові бронювання. Перегляньте список і підтвердіть ще раз.')
+        } else {
+          toast.error(workspaceError(error))
+        }
+        return
+      }
       toast.error(workspaceError(error))
     }
   }
@@ -144,8 +194,8 @@ export function PriceWorkspace({ onBack }: { onBack?: () => void }) {
         <div>
           <h1 className="font-serif text-3xl font-medium">Ціни</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Ціна записується для обраних номерів і будиночків, у гривнях. Категорія типу більше не змінює сусідні
-            одиниці. Уже створені бронювання зберігають записані нічні суми.
+            Збережена ціна одразу діє для нових бронювань обраних номерів і будиночків. Уже створені бронювання
+            зберігають свої суми.
           </p>
         </div>
         {onBack ? (
@@ -155,7 +205,7 @@ export function PriceWorkspace({ onBack }: { onBack?: () => void }) {
         ) : null}
       </div>
 
-      <Field label="Оберіть період на який встановлюємо ціни">
+      <Field label="Оберіть період, на який встановлюємо ціни">
         <Select value={preset} onValueChange={(value: PricePeriodPresetId) => applyPreset(value)}>
           <SelectTrigger>
             <SelectValue />
@@ -186,33 +236,23 @@ export function PriceWorkspace({ onBack }: { onBack?: () => void }) {
 
       {selectedUnits.length > 0 ? (
         <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
-          Будуть змінені:{' '}
-          {selectedUnits.map((unit) => unitDisplayTitle(unit, typeName(unit.roomTypeId))).join(', ')}.
+          Будуть змінені: {selectedUnits.map((unit) => unitDisplayTitle(unit, typeName(unit.roomTypeId))).join(', ')}.
         </p>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Перша ніч">
-          <Input
-            type="date"
-            value={firstNight}
-            onChange={(event) => {
-              setFirstNight(event.target.value)
-              setPreview(null)
-            }}
-          />
-        </Field>
-        <Field label="Остання ніч" hint="Включно. Дата виїзду не тарифікується.">
-          <Input
-            type="date"
-            value={lastNight}
-            onChange={(event) => {
-              setLastNight(event.target.value)
-              setPreview(null)
-            }}
-          />
-        </Field>
-      </div>
+      <Field label="Ночі" hint="Оберіть «З» і «По» в одному календарі. Минулі ночі недоступні.">
+        <DateRangePicker
+          start={firstNight}
+          end={lastNight}
+          allowPast={false}
+          minDate={today}
+          onChange={({ start, end }) => {
+            setFirstNight(start)
+            if (end) setLastNight(end)
+            setPreview(null)
+          }}
+        />
+      </Field>
       <p className="text-sm text-muted-foreground">
         {nightCount > 0 ? `Буде змінено ${nightCount} ${nightsWord(nightCount)}.` : 'Вкажіть включні дати ночей.'}
       </p>
@@ -258,12 +298,22 @@ export function PriceWorkspace({ onBack }: { onBack?: () => void }) {
         </Field>
       )}
 
-      {preview && !preview.needsReplace ? (
+      {preview && !preview.needsReplace && !preview.requiresBookingAck ? (
         <div className="space-y-2 text-sm">
           <p>
             {preview.nightCount} {nightsWord(preview.nightCount)} · без заміни наявних періодів для обраних одиниць.
           </p>
           <PreviewNights preview={preview} />
+        </div>
+      ) : null}
+
+      {preview?.requiresBookingAck ? (
+        <div className="space-y-2 rounded-md border border-border px-3 py-3 text-sm">
+          <p>
+            На обрані ночі вже є {preview.affectedBookings.length}{' '}
+            {bookingsWord(preview.affectedBookings.length)}. Їхні збережені суми не зміняться.
+          </p>
+          <AffectedBookingLinks bookings={preview.affectedBookings} canOpen={canOpenBooking} />
         </div>
       ) : null}
 
@@ -276,8 +326,12 @@ export function PriceWorkspace({ onBack }: { onBack?: () => void }) {
           disabled={!canWrite || applyMutation.isPending || previewMutation.isPending}
           onClick={() => {
             void (async () => {
+              if (preview?.requiresBookingAck) {
+                setConfirmBookings(true)
+                return
+              }
               if (preview && !preview.needsReplace) {
-                await save(false, preview.previewToken)
+                await save(false, preview.previewToken, false)
                 return
               }
               if (preview?.needsReplace) {
@@ -285,7 +339,8 @@ export function PriceWorkspace({ onBack }: { onBack?: () => void }) {
                 return
               }
               const result = await runPreview()
-              if (result && !result.needsReplace) await save(false, result.previewToken)
+              if (result?.requiresBookingAck) return
+              if (result && !result.needsReplace) await save(false, result.previewToken, false)
             })()
           }}
         >
@@ -303,7 +358,25 @@ export function PriceWorkspace({ onBack }: { onBack?: () => void }) {
           if (!open) setConfirmReplace(false)
         }}
         onConfirm={() => {
-          void save(true, preview?.previewToken)
+          if (preview?.requiresBookingAck) {
+            setConfirmReplace(false)
+            setConfirmBookings(true)
+            return
+          }
+          void save(true, preview?.previewToken, false)
+        }}
+      />
+      <ConfirmDialog
+        open={confirmBookings}
+        title="Є бронювання на ці ночі"
+        description={bookingAckCopy(preview)}
+        confirmLabel="Зберегти нові ціни"
+        pending={applyMutation.isPending}
+        onOpenChange={(open) => {
+          if (!open) setConfirmBookings(false)
+        }}
+        onConfirm={() => {
+          void save(Boolean(preview?.needsReplace), preview?.previewToken, true)
         }}
       />
     </section>
@@ -329,6 +402,33 @@ function PreviewNights({ preview }: { preview: PriceWorkspacePreview }) {
   )
 }
 
+function AffectedBookingLinks({
+  bookings,
+  canOpen,
+}: {
+  bookings: PriceWorkspacePreview['affectedBookings']
+  canOpen: boolean
+}) {
+  const unique = [...new Map(bookings.map((row) => [row.id, row])).values()]
+  return (
+    <ul className="space-y-1">
+      {unique.map((booking) => (
+        <li key={booking.id}>
+          {canOpen ? (
+            <Link className="underline" to={`/admin/bookings/${booking.id}`}>
+              {booking.guestName || 'Бронювання'} · {formatDate(booking.checkIn)} — {formatDate(booking.checkOut)}
+            </Link>
+          ) : (
+            <span>
+              {booking.guestName || 'Бронювання'} · {formatDate(booking.checkIn)} — {formatDate(booking.checkOut)}
+            </span>
+          )}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 function replaceCopy(preview: PriceWorkspacePreview | null) {
   if (!preview) return ''
   const units = preview.units.map((unit) => unit.name ?? unit.number).join(', ')
@@ -336,6 +436,16 @@ function replaceCopy(preview: PriceWorkspacePreview | null) {
     .map((row) => `${formatDate(row.startDate)} — ${formatDate(row.lastNight)} (${formatMoneyAmount(row.price)})`)
     .join('; ')
   return `Одиниці: ${units}. Перетин: ${overlaps || 'немає збережених цін одиниці'}. Нова ціна покриє ${preview.nightCount} ${nightsWord(preview.nightCount)}.`
+}
+
+function bookingAckCopy(preview: PriceWorkspacePreview | null) {
+  if (!preview) return ''
+  return `Збережені суми в ${preview.affectedBookings.length} ${bookingsWord(preview.affectedBookings.length)} залишаться без змін. Нові бронювання підуть за новою ціною.`
+}
+
+function savedCopy(result: PriceWorkspacePreview) {
+  const units = result.units.map((unit) => unit.name ?? unit.number).join(', ')
+  return `Ціни діють для ${units} з ${formatDate(result.firstNight)} по ${formatDate(result.lastNight)}.`
 }
 
 function nightsWord(count: number) {
@@ -346,6 +456,14 @@ function nightsWord(count: number) {
   return 'ночей'
 }
 
+function bookingsWord(count: number) {
+  const mod10 = count % 10
+  const mod100 = count % 100
+  if (mod10 === 1 && mod100 !== 11) return 'бронювання'
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'бронювання'
+  return 'бронювань'
+}
+
 function workspaceError(error: unknown) {
   if (error instanceof ApiError) {
     if (error.status === 403) return 'Недостатньо прав для цієї дії'
@@ -354,6 +472,12 @@ function workspaceError(error: unknown) {
     }
     if (error.code === 'PRICE_PREVIEW_STALE') {
       return 'Каталог змінився після перегляду. Оновіть перегляд перед збереженням.'
+    }
+    if (error.code === 'PRICE_BOOKINGS_NEED_ACK') {
+      return 'На обрані ночі вже є бронювання. Підтвердіть, що їхні суми залишаться без змін.'
+    }
+    if (error.code === 'PRICE_NIGHT_IN_PAST') {
+      return 'Не можна змінювати ціни за минулі ночі.'
     }
     if (error.code === 'RATE_PLAN_AMBIGUOUS') {
       return 'Кілька комерційних тарифів підходять. Ціни не записано.'

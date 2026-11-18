@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { exportAuditEvents } from '@/api/audit'
+import { DateRangePicker } from '@/components/dates/DateRangePicker'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
 import { Pagination } from '@/components/ui/pagination'
 import { QueryErrorState } from '@/components/ui/page-status'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -180,24 +180,13 @@ export function AuditLogPanel() {
       {exportError ? <p className="text-sm text-destructive">{exportError}</p> : null}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <label className="space-y-1 text-sm">
-          <span className="text-muted-foreground">Від</span>
-          <Input
-            type="date"
-            value={dateFrom}
-            onChange={(event) => {
-              patchFilters({ dateFrom: event.target.value })
-            }}
-          />
-        </label>
-        <label className="space-y-1 text-sm">
-          <span className="text-muted-foreground">До</span>
-          <Input
-            type="date"
-            value={dateTo}
-            onChange={(event) => {
-              patchFilters({ dateTo: event.target.value })
-            }}
+        <label className="space-y-1 text-sm sm:col-span-2">
+          <span className="text-muted-foreground">Період</span>
+          <DateRangePicker
+            start={dateFrom}
+            end={dateTo}
+            allowPast
+            onChange={({ start, end }) => patchFilters({ dateFrom: start, ...(end ? { dateTo: end } : {}) })}
           />
         </label>
         <label className="space-y-1 text-sm">

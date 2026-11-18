@@ -33,7 +33,7 @@ function lastDayOfMonth(year: number, month: number) {
 export function pricePeriodRange(id: PricePeriodPresetId, today = todayIso()): { firstNight: string; lastNight: string } {
   const [year, month] = today.split('-').map(Number)
   if (id === 'current-month') {
-    return { firstNight: ymd(year, month, 1), lastNight: ymd(year, month, lastDayOfMonth(year, month)) }
+    return { firstNight: today, lastNight: ymd(year, month, lastDayOfMonth(year, month)) }
   }
   if (id === 'next-month') {
     const nextYear = month === 12 ? year + 1 : year

@@ -14,6 +14,7 @@ import {
   Search,
 } from 'lucide-react'
 import { BookingStatusBadge } from '@/components/bookings/BookingStatusBadge'
+import { DateRangePicker } from '@/components/dates/DateRangePicker'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { QueryErrorState } from '@/components/ui/page-status'
@@ -142,15 +143,14 @@ export function OperationsBoard({
           <label className="sr-only" htmlFor="operations-date">
             Обрати дату
           </label>
-          <Input
+          <DateRangePicker
             id="operations-date"
-            type="date"
-            value={date}
-            onChange={(event) => {
-              const next = event.target.value
-              if (/^\d{4}-\d{2}-\d{2}$/.test(next)) onDate(next)
+            mode="single"
+            start={date}
+            allowPast
+            onChange={({ start }) => {
+              if (/^\d{4}-\d{2}-\d{2}$/.test(start)) onDate(start)
             }}
-            className="w-40 bg-surface"
           />
           <Button type="button" variant="outline" onClick={() => onDate(addCalendarDays(date, 1))} aria-label="Наступний день">
             <ChevronRight className="size-4" />

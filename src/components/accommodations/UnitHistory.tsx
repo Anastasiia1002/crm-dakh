@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { BookingStatusBadge } from '@/components/bookings/BookingStatusBadge'
+import { DateRangePicker } from '@/components/dates/DateRangePicker'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Pagination } from '@/components/ui/pagination'
 import { EmptyState, SectionHeading } from '@/components/ui/states'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -37,27 +37,16 @@ export function UnitHistory({ roomId }: { roomId: string }) {
       </p>
       <div className="flex flex-wrap items-end gap-3">
         <label className="space-y-1 text-xs">
-          <span className="text-muted-foreground">Від</span>
-          <Input
-            type="date"
-            value={from}
-            onChange={(event) => {
-              setFrom(event.target.value)
+          <span className="text-muted-foreground">Період</span>
+          <DateRangePicker
+            start={from}
+            end={to}
+            allowPast
+            onChange={({ start, end }) => {
+              setFrom(start)
+              if (end) setTo(end)
               setPage(1)
             }}
-            className="w-40"
-          />
-        </label>
-        <label className="space-y-1 text-xs">
-          <span className="text-muted-foreground">До</span>
-          <Input
-            type="date"
-            value={to}
-            onChange={(event) => {
-              setTo(event.target.value)
-              setPage(1)
-            }}
-            className="w-40"
           />
         </label>
       </div>

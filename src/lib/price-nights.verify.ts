@@ -13,7 +13,7 @@ assert(exclusiveEndFromLastNight('2026-11-16') === '2026-11-17', 'single night e
 assert(lastNightFromExclusiveEnd('2026-12-01') === '2026-11-30', 'catalog end back to last night')
 assert(inclusiveNightCount('2026-11-16', '2026-11-16') === 1, 'one occupied night')
 assert(inclusiveNightCount('2026-10-05', '2026-10-09') === 5, 'five occupied nights')
-assert(pricePeriodRange('current-month', '2026-11-16').firstNight === '2026-11-01', 'current month start')
+assert(pricePeriodRange('current-month', '2026-11-16').firstNight === '2026-11-16', 'current month starts today')
 assert(pricePeriodRange('current-month', '2026-11-16').lastNight === '2026-11-30', 'current month last night inclusive')
 assert(pricePeriodRange('next-month', '2026-11-16').firstNight === '2026-12-01', 'next month')
 assert(pricePeriodRange('current-year', '2026-11-16').lastNight === '2026-12-31', 'current year last night')
