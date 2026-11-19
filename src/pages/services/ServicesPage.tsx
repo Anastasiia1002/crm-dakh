@@ -12,7 +12,8 @@ import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { QueryErrorState } from '@/components/ui/page-status'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { EmptyState, LoadingState, SectionHeading } from '@/components/ui/states'
+import { PageHeader } from '@/components/ui/page-header'
+import { EmptyState, LoadingState } from '@/components/ui/states'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/hooks/useAuth'
@@ -51,7 +52,6 @@ import {
 } from '@/lib/admin-services'
 import { createSubmitLock } from '@/lib/booking-form'
 import { errorMessage } from '@/lib/errors'
-import { formatDateTime } from '@/lib/format'
 import { canManageAdminServices } from '@/lib/roles'
 
 const schema = z
@@ -111,34 +111,35 @@ export function ServicesPage() {
   const visible = useMemo(() => filterManagedServices(items, { query, status }), [items, query, status])
 
   return (
-    <div>
-      <SectionHeading
+    <div className="space-y-4">
+      <PageHeader
         title="Додаткові послуги"
-        action={
-          canWrite ? <Button onClick={() => setEditing('new')}>Додати послугу</Button> : undefined
-        }
+        description={`Каталог цього готелю, включно з вимкненими. Порожня ціна — ${SERVICE_PRICE_UNSET_LABEL.toLowerCase()}, не безкоштовна послуга. Нова ціна не змінює вже збережені рядки в бронюваннях. ${SERVICE_PUBLIC_STAY_ONLY_HINT}`}
+        actions={canWrite ? <Button onClick={() => setEditing('new')}>Додати послугу</Button> : undefined}
       />
-      <p className="mb-4 max-w-2xl text-sm text-muted-foreground">
-        Каталог цього готелю, включно з вимкненими послугами. Ціни в гривнях. Порожня ціна — {SERVICE_PRICE_UNSET_LABEL.toLowerCase()},
-        це не безкоштовна послуга. Нова ціна не змінює вже збережені рядки в бронюваннях. {SERVICE_PUBLIC_STAY_ONLY_HINT}
-      </p>
-      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
-        <Input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Пошук за назвою"
-          className="max-w-md"
-        />
-        <Select value={status} onValueChange={(value: ServiceStatusFilter) => setStatus(value)}>
-          <SelectTrigger className="w-full sm:w-48" aria-label="Статус послуг">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Усі</SelectItem>
-            <SelectItem value="active">Активні</SelectItem>
-            <SelectItem value="inactive">Вимкнені</SelectItem>
-          </SelectContent>
-        </Select>
+      <div className="filter-toolbar rounded-md border border-border bg-surface p-3">
+        <label className="min-w-[12rem] flex-1 space-y-1.5">
+          <span className="block text-[11px] tracking-[0.12em] text-muted uppercase">Пошук</span>
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Пошук за назвою"
+            aria-label="Пошук за назвою"
+          />
+        </label>
+        <label className="space-y-1.5">
+          <span className="block text-[11px] tracking-[0.12em] text-muted uppercase">Статус</span>
+          <Select value={status} onValueChange={(value: ServiceStatusFilter) => setStatus(value)}>
+            <SelectTrigger className="w-full sm:w-48" aria-label="Статус послуг">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Усі</SelectItem>
+              <SelectItem value="active">Активні</SelectItem>
+              <SelectItem value="inactive">Вимкнені</SelectItem>
+            </SelectContent>
+          </Select>
+        </label>
       </div>
       {catalog.isLoading && !catalog.data ? <LoadingState label="Завантаження каталогу послуг…" /> : null}
       {catalog.isError ? (
@@ -153,47 +154,44 @@ export function ServicesPage() {
         <EmptyState>Послуг за цим запитом немає.</EmptyState>
       ) : null}
       {!catalog.isError && visible.length > 0 ? (
-        <Table>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead>Назва</TableHead>
-              <TableHead>Опис</TableHead>
-              <TableHead>Ціна</TableHead>
-              <TableHead>Нарахування</TableHead>
-              <TableHead>Статус</TableHead>
-              <TableHead>Оновлено</TableHead>
-              <TableHead />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {visible.map((item) => (
-              <TableRow key={item.id}>
-                <TableCell className="font-medium">{item.name}</TableCell>
-                <TableCell>{item.description || '—'}</TableCell>
-                <TableCell className="tabular-nums">{formatManagedServicePrice(item.price)}</TableCell>
-                <TableCell>{SERVICE_CHARGE_BASIS_LABEL[item.chargeBasis]}</TableCell>
-                <TableCell>
-                  <div className="flex flex-wrap gap-1">
-                    <Badge tone={item.active ? 'success' : 'neutral'}>{item.active ? 'Активна' : 'Вимкнена'}</Badge>
-                    <Badge tone={isPubliclyBookableService(item) ? 'confirmed' : 'neutral'}>
-                      {isPubliclyBookableService(item) ? SERVICE_SITE_BADGE : SERVICE_CRM_BADGE}
-                    </Badge>
-                    {item.bookable && !isPubliclyBookableService(item) ? (
-                      <span className="text-xs text-muted-foreground">У картці онлайн</span>
-                    ) : null}
-                  </div>
-                </TableCell>
-                <TableCell className="whitespace-nowrap text-muted-foreground">{formatDateTime(item.updatedAt)}</TableCell>
-                <TableCell className="text-right">
-                  {canWrite ? (
-                    <div className="flex justify-end gap-2">
-                      <Button size="sm" variant="ghost" onClick={() => setEditing(item)}>
-                        Редагувати
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
+        <>
+          <div className="hidden md:block">
+            <Table containerClassName="rounded-md border border-border bg-surface">
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead>Назва</TableHead>
+                  <TableHead>Ціна</TableHead>
+                  <TableHead>Нарахування</TableHead>
+                  <TableHead>Доступність</TableHead>
+                  <TableHead>
+                    <span className="sr-only">Дії</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {visible.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell className="max-w-[18rem]">
+                      <p className="font-medium" title={item.name}>
+                        {item.name}
+                      </p>
+                      {item.description ? (
+                        <p className="mt-0.5 truncate text-[11px] text-muted-foreground" title={item.description}>
+                          {item.description}
+                        </p>
+                      ) : null}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap tabular-nums">{formatManagedServicePrice(item.price)}</TableCell>
+                    <TableCell>{SERVICE_CHARGE_BASIS_LABEL[item.chargeBasis]}</TableCell>
+                    <TableCell>
+                      <ServiceAvailability item={item} />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <ServiceActions
+                        item={item}
+                        canWrite={canWrite}
+                        onEdit={() => setEditing(item)}
+                        onToggle={() => {
                           if (item.active) {
                             setPendingDeactivate(item)
                             return
@@ -203,18 +201,45 @@ export function ServicesPage() {
                             .then(() => toast.success('Послугу увімкнено'))
                             .catch((error) => toast.error(errorMessage(error)))
                         }}
-                      >
-                        {item.active ? 'Вимкнути' : 'Увімкнути'}
-                      </Button>
-                    </div>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">Лише перегляд</span>
-                  )}
-                </TableCell>
-              </TableRow>
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <ul className="divide-y divide-border rounded-md border border-border bg-surface md:hidden">
+            {visible.map((item) => (
+              <li key={item.id} className="space-y-2 px-4 py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium">{item.name}</p>
+                    <p className="mt-0.5 text-sm tabular-nums">
+                      {formatManagedServicePrice(item.price)}
+                      <span className="text-muted-foreground"> · {SERVICE_CHARGE_BASIS_LABEL[item.chargeBasis]}</span>
+                    </p>
+                  </div>
+                  <ServiceAvailability item={item} />
+                </div>
+                <ServiceActions
+                  item={item}
+                  canWrite={canWrite}
+                  onEdit={() => setEditing(item)}
+                  onToggle={() => {
+                    if (item.active) {
+                      setPendingDeactivate(item)
+                      return
+                    }
+                    void update
+                      .mutateAsync({ id: item.id, input: { active: true } })
+                      .then(() => toast.success('Послугу увімкнено'))
+                      .catch((error) => toast.error(errorMessage(error)))
+                  }}
+                />
+              </li>
             ))}
-          </TableBody>
-        </Table>
+          </ul>
+        </>
       ) : null}
       <ServiceDialog
         open={editing !== null}
@@ -248,6 +273,44 @@ export function ServicesPage() {
             .catch((error) => toast.error(errorMessage(error)))
         }}
       />
+    </div>
+  )
+}
+
+function ServiceAvailability({ item }: { item: AdminManagedService }) {
+  return (
+    <div className="flex flex-wrap gap-1">
+      <Badge tone={item.active ? 'success' : 'neutral'}>{item.active ? 'Активна' : 'Вимкнена'}</Badge>
+      <Badge tone={isPubliclyBookableService(item) ? 'confirmed' : 'neutral'}>
+        {isPubliclyBookableService(item) ? SERVICE_SITE_BADGE : SERVICE_CRM_BADGE}
+      </Badge>
+      {item.bookable && !isPubliclyBookableService(item) ? (
+        <span className="text-xs text-muted-foreground">У картці онлайн</span>
+      ) : null}
+    </div>
+  )
+}
+
+function ServiceActions({
+  item,
+  canWrite,
+  onEdit,
+  onToggle,
+}: {
+  item: AdminManagedService
+  canWrite: boolean
+  onEdit: () => void
+  onToggle: () => void
+}) {
+  if (!canWrite) return <span className="text-xs text-muted-foreground">Лише перегляд</span>
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Button size="sm" variant="ghost" onClick={onEdit}>
+        Редагувати
+      </Button>
+      <Button size="sm" variant="outline" onClick={onToggle}>
+        {item.active ? 'Вимкнути' : 'Увімкнути'}
+      </Button>
     </div>
   )
 }

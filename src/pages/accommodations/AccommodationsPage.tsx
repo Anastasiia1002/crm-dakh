@@ -12,6 +12,7 @@ import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Pagination } from '@/components/ui/pagination'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { PageHeader } from '@/components/ui/page-header'
 import { EmptyState, LoadingState, SectionHeading } from '@/components/ui/states'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -80,7 +81,7 @@ export function AccommodationsPage() {
 
   return (
     <Tabs
-      className="space-y-1"
+      className="space-y-4"
       value={tab}
       onValueChange={(value) => {
         const next = value === 'cottages' ? 'cottages' : 'rooms'
@@ -93,6 +94,10 @@ export function AccommodationsPage() {
         setUnitSearchApplied('')
       }}
     >
+      <PageHeader
+        title="Номери та будиночки"
+        description="«У роботі» означає, що одиниця в каталозі, а не що сьогодні вільна. Закриті дати — окремо від заселення."
+      />
       <TabsList>
         <TabsTrigger value="rooms">Номери</TabsTrigger>
         <TabsTrigger value="cottages">Будиночки</TabsTrigger>

@@ -12,7 +12,8 @@ import { DateRangePicker } from '@/components/dates/DateRangePicker'
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { EmptyState, LoadingState, SectionHeading } from '@/components/ui/states'
+import { PageHeader } from '@/components/ui/page-header'
+import { EmptyState, LoadingState } from '@/components/ui/states'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/hooks/useAuth'
@@ -61,15 +62,11 @@ export function PromoCodesPage() {
 
   return (
     <div>
-      <SectionHeading
+      <PageHeader
         title="Промокоди"
-        action={canWrite ? <Button onClick={() => setEditing('new')}>Додати промокод</Button> : undefined}
+        description="Код порівнюється точно, з урахуванням регістру. Знижка діє на проживання всього бронювання, не на послуги і не на окремий тип номера. Якщо автоматична знижка за 6 ночей більша, застосовується вона. Однаковий розмір лишає промокод. Суми не складаються."
+        actions={canWrite ? <Button onClick={() => setEditing('new')}>Додати промокод</Button> : undefined}
       />
-      <p className="mb-4 max-w-2xl text-sm text-muted-foreground">
-        Код порівнюється точно, з урахуванням регістру. Знижка діє на проживання всього бронювання, не на послуги і не
-        на окремий тип номера. Якщо автоматична знижка за 6 ночей більша, застосовується вона. Однаковий розмір лишає
-        промокод. Суми не складаються.
-      </p>
       {promos.isLoading && !promos.data ? <LoadingState /> : null}
       {promos.isError ? <p className="text-sm text-destructive">Не вдалося завантажити промокоди</p> : null}
       {!promos.isLoading && !promos.isError && items.length === 0 ? <EmptyState>Промокодів ще немає.</EmptyState> : null}

@@ -15,11 +15,9 @@ export function PageHeader({
   return (
     <header className={cn('flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between', className)}>
       <div className="min-w-0">
-        <h1 className="hidden font-serif text-[1.85rem] leading-tight font-medium tracking-tight lg:block lg:text-[2.05rem]">
-          {title}
-        </h1>
+        <h1 className="font-serif text-[1.55rem] leading-tight font-medium tracking-tight lg:text-[1.9rem]">{title}</h1>
         {description ? (
-          <div className="max-w-2xl text-sm leading-relaxed text-muted-foreground lg:mt-1.5">{description}</div>
+          <div className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted-foreground">{description}</div>
         ) : null}
       </div>
       {actions ? <div className="flex flex-wrap items-center gap-2 sm:shrink-0">{actions}</div> : null}
