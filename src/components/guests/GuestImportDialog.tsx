@@ -189,7 +189,7 @@ export function GuestImportDialog({ open, onOpenChange }: { open: boolean; onOpe
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="hover:bg-transparent">
+                  <TableRow>
                     {state.preview.headers.map((header) => (
                       <TableHead key={header}>{header}</TableHead>
                     ))}

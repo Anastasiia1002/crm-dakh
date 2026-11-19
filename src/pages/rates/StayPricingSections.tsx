@@ -129,7 +129,7 @@ function DayPriceSection({ canWrite }: { canWrite: boolean }) {
       {!query.isError && items.length > 0 ? (
         <Table>
           <TableHeader>
-            <TableRow className="hover:bg-transparent">
+            <TableRow>
               <TableHead>Назва</TableHead>
               <TableHead>Тариф</TableHead>
               <TableHead>Розміщення</TableHead>
@@ -235,7 +235,7 @@ function LengthStaySection({ canWrite }: { canWrite: boolean }) {
       {!query.isError && items.length > 0 ? (
         <Table>
           <TableHeader>
-            <TableRow className="hover:bg-transparent">
+            <TableRow>
               <TableHead>Назва</TableHead>
               <TableHead>Від</TableHead>
               <TableHead>Знижка</TableHead>

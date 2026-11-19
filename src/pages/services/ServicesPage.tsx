@@ -160,7 +160,7 @@ export function ServicesPage() {
           <div className="hidden md:block">
             <Table containerClassName="rounded-md border border-border bg-surface">
               <TableHeader>
-                <TableRow className="hover:bg-transparent">
+                <TableRow>
                   <TableHead>Назва</TableHead>
                   <TableHead>Ціна</TableHead>
                   <TableHead>Нарахування</TableHead>
