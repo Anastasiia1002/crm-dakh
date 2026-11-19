@@ -117,17 +117,17 @@ export function buildChessboardModel(input: {
       }
     }
 
-    const bucket = roomsByKind.get(kind) ?? []
+    const heading: RoomTypeKind = kind === 'COTTAGE' ? 'COTTAGE' : 'ROOM'
+    const bucket = roomsByKind.get(heading) ?? []
     bucket.push(...rooms)
-    roomsByKind.set(kind, bucket)
+    roomsByKind.set(heading, bucket)
   }
 
   const groups: ChessboardGroup[] = []
-  for (const kind of ['ROOM', 'COTTAGE', 'UNKNOWN'] as const) {
+  for (const kind of ['ROOM', 'COTTAGE'] as const) {
     const rooms = roomsByKind.get(kind)
     if (!rooms || rooms.length === 0) continue
-    const label =
-      kind === 'COTTAGE' ? COTTAGE_KIND_GROUP_LABEL : kind === 'ROOM' ? ROOM_KIND_GROUP_LABEL : 'Інше'
+    const label = kind === 'COTTAGE' ? COTTAGE_KIND_GROUP_LABEL : ROOM_KIND_GROUP_LABEL
     groups.push({
       roomTypeId: kind,
       name: label,

@@ -14,6 +14,8 @@ import { Pagination } from '@/components/ui/pagination'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { PageHeader } from '@/components/ui/page-header'
 import { EmptyState, LoadingState, SectionHeading } from '@/components/ui/states'
+import { ActionsMenu } from '@/components/ui/actions-menu'
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAuth } from '@/hooks/useAuth'
@@ -304,7 +306,9 @@ function UnitSection({
               <TableHead>Тип</TableHead>
               <TableHead>Місткість</TableHead>
               <TableHead>Стан</TableHead>
-              <TableHead />
+              <TableHead stickyActions>
+                <span className="sr-only">Дії</span>
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -354,16 +358,14 @@ function UnitSection({
                       </div>
                     ) : null}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell stickyActions className="text-right">
                     {canWrite ? (
-                      <div className="flex justify-end gap-2">
-                        <Button asChild size="sm" variant="ghost">
+                      <ActionsMenu>
+                        <DropdownMenuItem asChild>
                           <Link to={`/admin/accommodations/${item.id}/edit`}>Редагувати</Link>
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => openBlock(item)}>
-                          Заблокувати дати
-                        </Button>
-                      </div>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => openBlock(item)}>Заблокувати дати</DropdownMenuItem>
+                      </ActionsMenu>
                     ) : (
                       <span className="text-xs text-muted-foreground">Лише перегляд</span>
                     )}

@@ -19,6 +19,8 @@ import { Input } from '@/components/ui/input'
 import { Pagination } from '@/components/ui/pagination'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { EmptyState, LoadingState, SectionHeading } from '@/components/ui/states'
+import { ActionsMenu } from '@/components/ui/actions-menu'
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useAuth } from '@/hooks/useAuth'
 import {
@@ -135,7 +137,9 @@ function DayPriceSection({ canWrite }: { canWrite: boolean }) {
               <TableHead>Дні вихідних</TableHead>
               <TableHead>Період</TableHead>
               <TableHead>Стан</TableHead>
-              <TableHead />
+              <TableHead stickyActions>
+                <span className="sr-only">Дії</span>
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -162,16 +166,17 @@ function DayPriceSection({ canWrite }: { canWrite: boolean }) {
                 <TableCell>
                   <Badge tone={rule.active ? 'success' : 'neutral'}>{rule.active ? 'Активне' : 'Вимкнене'}</Badge>
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell stickyActions className="text-right">
                   {canWrite ? (
-                    <div className="flex justify-end gap-2">
-                      <Button size="sm" variant="ghost" onClick={() => setEditing(rule)}>
-                        Редагувати
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setPendingDelete(rule)}>
+                    <ActionsMenu>
+                      <DropdownMenuItem onSelect={() => setEditing(rule)}>Редагувати</DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onSelect={() => setPendingDelete(rule)}
+                      >
                         Видалити
-                      </Button>
-                    </div>
+                      </DropdownMenuItem>
+                    </ActionsMenu>
                   ) : (
                     <span className="text-xs text-muted-foreground">Лише перегляд</span>
                   )}
@@ -235,7 +240,9 @@ function LengthStaySection({ canWrite }: { canWrite: boolean }) {
               <TableHead>Знижка</TableHead>
               <TableHead>Категорії</TableHead>
               <TableHead>Стан</TableHead>
-              <TableHead />
+              <TableHead stickyActions>
+                <span className="sr-only">Дії</span>
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -248,16 +255,17 @@ function LengthStaySection({ canWrite }: { canWrite: boolean }) {
                 <TableCell>
                   <Badge tone={rule.active ? 'success' : 'neutral'}>{rule.active ? 'Активна' : 'Вимкнена'}</Badge>
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell stickyActions className="text-right">
                   {canWrite ? (
-                    <div className="flex justify-end gap-2">
-                      <Button size="sm" variant="ghost" onClick={() => setEditing(rule)}>
-                        Редагувати
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setPendingDelete(rule)}>
+                    <ActionsMenu>
+                      <DropdownMenuItem onSelect={() => setEditing(rule)}>Редагувати</DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onSelect={() => setPendingDelete(rule)}
+                      >
                         Видалити
-                      </Button>
-                    </div>
+                      </DropdownMenuItem>
+                    </ActionsMenu>
                   ) : (
                     <span className="text-xs text-muted-foreground">Лише перегляд</span>
                   )}

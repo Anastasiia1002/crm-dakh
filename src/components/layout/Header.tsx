@@ -1,5 +1,4 @@
 import { Menu } from 'lucide-react'
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { StaffNoticeMenu } from '@/components/layout/StaffNoticeMenu'
 import { Sidebar } from '@/components/layout/Sidebar'
@@ -13,12 +12,19 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { useAuth } from '@/hooks/useAuth'
+import { useDesktopNav } from '@/hooks/useDesktopNav'
 import { userRoleLabel } from '@/lib/labels'
 import { initials } from '@/lib/utils'
 
-export function Header() {
+export function Header({
+  menuOpen,
+  onMenuOpenChange,
+}: {
+  menuOpen: boolean
+  onMenuOpenChange: (open: boolean) => void
+}) {
   const { user, logout } = useAuth()
-  const [open, setOpen] = useState(false)
+  const desktop = useDesktopNav()
 
   return (
     <header className="sticky top-0 z-30 flex min-h-14 items-center justify-between gap-3 border-b border-border bg-background/92 px-4 pt-[env(safe-area-inset-top)] backdrop-blur-sm md:px-7">
@@ -26,8 +32,10 @@ export function Header() {
         <button
           type="button"
           className="inline-flex size-11 items-center justify-center rounded-md text-foreground lg:hidden"
-          onClick={() => setOpen(true)}
+          onClick={() => onMenuOpenChange(true)}
           aria-label="Відкрити меню"
+          aria-expanded={menuOpen}
+          aria-controls="staff-mobile-nav"
         >
           <Menu className="size-5" strokeWidth={1.5} />
         </button>
@@ -73,11 +81,13 @@ export function Header() {
         ) : null}
       </div>
 
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent aria-label="Меню">
-          <Sidebar onNavigate={() => setOpen(false)} />
-        </SheetContent>
-      </Sheet>
+      {desktop ? null : (
+        <Sheet open={menuOpen} onOpenChange={onMenuOpenChange}>
+          <SheetContent id="staff-mobile-nav" aria-label="Меню">
+            <Sidebar onNavigate={() => onMenuOpenChange(false)} />
+          </SheetContent>
+        </Sheet>
+      )}
     </header>
   )
 }

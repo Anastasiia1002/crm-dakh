@@ -15,6 +15,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { PageHeader } from '@/components/ui/page-header'
 import { EmptyState, LoadingState, SectionHeading } from '@/components/ui/states'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ActionsMenu } from '@/components/ui/actions-menu'
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { AuditLogPanel } from '@/pages/audit/AuditLogPanel'
 import { useAuth } from '@/hooks/useAuth'
@@ -239,7 +241,7 @@ export function UsersPage() {
                   <TableHead>Роль</TableHead>
                   <TableHead>Стан</TableHead>
                   <TableHead>Останній вхід</TableHead>
-                  <TableHead>
+                  <TableHead stickyActions>
                     <span className="sr-only">Дії</span>
                   </TableHead>
                 </TableRow>
@@ -260,7 +262,7 @@ export function UsersPage() {
                     <TableCell className="whitespace-nowrap text-muted-foreground">
                       {item.lastLoginAt ? formatDateTime(item.lastLoginAt) : '—'}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell stickyActions className="text-right">
                       <UserRowActions
                         item={item}
                         role={user?.role}
@@ -361,7 +363,9 @@ export function UsersPage() {
                 <TableHead>Стан</TableHead>
                 <TableHead>Створено</TableHead>
                 <TableHead>Дійсне до</TableHead>
-                <TableHead className="text-right">Дії</TableHead>
+                <TableHead stickyActions className="text-right">
+                  Дії
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -380,7 +384,7 @@ export function UsersPage() {
                   <TableCell className="whitespace-nowrap text-muted-foreground">
                     {formatDateTime(item.expiresAt)}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell stickyActions className="text-right">
                     {canInvite && item.status === 'pending' && item.role !== 'owner' && canInviteRole(user?.role, item.role) ? (
                       <Button size="sm" variant="ghost" onClick={() => setResending(item)}>
                         Надіслати знову
@@ -552,23 +556,13 @@ function UserRowActions({
     return <span className="text-xs text-muted-foreground">Лише перегляд</span>
   }
   return (
-    <div className="flex flex-wrap gap-1">
+    <ActionsMenu>
       {canUpdateAdminUsers(role) || canDeactivateUsers(role) ? (
-        <Button size="sm" variant="ghost" onClick={onEdit}>
-          Редагувати
-        </Button>
+        <DropdownMenuItem onSelect={onEdit}>Редагувати</DropdownMenuItem>
       ) : null}
-      {canResetStaffPasswords(role) ? (
-        <Button size="sm" variant="ghost" onClick={onPassword}>
-          Пароль
-        </Button>
-      ) : null}
-      {canRevokeStaffSessions(role) ? (
-        <Button size="sm" variant="ghost" onClick={onRevoke}>
-          Сесії
-        </Button>
-      ) : null}
-    </div>
+      {canResetStaffPasswords(role) ? <DropdownMenuItem onSelect={onPassword}>Пароль</DropdownMenuItem> : null}
+      {canRevokeStaffSessions(role) ? <DropdownMenuItem onSelect={onRevoke}>Сесії</DropdownMenuItem> : null}
+    </ActionsMenu>
   )
 }
 

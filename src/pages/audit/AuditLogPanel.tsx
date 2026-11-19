@@ -268,7 +268,7 @@ export function AuditLogPanel() {
               <TableHead>Дія</TableHead>
               <TableHead>Категорія</TableHead>
               <TableHead>Сутність</TableHead>
-              <TableHead>
+              <TableHead stickyActions>
                 <span className="sr-only">Деталі</span>
               </TableHead>
             </TableRow>
@@ -301,7 +301,7 @@ export function AuditLogPanel() {
                       item.entityLabel
                     )}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell stickyActions className="text-right">
                     <Button
                       type="button"
                       variant="ghost"

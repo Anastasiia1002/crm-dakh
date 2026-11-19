@@ -90,7 +90,9 @@ export function PromoCodesPage() {
               <TableHead>Ліміт використань</TableHead>
               <TableHead>Використано</TableHead>
               <TableHead>Статус</TableHead>
-              <TableHead className="text-right">Дії</TableHead>
+              <TableHead stickyActions className="text-right">
+                Дії
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -109,7 +111,7 @@ export function PromoCodesPage() {
                 <TableCell>
                   <Badge tone={promo.active ? 'success' : 'neutral'}>{promo.active ? 'Активний' : 'Вимкнений'}</Badge>
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell stickyActions className="text-right">
                   {canWrite ? (
                     <PromoRowActions
                       promo={promo}
