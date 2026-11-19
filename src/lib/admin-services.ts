@@ -14,16 +14,18 @@ export const SERVICE_DEACTIVATE_CONFIRMATION =
 export const SERVICE_PRICE_UNSET_LABEL = 'Ціну не зазначено'
 export const SERVICE_DEFAULT_CREATE_PRICE = '100'
 export const SERVICE_PUBLIC_NEEDS_PRICE =
-  'Щоб зробити послугу доступною на сайті, вкажіть ціну або вимкніть онлайн-бронювання.'
+  'Порожня ціна не означає безкоштовно. Без ціни гість зможе лише подати заявку з оплатою за домовленістю.'
 export const SERVICE_ONLINE_TOGGLE_HINT =
-  'Це збережене бажання показувати послугу онлайн. Гість бачить її лише коли послуга активна, з ціною, і нарахування вже є в публічному розрахунку.'
-export const SERVICE_PUBLIC_STAY_ONLY_HINT = 'Зараз публічний розрахунок підтримує лише «За бронювання».'
+  'Незалежно від «Активна». Гість бачить послугу лише коли обидва перемикачі увімкнені.'
+export const SERVICE_PUBLIC_STAY_ONLY_HINT =
+  'Сніданок: гість вводить кількість. Трансфер: заявка з оплатою за домовленістю, без суми в підсумку.'
 export const SERVICE_PER_NIGHT_PENDING_HINT =
-  '«За ніч» на сайті з’явиться після розгортання серверного розрахунку. Збережений прапорець не змінюємо.'
+  '«За ніч» на сайті множиться на ночі проживання (виїзд не враховується).'
 export const SERVICE_UNSUPPORTED_PUBLIC_BASIS_HINT =
-  'Це нарахування публічний розрахунок ще не підтримує. Прапорець не змінюємо і новий не вмикаємо.'
+  'Без ціни гість надсилає заявку. Порожня ціна ніколи не показується як 0 ₴.'
 export const SERVICE_SAVED_ONLINE_FLAG_HINT =
-  'Онлайн у картці увімкнено, але гість послугу не бачить: публічний розрахунок для цього нарахування ще не розгорнуто.'
+  'Онлайн увімкнено. Вимкнена послуга на сайті все одно не з’являється.'
+export const SERVICE_AGREED_PRICE_LABEL = 'Оплата за домовленістю'
 export const SERVICE_SITE_BADGE = 'Доступна на сайті'
 export const SERVICE_CRM_BADGE = 'Лише в CRM'
 export const SERVICE_ONLINE_UNAVAILABLE_BADGE = 'Онлайн недоступна'
@@ -43,17 +45,24 @@ export const ADMIN_SERVICE_CHARGE_BASES = [
 ] as const
 
 export type AdminServiceChargeBasis = (typeof ADMIN_SERVICE_CHARGE_BASES)[number]
-/** Bases the public catalog will accept after backend PER_NIGHT quoting is live. */
-export const PUBLIC_SERVICE_CHARGE_BASES: readonly AdminServiceChargeBasis[] = ['PER_STAY', 'PER_NIGHT']
-/** Bases staff may turn on for the live API. PER_NIGHT stays off until that deploy is verified. */
-export const LIVE_PUBLIC_SERVICE_CHARGE_BASES: readonly AdminServiceChargeBasis[] = ['PER_STAY']
+/** Every saved CRM unit can be shown online. Pricing math is separate from this list. */
+export const PUBLIC_SERVICE_CHARGE_BASES: readonly AdminServiceChargeBasis[] = ADMIN_SERVICE_CHARGE_BASES
+export const LIVE_PUBLIC_SERVICE_CHARGE_BASES: readonly AdminServiceChargeBasis[] = ADMIN_SERVICE_CHARGE_BASES
+
+export type OnlinePricingMode = 'GUEST_QUANTITY' | 'PER_NIGHT' | 'REQUEST_ONLY'
+
+export function resolveOnlinePricing(input: { chargeBasis?: AdminServiceChargeBasis; price?: string | null }): OnlinePricingMode {
+  if (input.chargeBasis === 'PER_TRIP' || !input.price) return 'REQUEST_ONLY'
+  if (input.chargeBasis === 'PER_NIGHT') return 'PER_NIGHT'
+  return 'GUEST_QUANTITY'
+}
 
 export function isPublicServiceChargeBasis(basis?: AdminServiceChargeBasis) {
   return PUBLIC_SERVICE_CHARGE_BASES.includes(basis ?? 'PER_STAY')
 }
 
-export function canEnablePublicOnlineBooking(basis?: AdminServiceChargeBasis) {
-  return LIVE_PUBLIC_SERVICE_CHARGE_BASES.includes(basis ?? 'PER_STAY')
+export function canEnablePublicOnlineBooking(_basis?: AdminServiceChargeBasis) {
+  return true
 }
 
 export const SERVICE_CHARGE_BASIS_LABEL: Record<AdminServiceChargeBasis, string> = {
@@ -409,19 +418,14 @@ function parseServiceQuantityLimit(value: unknown): number | null {
   return value
 }
 
-/** Public checkout lists a service only when it is active, priced, bookable, and on a live public basis. */
+/** Public checkout lists a service only when it is active and marked for online booking. */
 export function isPubliclyBookableService(service: {
   active: boolean
   bookable: boolean
   chargeBasis?: AdminServiceChargeBasis
   price?: string | null
 }) {
-  return (
-    service.active &&
-    service.bookable &&
-    canEnablePublicOnlineBooking(service.chargeBasis) &&
-    Boolean(service.price)
-  )
+  return service.active && service.bookable
 }
 
 export function serviceSiteVisibilityLabel(service: {
@@ -443,10 +447,6 @@ export function serviceOnlineUnavailableReason(service: {
 }) {
   if (!service.bookable || isPubliclyBookableService(service)) return null
   if (!service.active) return 'Послуга вимкнена, тому на сайті її немає.'
-  if (!service.price) return 'Немає ціни — гість не може замовити її онлайн.'
-  if (!canEnablePublicOnlineBooking(service.chargeBasis)) {
-    return 'Публічний розрахунок для цього нарахування ще не розгорнуто.'
-  }
   return 'На сайті зараз недоступна.'
 }
 
@@ -454,19 +454,21 @@ export function serviceOnlineFieldHint(input: {
   bookable: boolean
   active: boolean
   chargeBasis: AdminServiceChargeBasis
+  price?: string | null
 }) {
-  const live = canEnablePublicOnlineBooking(input.chargeBasis)
-  if (!live && input.bookable) return SERVICE_SAVED_ONLINE_FLAG_HINT
-  if (!live) {
-    return isPublicServiceChargeBasis(input.chargeBasis)
-      ? SERVICE_PER_NIGHT_PENDING_HINT
-      : SERVICE_UNSUPPORTED_PUBLIC_BASIS_HINT
+  const mode = resolveOnlinePricing({ chargeBasis: input.chargeBasis, price: input.price ?? null })
+  if (input.bookable && !input.active) return SERVICE_SAVED_ONLINE_FLAG_HINT
+  if (input.chargeBasis === 'PER_TRIP' || mode === 'REQUEST_ONLY') {
+    return `${SERVICE_ONLINE_TOGGLE_HINT} Заявка з оплатою за домовленістю, без суми в підсумку.`
   }
-  if (input.bookable && !input.active) {
-    return 'Онлайн у картці увімкнено, але вимкнена послуга на сайті не з’являється.'
+  if (input.chargeBasis === 'PER_PERSON_DAY') {
+    return `${SERVICE_ONLINE_TOGGLE_HINT} Гість вводить кількість сніданків. Ціна за сніданок, без множення на ночі чи гостей.`
   }
-  if (input.bookable) {
-    return 'Онлайн у картці увімкнено. Гість бачить активну послугу з ціною.'
+  if (input.chargeBasis === 'PER_NIGHT') {
+    return `${SERVICE_ONLINE_TOGGLE_HINT} ${SERVICE_PER_NIGHT_PENDING_HINT}`
+  }
+  if (input.chargeBasis === 'PER_DAY' || input.chargeBasis === 'ONE_TIME') {
+    return `${SERVICE_ONLINE_TOGGLE_HINT} Гість вводить кількість × ціна. Автоматичне множення на календарні дні ще не підтверджено.`
   }
   return `${SERVICE_ONLINE_TOGGLE_HINT} ${SERVICE_PUBLIC_STAY_ONLY_HINT}`
 }
@@ -612,10 +614,7 @@ export function buildAdminServiceCreateBody(
   if (!ADMIN_SERVICE_CHARGE_BASES.includes(chargeBasis)) {
     return { ok: false, error: 'Каталог послуг має непідтримуване нарахування.', field: 'chargeBasis' }
   }
-  const bookable = (input.bookable ?? false) && canEnablePublicOnlineBooking(chargeBasis)
-  if (bookable && price.price === null) {
-    return { ok: false, error: SERVICE_PUBLIC_NEEDS_PRICE, field: 'price' }
-  }
+  const bookable = input.bookable ?? false
   const minQuantity = parseOptionalServiceQuantity(input.minQuantity)
   if (!minQuantity.ok) return { ok: false, error: minQuantity.error, field: 'minQuantity' }
   const maxQuantity = parseOptionalServiceQuantity(input.maxQuantity)
@@ -663,9 +662,6 @@ export function buildAdminServicePatchBody(
   }
   const bookable = input.bookable ?? false
   const nextPrice = price.price
-  if (bookable && nextPrice === null && canEnablePublicOnlineBooking(chargeBasis)) {
-    return { ok: false, error: SERVICE_PUBLIC_NEEDS_PRICE, field: 'price' }
-  }
   const minQuantity = parseOptionalServiceQuantity(input.minQuantity)
   if (!minQuantity.ok) return { ok: false, error: minQuantity.error, field: 'minQuantity' }
   const maxQuantity = parseOptionalServiceQuantity(input.maxQuantity)
@@ -682,15 +678,7 @@ export function buildAdminServicePatchBody(
   if (description !== current.description) body.description = description
   if (nextPrice !== current.price) body.price = nextPrice
   if (input.active !== current.active) body.active = input.active
-  if (bookable !== current.bookable) {
-    const live = canEnablePublicOnlineBooking(chargeBasis)
-    const futurePublic = isPublicServiceChargeBasis(chargeBasis)
-    if (bookable && !live) {
-      // Do not enable online booking until the live API can quote this basis.
-    } else if (live || futurePublic) {
-      body.bookable = bookable
-    }
-  }
+  if (bookable !== current.bookable) body.bookable = bookable
   if (chargeBasis !== current.chargeBasis) body.chargeBasis = chargeBasis
   if (minQuantity.quantity !== current.minQuantity) body.minQuantity = minQuantity.quantity
   if (maxQuantity.quantity !== current.maxQuantity) body.maxQuantity = maxQuantity.quantity

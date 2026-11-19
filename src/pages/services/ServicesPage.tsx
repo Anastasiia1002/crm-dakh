@@ -38,7 +38,6 @@ import {
   SERVICE_SITE_BADGE,
   buildAdminServiceCreateBody,
   buildAdminServicePatchBody,
-  canEnablePublicOnlineBooking,
   filterManagedServices,
   formatManagedServicePrice,
   parseOptionalServiceQuantity,
@@ -77,8 +76,6 @@ const schema = z
     const price = validateOptionalServicePrice(values.price)
     if (!price.ok) {
       ctx.addIssue({ code: 'custom', path: ['price'], message: price.error })
-    } else if (values.bookable && canEnablePublicOnlineBooking(values.chargeBasis) && price.price === null) {
-      ctx.addIssue({ code: 'custom', path: ['price'], message: SERVICE_PUBLIC_NEEDS_PRICE })
     }
     const sortOrder = parseOptionalServiceSortOrder(values.sortOrder)
     if (!sortOrder.ok) {
@@ -355,8 +352,7 @@ function ServiceDialog({
   const watchedPrice = form.watch('price')
   const watchedChargeBasis = form.watch('chargeBasis')
   const watchedBookable = form.watch('bookable')
-  const liveOnline = canEnablePublicOnlineBooking(watchedChargeBasis)
-  const canToggleOnline = canWrite && (liveOnline || Boolean(current?.bookable))
+  const canToggleOnline = canWrite
   const priceChanged = Boolean(current && watchedPrice.trim() !== (current.price ?? ''))
 
   return (
@@ -467,14 +463,13 @@ function ServiceDialog({
             role="switch"
             aria-checked={form.watch('bookable')}
             aria-describedby="service-bookable-hint"
-            disabled={!canToggleOnline || (!liveOnline && !watchedBookable)}
+            disabled={!canToggleOnline}
             onClick={() => {
-              if (!liveOnline && !form.getValues('bookable')) return
               form.setValue('bookable', !form.getValues('bookable'), { shouldDirty: true })
             }}
             className="flex min-h-11 w-full items-center justify-between gap-3 rounded-md border border-border bg-surface px-3 text-left outline-none hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-40"
           >
-            <span className="text-sm">Доступна для онлайн-бронювання</span>
+            <span className="text-sm">Показувати при онлайн-бронюванні</span>
             <span
               className={`relative h-6 w-11 shrink-0 rounded-full ${form.watch('bookable') ? 'bg-primary' : 'bg-surface-muted'}`}
               aria-hidden
@@ -489,6 +484,7 @@ function ServiceDialog({
               bookable: form.watch('bookable'),
               active: form.watch('active') === 'yes',
               chargeBasis: watchedChargeBasis,
+              price: watchedPrice.trim() || null,
             })}
           </p>
         </div>

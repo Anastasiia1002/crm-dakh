@@ -1056,8 +1056,8 @@ export type AdminBookingServiceLine = {
   id: string
   serviceId: string
   quantity: number
-  unitPrice: string
-  totalPrice: string
+  unitPrice: string | null
+  totalPrice: string | null
 }
 
 export type AdminBookingPrice = {

@@ -234,7 +234,9 @@ export function BookingDetailPage() {
                       <span className="ml-2 text-muted-foreground">× {service.quantity}</span>
                     </span>
                     <span className="tabular-nums">
-                      {formatAdminBookingMoney(service.totalPrice, price.currency)}
+                      {service.totalPrice == null
+                        ? 'Оплата за домовленістю'
+                        : formatAdminBookingMoney(service.totalPrice, price.currency)}
                     </span>
                   </li>
                 ))}
