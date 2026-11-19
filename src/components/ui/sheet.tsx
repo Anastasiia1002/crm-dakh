@@ -17,6 +17,7 @@ export function SheetContent({ className, children, ...props }: ComponentProps<t
         )}
         {...props}
       >
+        <DialogPrimitive.Title className="sr-only">Меню</DialogPrimitive.Title>
         {children}
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>

@@ -14,6 +14,8 @@ import { QueryErrorState } from '@/components/ui/page-status'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { PageHeader } from '@/components/ui/page-header'
 import { EmptyState, LoadingState } from '@/components/ui/states'
+import { ActionsMenu } from '@/components/ui/actions-menu'
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/hooks/useAuth'
@@ -163,7 +165,7 @@ export function ServicesPage() {
                   <TableHead>Ціна</TableHead>
                   <TableHead>Нарахування</TableHead>
                   <TableHead>Доступність</TableHead>
-                  <TableHead>
+                  <TableHead stickyActions>
                     <span className="sr-only">Дії</span>
                   </TableHead>
                 </TableRow>
@@ -186,7 +188,7 @@ export function ServicesPage() {
                     <TableCell>
                       <ServiceAvailability item={item} />
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell stickyActions className="text-right">
                       <ServiceActions
                         item={item}
                         canWrite={canWrite}
@@ -304,14 +306,10 @@ function ServiceActions({
 }) {
   if (!canWrite) return <span className="text-xs text-muted-foreground">Лише перегляд</span>
   return (
-    <div className="flex flex-wrap gap-2">
-      <Button size="sm" variant="ghost" onClick={onEdit}>
-        Редагувати
-      </Button>
-      <Button size="sm" variant="outline" onClick={onToggle}>
-        {item.active ? 'Вимкнути' : 'Увімкнути'}
-      </Button>
-    </div>
+    <ActionsMenu>
+      <DropdownMenuItem onSelect={onEdit}>Редагувати</DropdownMenuItem>
+      <DropdownMenuItem onSelect={onToggle}>{item.active ? 'Вимкнути' : 'Увімкнути'}</DropdownMenuItem>
+    </ActionsMenu>
   )
 }
 

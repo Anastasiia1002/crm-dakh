@@ -30,8 +30,7 @@ function localDateLabel(iso: string) {
 
 function kindSectionLabel(kind: ChessboardModel['groups'][number]['kind']) {
   if (kind === 'COTTAGE') return COTTAGE_KIND_GROUP_LABEL
-  if (kind === 'ROOM') return ROOM_KIND_GROUP_LABEL
-  return 'Інше'
+  return ROOM_KIND_GROUP_LABEL
 }
 
 export function Chessboard({
@@ -148,8 +147,9 @@ export function Chessboard({
                             disabled={!available}
                             className={cn(
                               'h-full border-l border-border/70',
-                              night.date === today && 'bg-surface-muted/80',
-                              weekend && night.date !== today && available && 'bg-secondary/50',
+                              available && 'bg-status-checked-in/25',
+                              night.date === today && available && 'bg-status-checked-in/40',
+                              weekend && night.date !== today && available && 'bg-status-checked-in/35',
                               !available && 'cursor-default',
                               night.state === 'OUT_OF_ORDER' && 'bg-status-cancelled/80',
                               night.state === 'INACTIVE' && 'bg-surface-muted/50',

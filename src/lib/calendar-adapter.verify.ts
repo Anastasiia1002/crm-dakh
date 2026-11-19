@@ -262,9 +262,10 @@ export function runCalendarAdapterChecks(): string[] {
     kindFilter: 'ROOM',
   })
   assert(
-    modelKind.groups.some((group) => group.kind === 'UNKNOWN' && group.rooms.some((room) => room.roomTypeId === 'rt1')),
-    'kind: unresolved ROOM filter keeps unknown types',
+    modelKind.groups.some((group) => group.kind === 'ROOM' && group.displayName === 'Номери' && group.rooms.some((room) => room.roomTypeId === 'rt1')),
+    'kind: unresolved ROOM filter keeps unknown types under Номери',
   )
+  assert(!modelKind.groups.some((group) => group.kind === 'UNKNOWN' || group.displayName === 'Інше'), 'kind: no third chessboard heading')
   assert(
     !modelKind.groups.some((group) => group.rooms.some((room) => room.roomTypeId === 'rt-cottage')),
     'kind: known COTTAGE excluded when filter=ROOM',
