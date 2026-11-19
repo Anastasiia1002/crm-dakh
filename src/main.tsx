@@ -39,9 +39,9 @@ createRoot(root).render(
           position="bottom-right"
           toastOptions={{
             style: {
-              background: '#fbf8f3',
-              border: '1px solid #ddd4c6',
-              color: '#1e1b17',
+              background: '#fffcf7',
+              border: '1px solid #d9cfc0',
+              color: '#2a1f1a',
               fontFamily: 'Manrope, sans-serif',
             },
           }}

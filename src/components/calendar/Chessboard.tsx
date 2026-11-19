@@ -48,10 +48,10 @@ export function Chessboard({
   const width = dates.length * CELL
 
   return (
-    <div className="overflow-auto scroll-thin border-y border-border">
+    <div className="overflow-auto scroll-thin rounded-md border border-border bg-surface">
       <div className="min-w-max">
-        <div className="sticky top-0 z-20 flex bg-background">
-          <div className="sticky left-0 z-30 flex w-[19rem] shrink-0 border-r border-b border-border bg-background">
+        <div className="sticky top-0 z-20 flex bg-surface">
+          <div className="sticky left-0 z-30 flex w-[19rem] shrink-0 border-r border-b border-border bg-surface">
             <div className="w-52 shrink-0" />
             <div className="flex w-24 items-end px-2 pb-2 text-[10px] tracking-[0.12em] text-muted uppercase">
               Тип
@@ -67,7 +67,7 @@ export function Chessboard({
                   className={cn(
                     'shrink-0 border-b border-l border-border px-1 py-2 text-center',
                     date === today && 'bg-surface-muted',
-                    weekend && date !== today && 'bg-[#efe8dc]',
+                    weekend && date !== today && 'bg-secondary/70',
                   )}
                   style={{ width: CELL }}
                   title={localDateLabel(date)}
@@ -121,7 +121,7 @@ export function Chessboard({
                 room.kind === 'ROOM' || room.kind === 'COTTAGE' ? roomTypeKindLabel[room.kind] : '—'
               return (
                 <div key={room.roomId} className="flex border-b border-border">
-                  <div className="sticky left-0 z-10 flex w-[19rem] shrink-0 items-center overflow-hidden border-r border-border bg-background">
+                  <div className="sticky left-0 z-10 flex w-[19rem] shrink-0 items-center overflow-hidden border-r border-border bg-surface">
                     <div className="min-w-0 w-52 px-3">
                       <div className="truncate text-sm" title={room.displayTitle}>
                         {sticky.title}
@@ -151,11 +151,11 @@ export function Chessboard({
                             className={cn(
                               'h-full border-l border-border/70',
                               night.date === today && 'bg-surface-muted/80',
-                              weekend && night.date !== today && available && 'bg-[#f7f1e7]',
+                              weekend && night.date !== today && available && 'bg-secondary/50',
                               !available && 'cursor-default',
-                              night.state === 'OUT_OF_ORDER' && 'bg-[#f0e4e4]',
+                              night.state === 'OUT_OF_ORDER' && 'bg-status-cancelled/80',
                               night.state === 'INACTIVE' && 'bg-surface-muted/50',
-                              highlighted && 'bg-[#d9e4d4]',
+                              highlighted && 'bg-status-checked-in',
                             )}
                             style={{ width: CELL }}
                             onClick={() => {
@@ -178,11 +178,11 @@ export function Chessboard({
                       const className = cn(
                         'absolute top-1.5 flex h-9 items-center overflow-hidden rounded-sm border px-2 text-left text-[11px]',
                         bar.kind === 'MAINTENANCE' &&
-                          'border-[#d7c3b4] bg-[#f3e6df] text-status-cancelled-foreground',
+                          'border-status-cancelled-mark/30 bg-status-cancelled text-status-cancelled-foreground',
                         bar.kind === 'BLOCKED' &&
-                          'border-[#d7c3b4] bg-[#f3e6df] text-status-cancelled-foreground',
+                          'border-status-cancelled-mark/30 bg-status-cancelled text-status-cancelled-foreground',
                         bar.kind === 'OUT_OF_ORDER' &&
-                          'border-border bg-[#efe0e0] text-muted-foreground',
+                          'border-border bg-status-cancelled/70 text-muted-foreground',
                         bar.kind === 'INACTIVE' &&
                           'border-border bg-surface-muted text-muted-foreground',
                         clickable && 'cursor-pointer',
@@ -222,17 +222,18 @@ export function Chessboard({
                         key={`${bar.bookingId}:${bar.roomId}:${bar.startDate}`}
                         type="button"
                         className={cn(
-                          'absolute top-1.5 flex h-9 items-center overflow-hidden rounded-sm px-2 text-left text-[12px]',
+                          'absolute top-1.5 flex h-9 items-center overflow-hidden rounded-sm border px-2 text-left text-[12px]',
                           bar.status === 'CHECKED_IN' &&
-                            'bg-status-checked-in text-status-checked-in-foreground',
+                            'border-status-checked-in-mark/40 bg-status-checked-in text-status-checked-in-foreground',
                           bar.status === 'CONFIRMED' &&
-                            'bg-status-confirmed text-status-confirmed-foreground',
-                          bar.status === 'PENDING' && 'bg-status-pending text-status-pending-foreground',
+                            'border-status-confirmed-mark/35 bg-status-confirmed text-status-confirmed-foreground',
+                          bar.status === 'PENDING' &&
+                            'border-status-pending-mark/40 bg-status-pending text-status-pending-foreground',
                           (bar.status === 'UNKNOWN' || bar.metadataMissing) &&
                             bar.status !== 'PENDING' &&
                             bar.status !== 'CONFIRMED' &&
                             bar.status !== 'CHECKED_IN' &&
-                            'bg-status-confirmed/80 text-status-confirmed-foreground ring-1 ring-dashed ring-foreground/30',
+                            'border-dashed border-foreground/30 bg-status-confirmed/80 text-status-confirmed-foreground',
                         )}
                         style={{ left: start * CELL + 3, width: Math.max(span * CELL - 6, 28) }}
                         onClick={() => onBooking(bar.bookingId)}

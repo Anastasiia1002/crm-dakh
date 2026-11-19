@@ -210,7 +210,7 @@ export function BookingForm({
     >
       <div className="space-y-10">
         <section className="space-y-4">
-          <h2 className="font-serif text-2xl font-medium">Гість</h2>
+          <h2 className="font-serif text-xl font-medium">Гість</h2>
           <div className="flex gap-2">
             {(['existing', 'new'] as const).map((mode) => (
               <button
@@ -265,7 +265,7 @@ export function BookingForm({
         </section>
 
         <section className="space-y-4">
-          <h2 className="font-serif text-2xl font-medium">Проживання</h2>
+          <h2 className="font-serif text-xl font-medium">Проживання</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Номер / будиночок" error={form.formState.errors.accommodationId?.message}>
               <Controller
@@ -384,7 +384,7 @@ export function BookingForm({
         </section>
 
         <section className="space-y-4">
-          <h2 className="font-serif text-2xl font-medium">Послуги</h2>
+          <h2 className="font-serif text-xl font-medium">Послуги</h2>
           <ul className="divide-y divide-border border-y border-border">
             {services.filter((service) => service.active).map((service) => {
               const checked = values.serviceIds.includes(service.id)

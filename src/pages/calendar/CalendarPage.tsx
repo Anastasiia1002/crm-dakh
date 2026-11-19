@@ -6,6 +6,7 @@ import { BlockDatesDialog } from '@/components/accommodations/BlockDatesDialog'
 import { BlockDetailsDialog } from '@/components/accommodations/BlockDetailsDialog'
 import { Chessboard } from '@/components/calendar/Chessboard'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { EmptyState, LoadingState } from '@/components/ui/states'
 import { useAuth } from '@/hooks/useAuth'
@@ -231,7 +232,11 @@ export function CalendarPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-3">
+      <PageHeader
+        title="Шахматка"
+        description="Одиниці зліва, дати зверху. Заброньовані ночі відкривають картку, вільні — створення або блокування."
+      />
+      <div className="flex flex-col gap-3 rounded-md border border-border bg-surface p-3">
         <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
@@ -345,8 +350,8 @@ export function CalendarPage() {
       <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
         <Legend className="bg-background" label="Вільно" />
         <Legend className="bg-status-confirmed" label="Заброньовано" />
-        <Legend className="bg-[#f3e6df]" label="Заблоковано" />
-        <Legend className="bg-[#d9e4d4]" label="Вибрано" />
+        <Legend className="bg-status-cancelled" label="Заблоковано" />
+        <Legend className="bg-status-checked-in" label="Вибрано" />
         <Legend className="bg-status-pending" label="Очікує підтвердження" />
         <Legend className="bg-status-checked-in" label="Заселено" />
       </div>

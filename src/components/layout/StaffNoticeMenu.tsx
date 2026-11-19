@@ -41,7 +41,7 @@ export function StaffNoticeMenu() {
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger
-        className="relative rounded-md p-2 text-foreground outline-none hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-ring/50"
+        className="relative inline-flex size-11 items-center justify-center rounded-md text-foreground outline-none hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-ring/50"
         aria-label={label}
       >
         <Bell className="size-[18px]" strokeWidth={1.5} />

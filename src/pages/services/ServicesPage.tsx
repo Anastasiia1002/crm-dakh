@@ -401,7 +401,7 @@ function ServiceDialog({
           >
             <span className="text-sm">Доступна для онлайн-бронювання</span>
             <span
-              className={`relative h-6 w-11 shrink-0 rounded-full ${form.watch('bookable') ? 'bg-primary' : 'bg-[#ddd4c6]'}`}
+              className={`relative h-6 w-11 shrink-0 rounded-full ${form.watch('bookable') ? 'bg-primary' : 'bg-surface-muted'}`}
               aria-hidden
             >
               <span

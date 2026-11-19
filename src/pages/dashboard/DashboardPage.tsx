@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { DateRangePicker } from '@/components/dates/DateRangePicker'
 import { OperationsBoard } from '@/components/dashboard/OperationsBoard'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
 import { QueryErrorState } from '@/components/ui/page-status'
 import { useAdminDashboardSummary } from '@/hooks/useAdminDashboard'
 import { useHotelSettings } from '@/hooks/useHotel'
@@ -77,11 +78,12 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-7">
       {/* Daily booking trend is not in GET /api/admin/dashboard/summary. No chart until that series exists. */}
-      <header>
-        <h2 className="font-serif text-3xl font-medium tracking-tight">Огляд готелю</h2>
-      </header>
+      <PageHeader
+        title="Огляд готелю"
+        description="Сьогоднішня зміна: заїзди, виїзди, завантаженість. Фінансове зведення — окремо за період нижче."
+      />
 
       <OperationsBoard
         date={operationalDate}
@@ -95,7 +97,7 @@ export function DashboardPage() {
       <section className="space-y-4 border-t border-border pt-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h3 className="font-serif text-2xl">Аналітика періоду</h3>
+            <h2 className="font-serif text-[1.55rem] font-medium">Аналітика періоду</h2>
             <p className="mt-1 text-sm text-muted-foreground">
               {period.ok ? `${formatDate(from)} — ${formatDate(to)}` : 'Оберіть період'}
             </p>
@@ -152,8 +154,8 @@ export function DashboardPage() {
       {period.ok && view.kind === 'loading' ? <DashboardSkeleton /> : null}
 
       {period.ok && view.kind === 'unavailable' ? (
-        <section className="max-w-xl space-y-2 rounded-md border border-border bg-surface px-5 py-6">
-          <h3 className="font-serif text-2xl">{view.title}</h3>
+        <section className="max-w-xl space-y-2 rounded-md border border-border bg-surface px-5 py-5">
+          <h3 className="font-serif text-xl">{view.title}</h3>
           <p className="text-sm text-muted-foreground">{view.detail}</p>
         </section>
       ) : null}
@@ -205,12 +207,12 @@ function KpiCard({
   hint: string
 }) {
   return (
-    <article className="rounded-md border border-border bg-surface px-4 py-4">
+    <article className="rounded-md border border-border bg-surface px-4 py-3">
       <div className="flex items-start justify-between gap-2">
         <h3 className="text-[11px] tracking-[0.14em] text-muted uppercase">{label}</h3>
         <Hint text={hint} />
       </div>
-      <p className="mt-3 font-sans text-3xl font-semibold leading-none tabular-nums tracking-tight sm:text-4xl">{value}</p>
+      <p className="mt-2 font-sans text-2xl font-semibold leading-none tabular-nums tracking-tight">{value}</p>
       {detail ? <p className="mt-2 text-xs text-muted-foreground">{detail}</p> : null}
     </article>
   )

@@ -674,7 +674,7 @@ export function AdminBookingForm({
     >
       <fieldset disabled={submitting} className="space-y-8 disabled:opacity-80">
       <section className="space-y-4 border-t border-border pt-5">
-        <h3 className="font-serif text-2xl">Гість</h3>
+        <h3 className="font-serif text-xl font-medium">Гість</h3>
         {guestLocked ? (
           <p className="text-sm text-muted-foreground">Клієнта підставлено з картки. Бронювання буде привʼязане до цієї картки.</p>
         ) : null}
@@ -778,7 +778,7 @@ export function AdminBookingForm({
       </section>
 
       <section className="space-y-4 border-t border-border pt-5">
-        <h3 className="font-serif text-2xl">Проживання</h3>
+        <h3 className="font-serif text-xl font-medium">Проживання</h3>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Номер / будиночок" error={visibleErrors.roomId}>
             <Select
@@ -882,7 +882,7 @@ export function AdminBookingForm({
 
       {profile ? (
         <section className="space-y-4 border-t border-border pt-5">
-          <h3 className="font-serif text-2xl">Примітки</h3>
+          <h3 className="font-serif text-xl font-medium">Примітки</h3>
           <Field label="Нотатки" error={visibleErrors.notes} hint="Необовʼязково">
             <Textarea value={notes} maxLength={2000} onChange={(event) => setNotes(event.target.value)} rows={3} />
           </Field>
@@ -891,7 +891,7 @@ export function AdminBookingForm({
 
       {commercial ? (
         <section className="space-y-2 border-t border-border pt-5">
-          <h3 className="font-serif text-2xl">Послуги</h3>
+          <h3 className="font-serif text-xl font-medium">Послуги</h3>
           <AdminServicePicker
             catalog={servicesCatalog.data ?? []}
             status={servicesCatalog.isError ? 'error' : servicesCatalog.isLoading && !servicesCatalog.data ? 'loading' : 'ready'}
@@ -908,7 +908,7 @@ export function AdminBookingForm({
 
       {commercial ? (
         <section className="space-y-3 border-t border-border pt-5">
-          <h3 className="font-serif text-2xl">Вартість</h3>
+          <h3 className="font-serif text-xl font-medium">Вартість</h3>
           <Field
             label="Промокод"
             hint="Більша зі знижок перемагає: автоматична за 6 ночей або промокод. Суми не складаються. Якщо вони однакові, лишається промокод. Суму рахує сервер."
@@ -977,7 +977,7 @@ export function AdminBookingForm({
       ) : null}
 
       <section className="space-y-2 border-t border-border pt-5 text-sm">
-        <h3 className="font-serif text-2xl">Підсумок</h3>
+        <h3 className="font-serif text-xl font-medium">Підсумок</h3>
         <p>
           {firstName.trim() || '—'} {lastName.trim()} · {phone.trim() || 'без телефону'}
         </p>

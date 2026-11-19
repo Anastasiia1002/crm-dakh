@@ -43,7 +43,7 @@ export function LoginPage() {
         <Logo variant="dark" className="w-52" />
         <p className="mt-3 text-sm text-muted-foreground">Адмінпанель</p>
       </div>
-      <h1 className="font-serif text-4xl font-medium">Вхід</h1>
+      <h1 className="font-serif text-[2.15rem] font-medium">Вхід</h1>
       <p className="mt-2 text-sm text-muted-foreground">Для співробітників готелю.</p>
       <form
         className="mt-8 space-y-4"

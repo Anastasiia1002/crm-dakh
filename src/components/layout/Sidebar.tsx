@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 
 function NavGroup({ items, onNavigate }: { items: NavItem[]; onNavigate?: () => void }) {
   return (
-    <nav className="space-y-0.5">
+    <nav className="space-y-0.5 px-2">
       {items.map((item) => {
         const Icon = item.icon
         return (
@@ -22,10 +22,10 @@ function NavGroup({ items, onNavigate }: { items: NavItem[]; onNavigate?: () => 
             onPointerEnter={() => prefetchAdminRoute(item.to)}
             className={({ isActive }) =>
               cn(
-                'flex items-center gap-3 border-l-2 px-4 py-2.5 text-[13.5px] tracking-wide text-sidebar-muted transition-colors',
+                'flex min-h-11 items-center gap-3 rounded-md px-3 py-2 text-[13.5px] tracking-wide text-sidebar-muted transition-colors',
                 isActive
-                  ? 'border-[#c4b49a] bg-sidebar-active text-sidebar-foreground'
-                  : 'border-transparent hover:bg-sidebar-active/70 hover:text-sidebar-foreground',
+                  ? 'bg-sidebar-active text-sidebar-foreground shadow-[inset_3px_0_0_0_var(--sidebar-mark)]'
+                  : 'hover:bg-sidebar-active/70 hover:text-sidebar-foreground',
               )
             }
           >
@@ -50,17 +50,17 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
-      <div className="px-6 pt-7 pb-6">
-        <Logo className="w-full max-w-[11.75rem]" />
+      <div className="px-5 pt-6 pb-5">
+        <Logo className="w-full max-w-[10.5rem]" />
         <p className="mt-3 text-[10px] tracking-[0.22em] text-sidebar-muted uppercase">Адмінпанель</p>
         {import.meta.env.MODE === 'staging' ? (
-          <p className="mt-2 text-[10px] tracking-[0.14em] text-[#c4b49a] uppercase">Тестове середовище</p>
+          <p className="mt-2 text-[10px] tracking-[0.14em] text-sidebar-mark uppercase">Тестове середовище</p>
         ) : null}
       </div>
-      <div className="flex-1">
+      <div className="flex-1 overflow-y-auto scroll-thin">
         <NavGroup items={primaryItems} onNavigate={onNavigate} />
       </div>
-      <div className="border-t border-sidebar-border py-4">
+      <div className="border-t border-sidebar-border py-3">
         <NavGroup items={secondaryItems} onNavigate={onNavigate} />
       </div>
     </div>

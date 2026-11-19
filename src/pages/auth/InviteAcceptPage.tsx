@@ -61,7 +61,7 @@ export function InviteAcceptPage() {
         <Logo variant="dark" className="w-52" />
         <p className="mt-3 text-sm text-muted-foreground">Адмінпанель</p>
       </div>
-      <h1 className="font-serif text-4xl font-medium">Запрошення</h1>
+      <h1 className="font-serif text-[2.15rem] font-medium">Запрошення</h1>
       {done ? (
         <div className="mt-6 space-y-4">
           <p className="text-sm text-muted-foreground">Пароль збережено. Увійдіть своїми даними.</p>

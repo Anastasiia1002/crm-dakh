@@ -5,19 +5,19 @@ import type { ButtonHTMLAttributes, MouseEvent, Ref } from 'react'
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-40 aria-disabled:pointer-events-none aria-disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+  'inline-flex min-h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-40 aria-disabled:pointer-events-none aria-disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground hover:bg-[#3a342e]',
-        secondary: 'bg-secondary text-secondary-foreground hover:bg-[#ddd4c6]',
+        default: 'bg-primary text-primary-foreground hover:bg-primary/90',
+        secondary: 'bg-secondary text-secondary-foreground hover:bg-surface-muted',
         outline: 'border border-border bg-surface text-foreground hover:bg-surface-muted',
         ghost: 'text-foreground hover:bg-surface-muted',
-        destructive: 'bg-destructive text-primary-foreground hover:bg-[#743e33]',
+        destructive: 'bg-destructive text-primary-foreground hover:bg-destructive/90',
       },
       size: {
         default: 'h-10 px-4',
-        sm: 'h-8 px-3 text-[13px]',
+        sm: 'h-9 min-h-9 px-3 text-[13px]',
         lg: 'h-11 px-5',
         icon: 'size-10',
       },
@@ -52,8 +52,6 @@ export function Button({
   const spinner = loading ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null
 
   if (asChild) {
-    // Slot throws if it receives an array (a spinner or even null beside the child).
-    // Slottable keeps one element and composes the spinner inside it.
     return (
       <Slot
         ref={ref}

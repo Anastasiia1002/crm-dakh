@@ -37,7 +37,7 @@ function cellClass(input: {
   closed: boolean
 }) {
   if (input.isCheckIn || input.isCheckOut) return 'bg-primary font-semibold text-primary-foreground underline decoration-2'
-  if (input.inStay) return 'bg-[#efe7dc] font-medium text-foreground underline decoration-1'
+  if (input.inStay) return 'bg-secondary font-medium text-foreground underline decoration-1'
   if (input.closed) return 'cursor-not-allowed text-muted-foreground/45 opacity-40'
   if (input.availability === 'occupied') return 'bg-[#e7d4cf] text-[#6d4038] line-through'
   if (input.availability === 'blocked') return 'border border-dashed border-muted-foreground/50 bg-[#ece7df] text-muted-foreground'

@@ -13,7 +13,7 @@ export function ProfilePage() {
           {initials(user.firstName, user.lastName)}
         </span>
         <div>
-          <h2 className="font-serif text-4xl font-medium">
+          <h2 className="font-serif text-[1.85rem] font-medium">
             {user.firstName} {user.lastName}
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">{userRoleLabel[user.role]}</p>
