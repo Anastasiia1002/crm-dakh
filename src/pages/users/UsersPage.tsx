@@ -12,6 +12,7 @@ import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Pagination } from '@/components/ui/pagination'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { PageHeader } from '@/components/ui/page-header'
 import { EmptyState, LoadingState, SectionHeading } from '@/components/ui/states'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -114,6 +115,7 @@ export function UsersPage() {
   const [revokeSessions, setRevokeSessions] = useState<number | null>(null)
   const [revokePending, setRevokePending] = useState(false)
   const [resending, setResending] = useState<AdminInvitation | null>(null)
+  const [inviteStatus, setInviteStatus] = useState<AdminInvitationStatus | 'all'>('all')
   const users = useUsers({ page, limit: PAGE_SIZE }, { enabled: canAccess && tab === 'users' })
   const invitations = useAdminInvitations(canAccess && tab === 'invitations')
   const revoke = useRevokeAdminSessions()
@@ -185,8 +187,16 @@ export function UsersPage() {
     setSearchParams(next)
   }
 
+  const invitationItems = (invitations.data ?? []).filter(
+    (item) => inviteStatus === 'all' || item.status === inviteStatus,
+  )
+
   return (
-    <Tabs value={tab} onValueChange={onTabChange} className="space-y-6">
+    <Tabs value={tab} onValueChange={onTabChange} className="space-y-5">
+      <PageHeader
+        title="Користувачі"
+        description="Ролі й запрошення цього готелю. Дії залежать від ваших прав."
+      />
       <TabsList className="max-w-full overflow-x-auto">
         {allowedTabs.map((item) => (
           <TabsTrigger key={item} value={item}>
@@ -220,7 +230,8 @@ export function UsersPage() {
           <EmptyState>Користувачів поки немає.</EmptyState>
         ) : (
           <>
-            <Table>
+            <div className="hidden md:block">
+            <Table containerClassName="rounded-md border border-border bg-surface">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead>Імʼя</TableHead>
@@ -228,7 +239,9 @@ export function UsersPage() {
                   <TableHead>Роль</TableHead>
                   <TableHead>Стан</TableHead>
                   <TableHead>Останній вхід</TableHead>
-                  <TableHead />
+                  <TableHead>
+                    <span className="sr-only">Дії</span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -237,7 +250,7 @@ export function UsersPage() {
                     <TableCell>
                       {item.firstName} {item.lastName}
                     </TableCell>
-                    <TableCell>{item.email}</TableCell>
+                    <TableCell className="max-w-[14rem] truncate">{item.email}</TableCell>
                     <TableCell>{userRoleLabel[item.role]}</TableCell>
                     <TableCell>
                       <Badge tone={item.active ? 'success' : 'neutral'}>
@@ -248,38 +261,48 @@ export function UsersPage() {
                       {item.lastLoginAt ? formatDateTime(item.lastLoginAt) : '—'}
                     </TableCell>
                     <TableCell className="text-right">
-                      {canManageAdminAccount(user?.role, item) ? (
-                        <div className="flex flex-wrap justify-end gap-1">
-                          {(canUpdateAdminUsers(user?.role) || canDeactivateUsers(user?.role)) ? (
-                            <Button size="sm" variant="ghost" onClick={() => openEdit(item)}>
-                              Редагувати
-                            </Button>
-                          ) : null}
-                          {canResetStaffPasswords(user?.role) ? (
-                            <Button size="sm" variant="ghost" onClick={() => openPassword(item)}>
-                              Пароль
-                            </Button>
-                          ) : null}
-                          {canRevokeStaffSessions(user?.role) ? (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => {
-                                void openRevoke(item)
-                              }}
-                            >
-                              Сесії
-                            </Button>
-                          ) : null}
-                        </div>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">Лише перегляд</span>
-                      )}
+                      <UserRowActions
+                        item={item}
+                        role={user?.role}
+                        onEdit={() => openEdit(item)}
+                        onPassword={() => openPassword(item)}
+                        onRevoke={() => {
+                          void openRevoke(item)
+                        }}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
+            </div>
+            <ul className="divide-y divide-border rounded-md border border-border bg-surface md:hidden">
+              {items.map((item) => (
+                <li key={item.id} className="space-y-2 px-4 py-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-medium">
+                        {item.firstName} {item.lastName}
+                      </p>
+                      <p className="truncate text-sm text-muted-foreground">{item.email}</p>
+                      <p className="mt-0.5 text-sm">{userRoleLabel[item.role]}</p>
+                    </div>
+                    <Badge tone={item.active ? 'success' : 'neutral'}>
+                      {item.active ? 'Активний' : 'Вимкнений'}
+                    </Badge>
+                  </div>
+                  <UserRowActions
+                    item={item}
+                    role={user?.role}
+                    onEdit={() => openEdit(item)}
+                    onPassword={() => openPassword(item)}
+                    onRevoke={() => {
+                      void openRevoke(item)
+                    }}
+                  />
+                </li>
+              ))}
+            </ul>
             {pagination ? (
               <Pagination
                 page={pagination.page}
@@ -305,12 +328,32 @@ export function UsersPage() {
             ) : undefined
           }
         />
+        {(invitations.data ?? []).length > 0 ? (
+          <label className="mb-4 block max-w-xs space-y-1.5">
+            <span className="block text-[11px] tracking-[0.12em] text-muted uppercase">Стан</span>
+            <Select value={inviteStatus} onValueChange={(value: AdminInvitationStatus | 'all') => setInviteStatus(value)}>
+              <SelectTrigger aria-label="Фільтр за станом запрошення">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Усі</SelectItem>
+                <SelectItem value="pending">Очікує</SelectItem>
+                <SelectItem value="expired">Прострочено</SelectItem>
+                <SelectItem value="accepted">Прийнято</SelectItem>
+              </SelectContent>
+            </Select>
+          </label>
+        ) : null}
         {invitations.isError ? (
           <p className="text-sm">Не вдалося завантажити запрошення</p>
         ) : (invitations.data ?? []).length === 0 ? (
           <EmptyState>Активних запрошень немає.</EmptyState>
+        ) : invitationItems.length === 0 ? (
+          <EmptyState>Запрошень із цим станом немає.</EmptyState>
         ) : (
-          <Table>
+          <>
+          <div className="hidden md:block">
+          <Table containerClassName="rounded-md border border-border bg-surface">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>Пошта</TableHead>
@@ -322,16 +365,14 @@ export function UsersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(invitations.data ?? []).map((item) => (
+              {invitationItems.map((item) => (
                 <TableRow key={item.id}>
-                  <TableCell>{item.email}</TableCell>
+                  <TableCell className="max-w-[14rem] truncate">{item.email}</TableCell>
                   <TableCell>
                     {item.role === 'owner' ? userRoleLabel.owner : staffInviteRoleLabel[item.role]}
                   </TableCell>
                   <TableCell>
-                    <Badge tone={item.status === 'pending' ? 'success' : 'neutral'}>
-                      {invitationStatusLabel(item.status)}
-                    </Badge>
+                    <Badge tone={invitationTone(item.status)}>{invitationStatusLabel(item.status)}</Badge>
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-muted-foreground">
                     {formatDateTime(item.createdAt)}
@@ -350,6 +391,31 @@ export function UsersPage() {
               ))}
             </TableBody>
           </Table>
+          </div>
+          <ul className="divide-y divide-border rounded-md border border-border bg-surface md:hidden">
+            {invitationItems.map((item) => (
+              <li key={item.id} className="space-y-2 px-4 py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{item.email}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {item.role === 'owner' ? userRoleLabel.owner : staffInviteRoleLabel[item.role]}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      До {formatDateTime(item.expiresAt)}
+                    </p>
+                  </div>
+                  <Badge tone={invitationTone(item.status)}>{invitationStatusLabel(item.status)}</Badge>
+                </div>
+                {canInvite && item.status === 'pending' && item.role !== 'owner' && canInviteRole(user?.role, item.role) ? (
+                  <Button size="sm" variant="ghost" onClick={() => setResending(item)}>
+                    Надіслати знову
+                  </Button>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+          </>
         )}
       </section>
       ) : null}
@@ -460,6 +526,49 @@ export function UsersPage() {
         }}
       />
     </Tabs>
+  )
+}
+
+function invitationTone(status: AdminInvitationStatus) {
+  if (status === 'pending') return 'warning' as const
+  if (status === 'expired') return 'cancelled' as const
+  return 'checkedOut' as const
+}
+
+function UserRowActions({
+  item,
+  role,
+  onEdit,
+  onPassword,
+  onRevoke,
+}: {
+  item: AdminUser
+  role: UserRole | undefined
+  onEdit: () => void
+  onPassword: () => void
+  onRevoke: () => void
+}) {
+  if (!canManageAdminAccount(role, item)) {
+    return <span className="text-xs text-muted-foreground">Лише перегляд</span>
+  }
+  return (
+    <div className="flex flex-wrap gap-1">
+      {canUpdateAdminUsers(role) || canDeactivateUsers(role) ? (
+        <Button size="sm" variant="ghost" onClick={onEdit}>
+          Редагувати
+        </Button>
+      ) : null}
+      {canResetStaffPasswords(role) ? (
+        <Button size="sm" variant="ghost" onClick={onPassword}>
+          Пароль
+        </Button>
+      ) : null}
+      {canRevokeStaffSessions(role) ? (
+        <Button size="sm" variant="ghost" onClick={onRevoke}>
+          Сесії
+        </Button>
+      ) : null}
+    </div>
   )
 }
 

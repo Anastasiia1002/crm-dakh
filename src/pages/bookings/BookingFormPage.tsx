@@ -157,7 +157,7 @@ export function BookingFormPage() {
         <p className="text-sm text-muted-foreground">Дочекайтеся відповіді сервера, перш ніж залишати сторінку.</p>
       ) : null}
       <div>
-        <h2 className="font-serif text-[1.85rem] font-medium">{isEdit ? 'Редагування бронювання' : 'Нове бронювання'}</h2>
+        <h1 className="font-serif text-[1.85rem] font-medium">{isEdit ? 'Редагування бронювання' : 'Нове бронювання'}</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Ціна розраховується на сервері. Джерело: ADMIN. Статус при створенні: CONFIRMED.
         </p>

@@ -1,6 +1,6 @@
 import { Menu } from 'lucide-react'
 import { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { StaffNoticeMenu } from '@/components/layout/StaffNoticeMenu'
 import { Sidebar } from '@/components/layout/Sidebar'
 import {
@@ -14,11 +14,9 @@ import {
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { useAuth } from '@/hooks/useAuth'
 import { userRoleLabel } from '@/lib/labels'
-import { titleForPath } from '@/router/nav'
 import { initials } from '@/lib/utils'
 
 export function Header() {
-  const location = useLocation()
   const { user, logout } = useAuth()
   const [open, setOpen] = useState(false)
 
@@ -33,9 +31,6 @@ export function Header() {
         >
           <Menu className="size-5" strokeWidth={1.5} />
         </button>
-        <h1 className="truncate font-serif text-xl leading-none font-medium tracking-tight lg:sr-only">
-          {titleForPath(location.pathname)}
-        </h1>
       </div>
 
       <div className="flex items-center gap-1 sm:gap-2">

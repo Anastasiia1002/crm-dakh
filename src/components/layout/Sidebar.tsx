@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 
 function NavGroup({ items, onNavigate }: { items: NavItem[]; onNavigate?: () => void }) {
   return (
-    <nav className="space-y-0.5 px-2">
+    <div className="space-y-0.5 px-2">
       {items.map((item) => {
         const Icon = item.icon
         return (
@@ -34,7 +34,7 @@ function NavGroup({ items, onNavigate }: { items: NavItem[]; onNavigate?: () => 
           </NavLink>
         )
       })}
-    </nav>
+    </div>
   )
 }
 
@@ -57,12 +57,14 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           <p className="mt-2 text-[10px] tracking-[0.14em] text-sidebar-mark uppercase">Тестове середовище</p>
         ) : null}
       </div>
-      <div className="flex-1 overflow-y-auto scroll-thin">
-        <NavGroup items={primaryItems} onNavigate={onNavigate} />
-      </div>
-      <div className="border-t border-sidebar-border py-3">
-        <NavGroup items={secondaryItems} onNavigate={onNavigate} />
-      </div>
+      <nav aria-label="Розділи CRM" className="flex min-h-0 flex-1 flex-col">
+        <div className="flex-1 overflow-y-auto scroll-thin">
+          <NavGroup items={primaryItems} onNavigate={onNavigate} />
+        </div>
+        <div className="border-t border-sidebar-border py-3">
+          <NavGroup items={secondaryItems} onNavigate={onNavigate} />
+        </div>
+      </nav>
     </div>
   )
 }

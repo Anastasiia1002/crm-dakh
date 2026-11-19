@@ -82,7 +82,7 @@ export function DashboardPage() {
       {/* Daily booking trend is not in GET /api/admin/dashboard/summary. No chart until that series exists. */}
       <PageHeader
         title="Огляд готелю"
-        description="Сьогоднішня зміна: заїзди, виїзди, завантаженість. Фінансове зведення — окремо за період нижче."
+        description="Заїзди, виїзди й завантаженість на вибрану дату. Фінанси — за період нижче."
       />
 
       <OperationsBoard

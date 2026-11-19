@@ -11,6 +11,7 @@ import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Pagination } from '@/components/ui/pagination'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { PageHeader } from '@/components/ui/page-header'
 import { EmptyState, LoadingState, SectionHeading } from '@/components/ui/states'
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/hooks/useAuth'
@@ -121,7 +122,11 @@ export function SettingsPage() {
   const waiting = !hotel.data && !booking.data && (hotel.isLoading || booking.isLoading)
 
   return (
-    <div className="max-w-3xl space-y-14">
+    <div className="max-w-3xl space-y-6">
+      <PageHeader
+        title="Налаштування"
+        description="Кожен розділ зберігається окремо. Помилки форми лишаються в полях після невдалого збереження."
+      />
       {waiting ? <LoadingState /> : null}
       {hotel.isError ? <LoadError onRetry={() => void hotel.refetch()} /> : null}
       {hotel.data ? <HotelForm hotel={hotel.data} canEdit={canEdit} /> : null}
@@ -129,7 +134,7 @@ export function SettingsPage() {
       {booking.isError ? <LoadError onRetry={() => void booking.refetch()} /> : null}
       {booking.data ? <BookingSettingsForm settings={booking.data} canEdit={canEdit} /> : null}
 
-      <section>
+      <section className="rounded-md border border-border bg-surface px-4 py-4">
         <SectionHeading
           title="Правила скасування"
           action={
@@ -192,9 +197,9 @@ export function SettingsPage() {
         />
       </section>
 
-      <section className="border-t border-border pt-8">
-        <h2 className="font-serif text-[1.7rem] font-medium">Оплата</h2>
-        <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
+      <section className="rounded-md border border-border bg-surface px-4 py-4">
+        <h2 className="font-serif text-[1.4rem] font-medium">Оплата</h2>
+        <p className="mt-1 max-w-xl text-sm leading-6 text-muted-foreground">
           Онлайн-оплата ще не підключена. У бронюваннях уже є статус і спосіб оплати, тож платіжного провайдера можна
           буде додати без зміни карток бронювання.
         </p>
@@ -242,8 +247,9 @@ function HotelForm({ hotel, canEdit }: { hotel: HotelSettings; canEdit: boolean 
   })
 
   return (
-    <section>
+    <section className="rounded-md border border-border bg-surface px-4 py-4">
       <SectionHeading title="Готель" />
+      <p className="mb-4 text-sm text-muted-foreground">Контакти готелю, адреса та години заїзду. Валюта лише UAH.</p>
       <form
         className="grid gap-4 sm:grid-cols-2"
         onSubmit={form.handleSubmit(async (values) => {
@@ -278,7 +284,7 @@ function HotelForm({ hotel, canEdit }: { hotel: HotelSettings; canEdit: boolean 
           <Input type="email" autoComplete="email" disabled={!canEdit} {...form.register('email')} />
         </Field>
         <div className="sm:col-span-2">
-          <h3 className="font-serif text-2xl font-medium">Контактна інформація</h3>
+          <h3 className="font-serif text-lg font-medium">Контактна інформація</h3>
           <Field
             label="Email для звернень із сайту"
             hint="На цю адресу надходитимуть повідомлення, які гості надсилають через контактну форму сайту DAKH."
@@ -323,12 +329,15 @@ function HotelForm({ hotel, canEdit }: { hotel: HotelSettings; canEdit: boolean 
           <Input type="time" disabled={!canEdit} {...form.register('checkOutTime')} />
         </Field>
         {canEdit ? (
-          <div className="sm:col-span-2">
+          <div className="sm:col-span-2 flex items-center justify-between gap-3 border-t border-border pt-4">
+            <p className="text-xs text-muted-foreground">Зберігає лише цей розділ.</p>
             <Button type="submit" disabled={update.isPending} loading={update.isPending}>
               Зберегти
             </Button>
           </div>
-        ) : null}
+        ) : (
+          <p className="sm:col-span-2 text-xs text-muted-foreground">Лише перегляд</p>
+        )}
       </form>
     </section>
   )
@@ -350,8 +359,9 @@ function BookingSettingsForm({ settings, canEdit }: { settings: HotelBookingSett
   })
 
   return (
-    <section>
+    <section className="rounded-md border border-border bg-surface px-4 py-4">
       <SectionHeading title="Параметри бронювання" />
+      <p className="mb-4 text-sm text-muted-foreground">Правила створення бронювань для цього готелю.</p>
       <form
         className="grid gap-4 sm:grid-cols-2"
         onSubmit={form.handleSubmit(async (values) => {
@@ -393,12 +403,15 @@ function BookingSettingsForm({ settings, canEdit }: { settings: HotelBookingSett
           <Input type="number" min={0} disabled={!canEdit} {...form.register('cancellationHours')} />
         </Field>
         {canEdit ? (
-          <div className="sm:col-span-2">
+          <div className="sm:col-span-2 flex items-center justify-between gap-3 border-t border-border pt-4">
+            <p className="text-xs text-muted-foreground">Зберігає лише цей розділ.</p>
             <Button type="submit" disabled={update.isPending} loading={update.isPending}>
               Зберегти
             </Button>
           </div>
-        ) : null}
+        ) : (
+          <p className="sm:col-span-2 text-xs text-muted-foreground">Лише перегляд</p>
+        )}
       </form>
     </section>
   )

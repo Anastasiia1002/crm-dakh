@@ -179,7 +179,7 @@ export function AuditLogPanel() {
       </div>
       {exportError ? <p className="text-sm text-destructive">{exportError}</p> : null}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="filter-toolbar grid gap-3 rounded-md border border-border bg-surface p-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="space-y-1 text-sm sm:col-span-2">
           <span className="text-muted-foreground">Період</span>
           <DateRangePicker
