@@ -71,7 +71,7 @@ export function validateStayFields(input: {
   }
   if (!input.roomId) errors.roomId = 'Оберіть активне розміщення.'
   else if (!input.roomActive) errors.roomId = 'Це розміщення вимкнене. Оберіть активне.'
-  if (!input.ratePlanId) errors.ratePlanId = 'Немає єдиного комерційного тарифу STANDARD.'
+  if (!input.ratePlanId) errors.ratePlanId = 'Немає однозначних умов STANDARD для цього розміщення.'
   if (!Number.isInteger(input.guestCount) || input.guestCount < 1) {
     errors.guestCount = 'Вкажіть кількість гостей (щонайменше 1).'
   } else if (input.maxGuests !== null && input.guestCount > input.maxGuests) {

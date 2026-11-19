@@ -957,7 +957,7 @@ export function AdminBookingForm({
               pricing={quoteQuery.data.pricing}
             />
           ) : !booking || stayChanged ? (
-            <p className="text-sm text-muted-foreground">Оберіть розміщення, тариф і вільні дати для розрахунку.</p>
+            <p className="text-sm text-muted-foreground">Оберіть розміщення, дати і гостей для розрахунку.</p>
           ) : null}
         </section>
       ) : null}

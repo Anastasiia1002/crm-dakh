@@ -93,9 +93,9 @@ export function BookingFormPage() {
   }
 
   if (isEdit && bookingQuery.isLoading && !bookingQuery.data) return <PageSkeleton label="Завантажуємо бронювання…" />
-  if (!roomsQuery.data && roomsQuery.isLoading) return <PageSkeleton label="Завантажуємо номери та тарифи…" />
-  if (!typesQuery.data && typesQuery.isLoading) return <PageSkeleton label="Завантажуємо номери та тарифи…" />
-  if (!plansQuery.data && plansQuery.isLoading) return <PageSkeleton label="Завантажуємо номери та тарифи…" />
+  if (!roomsQuery.data && roomsQuery.isLoading) return <PageSkeleton label="Завантажуємо розміщення…" />
+  if (!typesQuery.data && typesQuery.isLoading) return <PageSkeleton label="Завантажуємо розміщення…" />
+  if (!plansQuery.data && plansQuery.isLoading) return <PageSkeleton label="Завантажуємо розміщення…" />
 
   if (isEdit && bookingQuery.isError) {
     return (
@@ -110,7 +110,7 @@ export function BookingFormPage() {
   if (roomsQuery.isError || typesQuery.isError || plansQuery.isError) {
     return (
       <QueryErrorState
-        title="Не вдалося завантажити номери або тарифи."
+        title="Не вдалося завантажити розміщення."
         error={roomsQuery.error ?? typesQuery.error ?? plansQuery.error}
         onRetry={() => {
           void roomsQuery.refetch()
