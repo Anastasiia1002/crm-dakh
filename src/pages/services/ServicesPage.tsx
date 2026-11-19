@@ -34,12 +34,14 @@ import {
   SERVICE_PRICE_UNSET_LABEL,
   SERVICE_CRM_BADGE,
   SERVICE_PUBLIC_NEEDS_PRICE,
+  SERVICE_PER_NIGHT_PENDING_HINT,
   SERVICE_PUBLIC_STAY_ONLY_HINT,
   SERVICE_SAVED_ONLINE_FLAG_HINT,
   SERVICE_SITE_BADGE,
   SERVICE_UNSUPPORTED_PUBLIC_BASIS_HINT,
   buildAdminServiceCreateBody,
   buildAdminServicePatchBody,
+  canEnablePublicOnlineBooking,
   filterManagedServices,
   formatManagedServicePrice,
   isPublicServiceChargeBasis,
@@ -77,7 +79,7 @@ const schema = z
     const price = validateOptionalServicePrice(values.price)
     if (!price.ok) {
       ctx.addIssue({ code: 'custom', path: ['price'], message: price.error })
-    } else if (values.bookable && isPublicServiceChargeBasis(values.chargeBasis) && price.price === null) {
+    } else if (values.bookable && canEnablePublicOnlineBooking(values.chargeBasis) && price.price === null) {
       ctx.addIssue({ code: 'custom', path: ['price'], message: SERVICE_PUBLIC_NEEDS_PRICE })
     }
     const sortOrder = parseOptionalServiceSortOrder(values.sortOrder)
@@ -346,6 +348,9 @@ function ServiceDialog({
   })
   const watchedPrice = form.watch('price')
   const watchedChargeBasis = form.watch('chargeBasis')
+  const watchedBookable = form.watch('bookable')
+  const liveOnline = canEnablePublicOnlineBooking(watchedChargeBasis)
+  const canToggleOnline = canWrite && (liveOnline || Boolean(current?.bookable))
   const priceChanged = Boolean(current && watchedPrice.trim() !== (current.price ?? ''))
 
   return (
@@ -456,8 +461,11 @@ function ServiceDialog({
             role="switch"
             aria-checked={form.watch('bookable')}
             aria-describedby="service-bookable-hint"
-            disabled={!canWrite || !isPublicServiceChargeBasis(watchedChargeBasis)}
-            onClick={() => form.setValue('bookable', !form.getValues('bookable'), { shouldDirty: true })}
+            disabled={!canToggleOnline || (!liveOnline && !watchedBookable)}
+            onClick={() => {
+              if (!liveOnline && !form.getValues('bookable')) return
+              form.setValue('bookable', !form.getValues('bookable'), { shouldDirty: true })
+            }}
             className="flex min-h-11 w-full items-center justify-between gap-3 rounded-md border border-border bg-surface px-3 text-left outline-none hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-40"
           >
             <span className="text-sm">Доступна для онлайн-бронювання</span>
@@ -479,7 +487,10 @@ function ServiceDialog({
           {!isPublicServiceChargeBasis(watchedChargeBasis) ? (
             <p className="text-xs text-muted-foreground">{SERVICE_UNSUPPORTED_PUBLIC_BASIS_HINT}</p>
           ) : null}
-          {form.watch('bookable') && !isPublicServiceChargeBasis(watchedChargeBasis) ? (
+          {isPublicServiceChargeBasis(watchedChargeBasis) && !liveOnline ? (
+            <p className="text-xs text-muted-foreground">{SERVICE_PER_NIGHT_PENDING_HINT}</p>
+          ) : null}
+          {form.watch('bookable') && !liveOnline ? (
             <p className="text-xs text-muted-foreground">{SERVICE_SAVED_ONLINE_FLAG_HINT}</p>
           ) : null}
         </div>

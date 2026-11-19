@@ -439,7 +439,62 @@ function main() {
     updatedAt: '2026-10-02T00:00:00.000Z',
   })
   assert(perNight.chargeBasis === 'PER_NIGHT', 'PER_NIGHT is a catalog charge basis')
-  assert(isPubliclyBookableService(perNight), 'an active per-night extra can be offered online')
+  assert(!isPubliclyBookableService(perNight), 'PER_NIGHT stays off the live public catalog until server quoting is deployed')
+  const blockedNightCreate = buildAdminServiceCreateBody({
+    name: 'Додаткове спальне місце',
+    description: '',
+    price: '200',
+    active: true,
+    bookable: true,
+    chargeBasis: 'PER_NIGHT',
+  })
+  assert(
+    blockedNightCreate.ok && blockedNightCreate.body.bookable === false && blockedNightCreate.body.chargeBasis === 'PER_NIGHT',
+    'creating a per-night extra does not enable online booking on the live API',
+  )
+  const blockedNightEnable = buildAdminServicePatchBody(perNight, {
+    name: perNight.name,
+    description: '',
+    price: perNight.price ?? '',
+    active: true,
+    bookable: true,
+    chargeBasis: 'PER_NIGHT',
+    minQuantity: '',
+    maxQuantity: '',
+    sortOrder: '',
+    category: '',
+  })
+  assert('empty' in blockedNightEnable && blockedNightEnable.empty, 'an already-online per-night flag is not rewritten')
+  const nightOff = parseManagedAdminService({ ...perNight, bookable: false })
+  const blockedNightTurnOn = buildAdminServicePatchBody(nightOff, {
+    name: nightOff.name,
+    description: '',
+    price: nightOff.price ?? '',
+    active: true,
+    bookable: true,
+    chargeBasis: 'PER_NIGHT',
+    minQuantity: '',
+    maxQuantity: '',
+    sortOrder: '',
+    category: '',
+  })
+  assert('empty' in blockedNightTurnOn && blockedNightTurnOn.empty, 'staff cannot enable online booking for PER_NIGHT yet')
+  const allowedNightTurnOff = buildAdminServicePatchBody(perNight, {
+    name: perNight.name,
+    description: '',
+    price: perNight.price ?? '',
+    active: true,
+    bookable: false,
+    chargeBasis: 'PER_NIGHT',
+    minQuantity: '',
+    maxQuantity: '',
+    sortOrder: '',
+    category: '',
+  })
+  assert(
+    allowedNightTurnOff.ok && allowedNightTurnOff.body.bookable === false,
+    'staff can still turn off a stored per-night online flag',
+  )
   const breakfastPersonDay = parseManagedAdminService({
     id: BREAKFAST,
     name: 'Сніданок',
@@ -583,11 +638,12 @@ function main() {
   assert(page.includes('За бронювання') || page.includes('SERVICE_PUBLIC_STAY_ONLY_HINT'), 'the form still names the per-stay unit')
   assert(page.includes('role="switch"'), 'public availability is a switch')
   assert(page.includes('ADMIN_SERVICE_CHARGE_BASES') && page.includes('SERVICE_CHARGE_BASIS_LABEL'), 'the form offers staff charge bases')
-  assert(page.includes('SERVICE_PUBLIC_STAY_ONLY_HINT'), 'public booking copy names stay and night units')
+  assert(page.includes('SERVICE_PUBLIC_STAY_ONLY_HINT'), 'public booking copy names the live per-stay unit')
+  assert(page.includes('SERVICE_PER_NIGHT_PENDING_HINT'), 'per-night online booking waits for the server')
   assert(page.includes('SERVICE_SITE_BADGE') && page.includes('SERVICE_CRM_BADGE'), 'the catalog shows whether a service is public')
   assert(page.includes('SERVICE_UNSUPPORTED_PUBLIC_BASIS_HINT') && page.includes('SERVICE_SAVED_ONLINE_FLAG_HINT'), 'unsupported extras explain why they stay off the site')
   assert(page.includes('У картці онлайн'), 'a saved online flag that is not public is labeled separately')
-  assert(page.includes('isPublicServiceChargeBasis(watchedChargeBasis)'), 'the online switch is disabled for unsupported units')
+  assert(page.includes('canEnablePublicOnlineBooking'), 'the online switch follows live public bases, not the future PER_NIGHT path')
   assert(!page.includes('Додати шаблонні послуги'), 'the services page does not offer template seeding')
   assert(!page.includes('SUGGESTED_SERVICES_BUTTON') && !page.includes('SUGGESTED_SERVICES_HINT'), 'template seed copy is unused')
   assert(page.includes('Додати послугу'), 'manual create remains')

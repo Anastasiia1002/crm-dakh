@@ -167,7 +167,7 @@ export function buildAdminBookingCreateInput(input: {
 }): AdminBookingCreateInput | { error: string } {
   const dateError = validateStayDates(input.checkIn, input.checkOut)
   if (dateError) return { error: dateError }
-  if (!input.roomId || !input.ratePlanId) return { error: 'Оберіть номер і тариф.' }
+  if (!input.roomId || !input.ratePlanId) return { error: 'Оберіть розміщення, дати і гостей.' }
   if (input.adults < 1) return { error: 'Потрібен хоча б один дорослий.' }
   if (input.children < 0) return { error: 'Кількість дітей некоректна.' }
   const services = prepareServicePayload(input.services, 'create')
@@ -266,7 +266,7 @@ export function buildAdminBookingUpdateInput(input: {
       if (!canReassignAdminBookingRoom(role)) {
         return { error: 'Недостатньо прав для зміни номера.' }
       }
-      if (!input.roomId || !input.ratePlanId) return { error: 'Оберіть номер і тариф.' }
+      if (!input.roomId || !input.ratePlanId) return { error: 'Оберіть розміщення, дати і гостей.' }
       patch.rooms = [{ roomId: input.roomId, ratePlanId: input.ratePlanId }]
     }
   }
