@@ -45,6 +45,8 @@ import {
   validateServiceQuantity,
   validateServiceQuantityBounds,
   isPubliclyBookableService,
+  LIVE_PUBLIC_SERVICE_CHARGE_BASES,
+  canEnablePublicOnlineBooking,
   serviceSiteVisibilityLabel,
 } from './admin-services'
 import { canManageAdminServices } from './roles'
@@ -644,6 +646,12 @@ function main() {
   assert(page.includes('SERVICE_UNSUPPORTED_PUBLIC_BASIS_HINT') && page.includes('SERVICE_SAVED_ONLINE_FLAG_HINT'), 'unsupported extras explain why they stay off the site')
   assert(page.includes('У картці онлайн'), 'a saved online flag that is not public is labeled separately')
   assert(page.includes('canEnablePublicOnlineBooking'), 'the online switch follows live public bases, not the future PER_NIGHT path')
+  assert(
+    LIVE_PUBLIC_SERVICE_CHARGE_BASES.length === 1 && LIVE_PUBLIC_SERVICE_CHARGE_BASES[0] === 'PER_STAY',
+    'live online booking stays PER_STAY until backend PER_NIGHT quoting is verified',
+  )
+  assert(!canEnablePublicOnlineBooking('PER_NIGHT'), 'PER_NIGHT cannot be turned on for the live API')
+  assert(page.includes('!liveOnline && !watchedBookable'), 'the switch cannot enable an unsupported public basis')
   assert(!page.includes('Додати шаблонні послуги'), 'the services page does not offer template seeding')
   assert(!page.includes('SUGGESTED_SERVICES_BUTTON') && !page.includes('SUGGESTED_SERVICES_HINT'), 'template seed copy is unused')
   assert(page.includes('Додати послугу'), 'manual create remains')

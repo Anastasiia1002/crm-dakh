@@ -19,7 +19,12 @@ import {
   showCalendarBlockButton,
   type NightSelection,
 } from '@/lib/calendar-selection'
-import { chessboardRoomLabel, unitDisplayLabel } from '@/lib/accommodation-labels'
+import {
+  chessboardRoomLabel,
+  COTTAGE_KIND_GROUP_LABEL,
+  ROOM_KIND_GROUP_LABEL,
+  unitDisplayLabel,
+} from '@/lib/accommodation-labels'
 import { addCalendarDays, todayIso } from '@/lib/dates'
 import { formatDateShort } from '@/lib/format'
 import {
@@ -28,7 +33,6 @@ import {
   type InventoryActiveFilter,
 } from '@/lib/inventory-status'
 import { CATALOG_STALE_TIME } from '@/lib/queryClient'
-import { roomTypeKindLabel } from '@/lib/labels'
 import type { Accommodation, ChessboardAdminBar, RoomTypeKind } from '@/types'
 
 /**
@@ -39,8 +43,8 @@ import type { Accommodation, ChessboardAdminBar, RoomTypeKind } from '@/types'
 
 const kindOptions: { id: RoomTypeKind | 'all'; label: string }[] = [
   { id: 'all', label: 'Усі' },
-  { id: 'ROOM', label: roomTypeKindLabel.ROOM },
-  { id: 'COTTAGE', label: roomTypeKindLabel.COTTAGE },
+  { id: 'ROOM', label: ROOM_KIND_GROUP_LABEL },
+  { id: 'COTTAGE', label: COTTAGE_KIND_GROUP_LABEL },
 ]
 
 export function CalendarPage() {

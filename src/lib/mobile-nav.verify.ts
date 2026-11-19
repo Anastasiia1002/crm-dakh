@@ -24,9 +24,12 @@ assert(header.includes('{desktop ? null : ('), 'the mobile sheet is not in the d
 assert(header.includes('aria-expanded={menuOpen}'), 'the menu button exposes expanded state')
 assert(header.includes('aria-controls="staff-mobile-nav"'), 'the menu button points at the sheet')
 assert(header.includes('id="staff-mobile-nav"'), 'the sheet has a stable id')
+assert(header.includes('menuButtonRef'), 'the hamburger keeps a ref for focus restore')
+assert(header.includes('onCloseAutoFocus'), 'closing the sheet restores focus in this layout, not only by Dialog default')
+assert(header.includes('menuButtonRef.current?.focus()'), 'Escape returns focus to the hamburger')
 assert(header.includes('onNavigate={() => onMenuOpenChange(false)}'), 'choosing a section closes the sheet')
 assert(sheet.includes('DialogPrimitive.Title'), 'the sheet has an accessible title')
-assert(sheet.includes('@radix-ui/react-dialog'), 'focus trap, Escape, and restore come from Dialog')
+assert(sheet.includes('@radix-ui/react-dialog'), 'the sheet still uses Dialog for the focus trap')
 assert(sidebar.includes('onNavigate'), 'sidebar links can close the sheet after navigation')
 
 console.log('PASS: mobile navigation is a single accessibility tree')

@@ -135,7 +135,7 @@ export function AnalyticsPage() {
         <FilterStep
           step={2}
           title="Оберіть номери та будиночки"
-          hint="Два списки, щоб не змішувати кімнати з будинками. Нижче — пошук конкретного проживання."
+          hint="Два списки, щоб не змішувати номери з будиночками. Нижче — пошук конкретного проживання."
         >
           <div className="grid gap-6 lg:grid-cols-2">
             {(['ROOM', 'COTTAGE'] as const).map((kind) => {

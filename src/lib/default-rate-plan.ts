@@ -20,3 +20,8 @@ export function pickDefaultCommercialRatePlan(plans: readonly RatePlan[]): Defau
   if (commercial.length === 1) return { mode: 'auto', plan: commercial[0] }
   return { mode: 'choose', plans: commercial, reason: 'several' }
 }
+
+export function resolvedCommercialRatePlanId(plans: readonly RatePlan[]) {
+  const choice = pickDefaultCommercialRatePlan(plans)
+  return choice.mode === 'auto' ? choice.plan.id : null
+}

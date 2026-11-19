@@ -185,6 +185,7 @@ assert(calendar.includes('roomId: query.roomId'), 'booking navigation keeps room
 assert(calendar.includes('Заблокувати дати'), 'chessboard can still open date blocking')
 assert(calendar.includes('listAllRooms'), 'calendar loads every room page for labels')
 assert(calendar.includes('chessboardRoomLabel'), 'calendar uses the shared row label')
+assert(calendar.includes('ROOM_KIND_GROUP_LABEL') && calendar.includes('COTTAGE_KIND_GROUP_LABEL'), 'calendar kind filter uses Номери and Будиночки')
 assert(!calendar.includes('number: roomDisplayName'), 'calendar does not overwrite room.number')
 assert(chessboard.includes('chessboardStickyLabel'), 'chessboard avoids repeating the type heading')
 assert(chessboard.includes('ROOM_KIND_GROUP_LABEL') && chessboard.includes('COTTAGE_KIND_GROUP_LABEL'), 'chessboard has room and cottage sections')
