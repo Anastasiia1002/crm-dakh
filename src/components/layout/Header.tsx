@@ -23,27 +23,27 @@ export function Header() {
   const [open, setOpen] = useState(false)
 
   return (
-    <header className="sticky top-0 z-30 flex min-h-16 items-center justify-between gap-4 border-b border-border bg-background/95 px-4 pt-[env(safe-area-inset-top)] backdrop-blur-sm md:px-8">
-      <div className="flex items-center gap-3">
+    <header className="sticky top-0 z-30 flex min-h-14 items-center justify-between gap-3 border-b border-border bg-background/92 px-4 pt-[env(safe-area-inset-top)] backdrop-blur-sm md:px-7">
+      <div className="flex min-w-0 items-center gap-2">
         <button
           type="button"
-          className="rounded-md p-2 text-foreground lg:hidden"
+          className="inline-flex size-11 items-center justify-center rounded-md text-foreground lg:hidden"
           onClick={() => setOpen(true)}
           aria-label="Відкрити меню"
         >
           <Menu className="size-5" strokeWidth={1.5} />
         </button>
-        <h1 className="font-serif text-[1.65rem] leading-none font-medium tracking-tight">
+        <h1 className="truncate font-serif text-xl leading-none font-medium tracking-tight lg:sr-only">
           {titleForPath(location.pathname)}
         </h1>
       </div>
 
-      <div className="flex items-center gap-2 sm:gap-4">
+      <div className="flex items-center gap-1 sm:gap-2">
         <StaffNoticeMenu />
 
         {user ? (
           <DropdownMenu>
-            <DropdownMenuTrigger className="flex items-center gap-3 rounded-md py-1 pr-1 pl-1 outline-none hover:bg-surface-muted">
+            <DropdownMenuTrigger className="flex min-h-11 items-center gap-2 rounded-md py-1 pr-1 pl-2 outline-none hover:bg-surface-muted">
               <span className="hidden text-right sm:block">
                 <span className="block text-sm leading-tight">{user.firstName}</span>
                 <span className="block text-[11px] text-muted-foreground">{userRoleLabel[user.role]}</span>

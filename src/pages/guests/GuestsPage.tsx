@@ -6,6 +6,7 @@ import { GuestFormDialog } from '@/components/guests/GuestFormDialog'
 import { GuestImportDialog } from '@/components/guests/GuestImportDialog'
 import { GuestTable } from '@/components/guests/GuestTable'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
 import { Pagination } from '@/components/ui/pagination'
 import { EmptyState, LoadingState } from '@/components/ui/states'
 import { useAuth } from '@/hooks/useAuth'
@@ -95,26 +96,29 @@ export function GuestsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        <p className="max-w-xl text-sm text-muted-foreground">Ваша клієнтська база тут</p>
-        <div className="flex flex-wrap gap-2">
-          {canImport ? (
-            <Button type="button" variant="outline" onClick={() => setImportOpen(true)}>
-              Імпорт
-            </Button>
-          ) : null}
-          {canExport ? (
-            <Button type="button" variant="outline" onClick={() => setExportOpen(true)}>
-              Експорт
-            </Button>
-          ) : null}
-          {canWrite ? (
-            <Button type="button" onClick={() => setCreateOpen(true)}>
-              Додати клієнта
-            </Button>
-          ) : null}
-        </div>
-      </div>
+      <PageHeader
+        title="Клієнти"
+        description="Ваша клієнтська база тут"
+        actions={
+          <>
+            {canImport ? (
+              <Button type="button" variant="outline" onClick={() => setImportOpen(true)}>
+                Імпорт
+              </Button>
+            ) : null}
+            {canExport ? (
+              <Button type="button" variant="outline" onClick={() => setExportOpen(true)}>
+                Експорт
+              </Button>
+            ) : null}
+            {canWrite ? (
+              <Button type="button" onClick={() => setCreateOpen(true)}>
+                Додати клієнта
+              </Button>
+            ) : null}
+          </>
+        }
+      />
 
       <GuestFilters
         search={search}

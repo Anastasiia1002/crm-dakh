@@ -7,6 +7,7 @@ import { DateRangePicker } from '@/components/dates/DateRangePicker'
 import { UnitMultiSelect } from '@/components/rates/UnitMultiSelect'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { PageHeader } from '@/components/ui/page-header'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
@@ -190,20 +191,17 @@ export function PriceWorkspace({
 
   return (
     <section className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="font-serif text-3xl font-medium">Ціни</h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Збережена ціна одразу діє для нових бронювань обраних номерів і будиночків. Уже створені бронювання
-            зберігають свої суми.
-          </p>
-        </div>
-        {onBack ? (
-          <Button type="button" variant="outline" onClick={onBack}>
-            Поточні ціни
-          </Button>
-        ) : null}
-      </div>
+      <PageHeader
+        title="Змінити ціни"
+        description="Збережена ціна одразу діє для нових бронювань обраних номерів і будиночків. Уже створені бронювання зберігають свої суми."
+        actions={
+          onBack ? (
+            <Button type="button" variant="outline" onClick={onBack}>
+              Поточні ціни
+            </Button>
+          ) : null
+        }
+      />
 
       <Field label="Оберіть період, на який встановлюємо ціни">
         <Select value={preset} onValueChange={(value: PricePeriodPresetId) => applyPreset(value)}>

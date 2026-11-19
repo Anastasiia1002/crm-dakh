@@ -204,7 +204,7 @@ export function AccommodationEditorPage() {
         <Link to="/admin/accommodations" className="text-sm text-muted-foreground hover:text-foreground">
           ← Номери та будиночки
         </Link>
-        <h1 className="font-serif text-3xl font-medium">Нове розміщення</h1>
+        <h1 className="font-serif text-[1.85rem] font-medium">Нове розміщення</h1>
         <div className="flex flex-col gap-2 sm:flex-row">
           <Button asChild>
             <Link to="/admin/accommodations/new?kind=ROOM">Додати номер</Link>
@@ -230,7 +230,7 @@ export function AccommodationEditorPage() {
       <Link to={listPath(kind)} className="text-sm text-muted-foreground hover:text-foreground">
         ← Номери та будиночки
       </Link>
-      <h1 className="mt-3 font-serif text-3xl font-medium sm:text-4xl">{title}</h1>
+      <h1 className="mt-3 font-serif text-[1.85rem] font-medium">{title}</h1>
       <form
         className="mt-8 space-y-10"
         onSubmit={form.handleSubmit(async (values) => {

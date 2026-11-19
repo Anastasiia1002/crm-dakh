@@ -178,6 +178,17 @@ export function OperationsBoard({
         </div>
       </div>
 
+      <section className="grid gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(16rem,0.8fr)]">
+        <OccupancyPanel
+          date={date}
+          loading={board.calendar.isPending}
+          error={board.calendar.error}
+          onRetry={() => void board.calendar.refetch()}
+          occupancy={occupancy}
+        />
+        <AttentionPanel items={attention} loading={board.movements.isPending} error={board.movements.isError} />
+      </section>
+
       <section className="grid grid-cols-2 gap-3 xl:grid-cols-5">
         {TABS.map((item) => {
           const Icon = item.icon
@@ -188,32 +199,23 @@ export function OperationsBoard({
               type="button"
               aria-pressed={tab === item.id}
               onClick={() => chooseTab(item.id)}
-              className={`rounded-md border px-3 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
-                tab === item.id ? 'border-foreground bg-surface' : 'border-border bg-surface hover:border-foreground/30'
+              className={`min-h-11 rounded-md border px-3 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
+                tab === item.id
+                  ? 'border-primary/40 bg-surface shadow-[inset_3px_0_0_0_var(--primary)]'
+                  : 'border-border bg-surface hover:border-primary/25'
               }`}
             >
               <span className="flex items-center justify-between gap-2 text-[11px] tracking-[0.12em] text-muted uppercase">
                 {item.label}
                 <Icon className="size-3.5" aria-hidden />
               </span>
-              <span className="mt-2 block font-sans text-3xl font-semibold leading-none tabular-nums tracking-tight">
+              <span className="mt-1.5 block font-sans text-2xl font-semibold leading-none tabular-nums tracking-tight">
                 {count.value === null ? '—' : count.complete ? formatCount(count.value) : `${formatCount(count.value)}+`}
               </span>
-              <span className="mt-2 block text-xs text-muted-foreground">{item.hint}</span>
+              <span className="mt-1.5 hidden text-xs text-muted-foreground sm:block">{item.hint}</span>
             </button>
           )
         })}
-      </section>
-
-      <section className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_18rem]">
-        <OccupancyPanel
-          date={date}
-          loading={board.calendar.isPending}
-          error={board.calendar.error}
-          onRetry={() => void board.calendar.refetch()}
-          occupancy={occupancy}
-        />
-        <AttentionPanel items={attention} loading={board.movements.isPending} error={board.movements.isError} />
       </section>
 
       <section className="rounded-md border border-border bg-surface">
@@ -356,12 +358,12 @@ export function OperationsBoard({
         ) : null}
       </section>
 
-      <section className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <nav className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
         <QuickLink to="/admin/bookings/new" icon={Plus} label="Нове бронювання" />
         <QuickLink to="/admin/calendar" icon={CalendarDays} label="Шахматка" />
         <QuickLink to="/admin/bookings" icon={NotebookPen} label="Бронювання" />
         <QuickLink to="/admin/accommodations" icon={Building2} label="Номери та будиночки" />
-      </section>
+      </nav>
     </div>
   )
 }
@@ -382,7 +384,7 @@ function OccupancyPanel({
   const width = occupancy?.percent ? Math.min(100, Number(occupancy.percent)) : 0
   return (
     <div className="rounded-md border border-border bg-surface px-4 py-4">
-      <h3 className="font-serif text-xl">Завантаженість</h3>
+      <h3 className="font-serif text-lg font-medium">Завантаженість</h3>
       <p className="mt-1 text-sm text-muted-foreground">Стан на {formatDate(date)}</p>
       {loading ? <div className="mt-4 h-16 animate-pulse rounded-md bg-surface-muted" aria-busy="true" /> : null}
       {error ? <QueryErrorState error={error} title="Не вдалося завантажити дані." onRetry={onRetry} /> : null}
@@ -433,7 +435,7 @@ function AttentionPanel({
 }) {
   return (
     <div className="rounded-md border border-border bg-surface px-4 py-4">
-      <h3 className="font-serif text-xl">Потребують дії</h3>
+      <h3 className="font-serif text-lg font-medium">Потребують дії</h3>
       <p className="mt-1 text-sm text-muted-foreground">Бронювання зі статусом «Очікує підтвердження».</p>
       {loading ? <div className="mt-4 h-16 animate-pulse rounded-md bg-surface-muted" /> : null}
       {!loading && error ? <p className="mt-4 text-sm text-muted-foreground">Список заїздів не завантажився.</p> : null}
@@ -458,12 +460,10 @@ function AttentionPanel({
 
 function QuickLink({ to, icon: Icon, label }: { to: string; icon: typeof Plus; label: string }) {
   return (
-    <Button type="button" variant="outline" asChild className="justify-start">
-      <Link to={to}>
-        <Icon className="size-4" />
-        {label}
-      </Link>
-    </Button>
+    <Link to={to} className="inline-flex min-h-10 items-center gap-1.5 text-foreground underline-offset-4 hover:underline">
+      <Icon className="size-4 text-muted-foreground" />
+      {label}
+    </Link>
   )
 }
 

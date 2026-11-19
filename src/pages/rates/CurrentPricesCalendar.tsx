@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { DateRangePicker } from '@/components/dates/DateRangePicker'
 import { Button } from '@/components/ui/button'
 import { Field } from '@/components/ui/field'
+import { PageHeader } from '@/components/ui/page-header'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { EmptyState, LoadingState } from '@/components/ui/states'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -19,7 +20,11 @@ const CALENDAR_PRESETS = PRICE_PERIOD_PRESETS.filter((item) => item.id !== 'curr
 
 function PriceCell({ night }: { night: CurrentPriceNight }) {
   if (night.missing || !night.amount) {
-    return <span className="text-muted-foreground">{CURRENT_PRICE_LABEL.missing}</span>
+    return (
+      <span className="inline-flex rounded-sm border border-dashed border-border px-1.5 py-0.5 text-xs text-muted-foreground">
+        {CURRENT_PRICE_LABEL.missing}
+      </span>
+    )
   }
   return <p className="font-medium tabular-nums">{formatMoneyAmount(night.amount)}</p>
 }
@@ -65,21 +70,19 @@ export function CurrentPricesCalendar({
 
   return (
     <section className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="font-serif text-3xl font-medium">Ціни</h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Тут видно діючі ціни по номерах і будиночках. Щоб змінити їх — «Змінити ціни».
-          </p>
-        </div>
-        {canWrite ? (
-          <Button type="button" onClick={onEditPrices}>
-            Змінити ціни
-          </Button>
-        ) : null}
-      </div>
+      <PageHeader
+        title="Ціни"
+        description="Діючі ціни по номерах і будиночках. Щоб змінити їх — «Змінити ціни»."
+        actions={
+          canWrite ? (
+            <Button type="button" onClick={onEditPrices}>
+              Змінити ціни
+            </Button>
+          ) : null
+        }
+      />
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 rounded-md border border-border bg-surface p-3 sm:grid-cols-2">
         <Field label="Шаблон">
           <Select value={preset} onValueChange={(value: PricePeriodPresetId) => applyPreset(value)}>
             <SelectTrigger>
@@ -125,15 +128,15 @@ export function CurrentPricesCalendar({
 
       {calendar.data && !empty
         ? groups.map((group) => (
-            <div key={group.id} className="space-y-3">
-              <h2 className="font-serif text-xl font-medium">{group.label}</h2>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="sticky left-0 z-10 min-w-[10rem] bg-background">Одиниця</TableHead>
+            <div key={group.id} className="space-y-2">
+              <h2 className="font-serif text-lg font-medium">{group.label}</h2>
+              <Table containerClassName="max-h-[min(70vh,40rem)] overflow-auto rounded-md border border-border bg-surface">
+                <TableHeader className="sticky top-0 z-20 bg-surface">
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="sticky left-0 z-30 min-w-[11rem] bg-surface">Одиниця</TableHead>
                     {nights.map((date) => (
-                      <TableHead key={date} className="min-w-[8.5rem]">
-                        <span className="block normal-case tracking-normal">{formatWeekday(date)}</span>
+                      <TableHead key={date} className="min-w-[7.5rem] bg-surface">
+                        <span className="block normal-case tracking-normal text-muted">{formatWeekday(date)}</span>
                         <span className="block normal-case tracking-normal text-foreground">{formatDateShort(date)}</span>
                       </TableHead>
                     ))}
@@ -143,9 +146,9 @@ export function CurrentPricesCalendar({
                   {group.units.map((unit) => (
                     <TableRow
                       key={unit.roomId}
-                      className={highlightedRoomIds.includes(unit.roomId) ? 'bg-[#efe7dc]/60' : undefined}
+                      className={highlightedRoomIds.includes(unit.roomId) ? 'bg-secondary/70' : undefined}
                     >
-                      <TableCell className="sticky left-0 z-10 bg-background font-medium">
+                      <TableCell className="sticky left-0 z-10 bg-surface font-medium">
                         {unitDisplayTitle({ name: unit.name, number: unit.number })}
                       </TableCell>
                       {unit.nights.map((night) => (

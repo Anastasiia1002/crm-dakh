@@ -268,7 +268,7 @@ export function DateRangePicker({
                     isEdge
                       ? 'bg-primary font-semibold text-primary-foreground'
                       : inRange
-                        ? 'bg-[#efe7dc] font-medium'
+                        ? 'bg-secondary font-medium'
                         : closed
                           ? 'text-muted-foreground/45 opacity-40'
                           : date.startsWith(month)

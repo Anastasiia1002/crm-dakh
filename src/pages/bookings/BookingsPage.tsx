@@ -8,6 +8,7 @@ import { AdminBookingTable } from '@/components/bookings/AdminBookingTable'
 import { DateRangePicker } from '@/components/dates/DateRangePicker'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PageHeader } from '@/components/ui/page-header'
 import { Pagination } from '@/components/ui/pagination'
 import { AccommodationSelectGroups } from '@/components/bookings/AccommodationSelectGroups'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -91,58 +92,64 @@ export function BookingsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <Input
-          value={search}
-          onChange={(event) => {
-            setSearch(event.target.value)
-            setPage(1)
-          }}
-          placeholder="Пошук за гостем, телефоном або email"
-          className="lg:max-w-xl"
-        />
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={!bookings.data?.items.length}
-            onClick={() => {
-              const items = bookings.data?.items ?? []
-              if (items.length === 0) {
-                toast.error('Немає рядків для експорту')
-                return
-              }
-              downloadBookingsCsv(items)
-            }}
-          >
-            Експорт сторінки
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={exporting || (!dateGuard.ok && Boolean(checkIn || checkOut))}
-            onClick={() => {
-              const query = toAdminBookingListQuery({ ...filters, page: 1, limit: PAGE_SIZE })
-              setExporting(true)
-              void exportAdminBookingsCsv(query)
-                .then((blob) => {
-                  downloadCsvBlob(blob, 'bronjuvannja.csv')
-                })
-                .catch((error) => toast.error(errorMessage(error)))
-                .finally(() => setExporting(false))
-            }}
-          >
-            {exporting ? 'Експорт…' : 'Експортувати за фільтрами'}
-          </Button>
-          <Button asChild>
-            <Link to="/admin/bookings/new">Нове бронювання</Link>
-          </Button>
-        </div>
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        title="Бронювання"
+        description="Пошук і фільтри застосовуються до списку та повного експорту."
+        actions={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!bookings.data?.items.length}
+              onClick={() => {
+                const items = bookings.data?.items ?? []
+                if (items.length === 0) {
+                  toast.error('Немає рядків для експорту')
+                  return
+                }
+                downloadBookingsCsv(items)
+              }}
+            >
+              Експорт сторінки
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={exporting || (!dateGuard.ok && Boolean(checkIn || checkOut))}
+              onClick={() => {
+                const query = toAdminBookingListQuery({ ...filters, page: 1, limit: PAGE_SIZE })
+                setExporting(true)
+                void exportAdminBookingsCsv(query)
+                  .then((blob) => {
+                    downloadCsvBlob(blob, 'bronjuvannja.csv')
+                  })
+                  .catch((error) => toast.error(errorMessage(error)))
+                  .finally(() => setExporting(false))
+              }}
+            >
+              {exporting ? 'Експорт…' : 'Експортувати за фільтрами'}
+            </Button>
+            <Button asChild>
+              <Link to="/admin/bookings/new">Нове бронювання</Link>
+            </Button>
+          </>
+        }
+      />
 
-      <div className="flex flex-wrap items-end gap-3">
-        <span className="pb-2 text-[11px] tracking-[0.14em] text-muted uppercase">Фільтри</span>
+      <div className="filter-toolbar rounded-md border border-border bg-surface p-3">
+        <label className="min-w-[12rem] flex-1 space-y-1.5">
+          <span className="block text-[11px] tracking-[0.12em] text-muted uppercase">Пошук</span>
+          <Input
+            value={search}
+            onChange={(event) => {
+              setSearch(event.target.value)
+              setPage(1)
+            }}
+            placeholder="Гість, телефон або email"
+            aria-label="Пошук за гостем, телефоном або email"
+          />
+        </label>
         <Filter label="Період">
           <DateRangePicker
             start={checkIn}
@@ -223,13 +230,9 @@ export function BookingsPage() {
           </Select>
         </Filter>
         {dirty ? (
-          <button
-            type="button"
-            className="h-10 text-sm text-muted-foreground underline-offset-4 hover:underline"
-            onClick={resetFilters}
-          >
-            Очистити
-          </button>
+          <Button type="button" variant="ghost" onClick={resetFilters}>
+            Скинути фільтри
+          </Button>
         ) : null}
       </div>
 

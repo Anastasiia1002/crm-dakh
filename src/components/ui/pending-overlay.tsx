@@ -71,7 +71,7 @@ export function PendingOverlay({
 
   return (
     <div
-      className="fixed inset-0 z-[80] grid place-items-center bg-[#1c1a17]/45 p-4"
+      className="fixed inset-0 z-[80] grid place-items-center bg-sidebar/45 p-4"
       role="alertdialog"
       aria-modal="true"
       aria-busy={!uncertain}

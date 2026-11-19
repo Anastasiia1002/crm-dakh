@@ -1,9 +1,13 @@
 import type { HTMLAttributes, TdHTMLAttributes, ThHTMLAttributes } from 'react'
 import { cn } from '@/lib/utils'
 
-export function Table({ className, ...props }: HTMLAttributes<HTMLTableElement>) {
+export function Table({
+  className,
+  containerClassName,
+  ...props
+}: HTMLAttributes<HTMLTableElement> & { containerClassName?: string }) {
   return (
-    <div className="w-full overflow-x-auto">
+    <div className={cn('w-full overflow-x-auto scroll-thin', containerClassName)}>
       <table className={cn('w-full caption-bottom text-sm', className)} {...props} />
     </div>
   )
@@ -18,14 +22,14 @@ export function TableBody({ className, ...props }: HTMLAttributes<HTMLTableSecti
 }
 
 export function TableRow({ className, ...props }: HTMLAttributes<HTMLTableRowElement>) {
-  return <tr className={cn('border-b border-border/80 transition-colors hover:bg-surface/70', className)} {...props} />
+  return <tr className={cn('border-b border-border/80 transition-colors hover:bg-surface-muted/40', className)} {...props} />
 }
 
 export function TableHead({ className, ...props }: ThHTMLAttributes<HTMLTableCellElement>) {
   return (
     <th
       className={cn(
-        'h-10 px-3 text-left align-middle text-[11px] font-medium tracking-[0.12em] text-muted uppercase first:pl-0 last:pr-0',
+        'h-10 px-3 text-left align-middle text-[11px] font-medium tracking-[0.12em] text-muted uppercase first:pl-3 last:pr-3',
         className,
       )}
       {...props}
@@ -34,5 +38,5 @@ export function TableHead({ className, ...props }: ThHTMLAttributes<HTMLTableCel
 }
 
 export function TableCell({ className, ...props }: TdHTMLAttributes<HTMLTableCellElement>) {
-  return <td className={cn('px-3 py-3.5 align-middle first:pl-0 last:pr-0', className)} {...props} />
+  return <td className={cn('px-3 py-3 align-middle first:pl-3 last:pr-3', className)} {...props} />
 }

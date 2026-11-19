@@ -80,6 +80,7 @@ export function AccommodationsPage() {
 
   return (
     <Tabs
+      className="space-y-1"
       value={tab}
       onValueChange={(value) => {
         const next = value === 'cottages' ? 'cottages' : 'rooms'

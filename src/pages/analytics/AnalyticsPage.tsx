@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { listAllRoomTypes } from '@/api/accommodations'
 import { DateRangePicker } from '@/components/dates/DateRangePicker'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
 import { Checkbox } from '@/components/ui/checkbox'
 import { QueryErrorState } from '@/components/ui/page-status'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -73,13 +74,10 @@ export function AnalyticsPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h2 className="font-serif text-3xl font-medium">Аналітика</h2>
-        <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-          Спочатку період, потім номери чи будиночки, далі зведення. Статуси можна звузити окремо. Огляд готелю лишається
-          операційною сторінкою. Сума бронювання — не отриманий дохід.
-        </p>
-      </div>
+      <PageHeader
+        title="Аналітика"
+        description="Спочатку період, потім номери чи будиночки, далі зведення. Статуси можна звузити окремо. Огляд готелю лишається операційною сторінкою. Сума бронювання — не отриманий дохід."
+      />
 
       <section className="space-y-8 border-y border-border py-5">
         <FilterStep step={1} title="Оберіть період" hint={ANALYTICS_DATE_TYPE_HINT}>
@@ -469,7 +467,7 @@ function BarRow({ label, value, percent }: { label: string; value: string; perce
         <span className="shrink-0 text-muted-foreground">{value}</span>
       </div>
       <div className="h-1.5 overflow-hidden bg-surface-muted">
-        <div className={cn('h-full bg-[#c4b49a]')} style={{ width: `${width}%` }} />
+        <div className={cn('h-full bg-primary')} style={{ width: `${width}%` }} />
       </div>
     </div>
   )

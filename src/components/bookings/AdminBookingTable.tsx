@@ -22,50 +22,78 @@ export function AdminBookingTable({
   if (bookings.length === 0) return <EmptyState>{empty}</EmptyState>
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow className="hover:bg-transparent">
-          <TableHead>ID</TableHead>
-          <TableHead>Гість</TableHead>
-          <TableHead>Номер / будиночок</TableHead>
-          <TableHead>Заїзд</TableHead>
-          <TableHead>Виїзд</TableHead>
-          <TableHead>Гості</TableHead>
-          <TableHead>Статус</TableHead>
-          <TableHead>Джерело</TableHead>
-          <TableHead className="text-right">Сума</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
+    <>
+      <div className="hidden md:block">
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead>Гість</TableHead>
+              <TableHead>Номер / будиночок</TableHead>
+              <TableHead>Заїзд</TableHead>
+              <TableHead>Виїзд</TableHead>
+              <TableHead>Статус</TableHead>
+              <TableHead className="text-right">Сума</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {bookings.map((booking) => (
+              <TableRow key={booking.id}>
+                <TableCell>
+                  <Link to={`/admin/bookings/${booking.id}`} className="font-medium hover:underline">
+                    {adminGuestName(booking.guest)}
+                  </Link>
+                  <div className="mt-0.5 text-[11px] text-muted-foreground">
+                    {adminBookingRef(booking.id)}
+                    {booking.guest.phone ? ` · ${booking.guest.phone}` : ''}
+                  </div>
+                </TableCell>
+                <TableCell className="max-w-[14rem] truncate" title={adminRoomsLabel(booking.rooms)}>
+                  {adminRoomsLabel(booking.rooms)}
+                </TableCell>
+                <TableCell className="tabular-nums whitespace-nowrap">{formatDate(booking.checkIn)}</TableCell>
+                <TableCell className="tabular-nums whitespace-nowrap">{formatDate(booking.checkOut)}</TableCell>
+                <TableCell>
+                  <BookingStatusBadge status={booking.status} />
+                </TableCell>
+                <TableCell className="text-right tabular-nums whitespace-nowrap">
+                  <div>{formatAdminBookingMoney(booking.totalAmount, booking.currency)}</div>
+                  <div className="text-[11px] text-muted-foreground">{adminBookingSourceLabel[booking.source]}</div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      <ul className="divide-y divide-border rounded-md border border-border bg-surface md:hidden">
         {bookings.map((booking) => (
-          <TableRow key={booking.id}>
-            <TableCell>
-              <Link to={`/admin/bookings/${booking.id}`} className="font-medium hover:underline" title={booking.id}>
-                {adminBookingRef(booking.id)}
-              </Link>
-            </TableCell>
-            <TableCell>
-              <Link to={`/admin/bookings/${booking.id}`} className="hover:underline">
-                {adminGuestName(booking.guest)}
-              </Link>
-              {booking.guest.phone ? (
-                <div className="text-[11px] text-muted-foreground">{booking.guest.phone}</div>
-              ) : null}
-            </TableCell>
-            <TableCell>{adminRoomsLabel(booking.rooms)}</TableCell>
-            <TableCell>{formatDate(booking.checkIn)}</TableCell>
-            <TableCell>{formatDate(booking.checkOut)}</TableCell>
-            <TableCell>{formatGuests(booking.adults, booking.children)}</TableCell>
-            <TableCell>
-              <BookingStatusBadge status={booking.status} />
-            </TableCell>
-            <TableCell>{adminBookingSourceLabel[booking.source]}</TableCell>
-            <TableCell className="text-right tabular-nums">
-              {formatAdminBookingMoney(booking.totalAmount, booking.currency)}
-            </TableCell>
-          </TableRow>
+          <li key={booking.id}>
+            <Link to={`/admin/bookings/${booking.id}`} className="block px-4 py-3">
+              <span className="flex items-start justify-between gap-3">
+                <span className="min-w-0">
+                  <span className="block truncate font-medium">{adminGuestName(booking.guest)}</span>
+                  <span className="mt-0.5 block truncate text-sm text-muted-foreground">
+                    {adminRoomsLabel(booking.rooms)}
+                  </span>
+                </span>
+                <BookingStatusBadge status={booking.status} />
+              </span>
+              <span className="mt-2 flex items-baseline justify-between gap-3 text-sm">
+                <span className="tabular-nums text-muted-foreground">
+                  {formatDate(booking.checkIn)} — {formatDate(booking.checkOut)}
+                </span>
+                <span className="tabular-nums font-medium">
+                  {formatAdminBookingMoney(booking.totalAmount, booking.currency)}
+                </span>
+              </span>
+              <span className="mt-1 block text-[11px] text-muted-foreground">
+                {adminBookingRef(booking.id)} · {formatGuests(booking.adults, booking.children)} ·{' '}
+                {adminBookingSourceLabel[booking.source]}
+              </span>
+            </Link>
+          </li>
         ))}
-      </TableBody>
-    </Table>
+      </ul>
+    </>
   )
 }
