@@ -1,6 +1,7 @@
 import { format } from 'date-fns'
 import { uk } from 'date-fns/locale'
 import { chessboardStickyLabel, COTTAGE_KIND_GROUP_LABEL, ROOM_KIND_GROUP_LABEL } from '@/lib/accommodation-labels'
+import { chessboardCell } from '@/lib/chessboard-colors'
 import { calendarDayOfMonth, calendarWeekday, todayIso } from '@/lib/dates'
 import { cn } from '@/lib/utils'
 import type { ChessboardAdminBar, ChessboardModel } from '@/types'
@@ -147,13 +148,17 @@ export function Chessboard({
                             disabled={!available}
                             className={cn(
                               'h-full border-l border-border/70',
-                              available && 'bg-status-checked-in/25',
-                              night.date === today && available && 'bg-status-checked-in/40',
-                              weekend && night.date !== today && available && 'bg-status-checked-in/35',
+                              available && !highlighted && chessboardCell.free,
+                              available && !highlighted && night.date === today && chessboardCell.today,
+                              available &&
+                                !highlighted &&
+                                weekend &&
+                                night.date !== today &&
+                                chessboardCell.weekend,
                               !available && 'cursor-default',
                               night.state === 'OUT_OF_ORDER' && 'bg-status-cancelled/80',
                               night.state === 'INACTIVE' && 'bg-surface-muted/50',
-                              highlighted && 'bg-status-checked-in',
+                              highlighted && chessboardCell.selected,
                             )}
                             style={{ width: CELL }}
                             onClick={() => {

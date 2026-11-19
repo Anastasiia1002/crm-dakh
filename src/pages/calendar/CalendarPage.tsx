@@ -25,7 +25,9 @@ import {
   ROOM_KIND_GROUP_LABEL,
   unitDisplayLabel,
 } from '@/lib/accommodation-labels'
+import { chessboardLegend } from '@/lib/chessboard-colors'
 import { addCalendarDays, todayIso } from '@/lib/dates'
+import { cn } from '@/lib/utils'
 import { formatDateShort } from '@/lib/format'
 import {
   activeFilterToQuery,
@@ -331,12 +333,12 @@ export function CalendarPage() {
       ) : null}
 
       <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-        <Legend className="bg-background" label="Вільно" />
-        <Legend className="bg-status-confirmed" label="Заброньовано" />
-        <Legend className="bg-status-cancelled" label="Заблоковано" />
-        <Legend className="bg-status-checked-in" label="Вибрано" />
-        <Legend className="bg-status-pending" label="Очікує підтвердження" />
-        <Legend className="bg-status-checked-in" label="Заселено" />
+        <Legend className={chessboardLegend.free} label="Вільно" />
+        <Legend className={chessboardLegend.booked} label="Заброньовано" />
+        <Legend className={chessboardLegend.blocked} label="Заблоковано" />
+        <Legend className={chessboardLegend.selected} label="Вибрано" />
+        <Legend className={chessboardLegend.pending} label="Очікує підтвердження" />
+        <Legend className={chessboardLegend.occupied} label="Заселено" />
       </div>
 
       {board.enrichmentFailed || board.enrichmentIncomplete || board.typesIncomplete ? (
@@ -407,7 +409,7 @@ export function CalendarPage() {
 function Legend({ className, label }: { className: string; label: string }) {
   return (
     <span className="inline-flex items-center gap-2">
-      <span className={`size-3 rounded-sm border border-border ${className}`} />
+      <span className={cn('size-3 rounded-sm border', className)} />
       {label}
     </span>
   )
