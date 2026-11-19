@@ -7,12 +7,8 @@ import type { AdminPromoCode } from '@/api/promoCodes'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+import { ActionsMenu } from '@/components/ui/actions-menu'
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { ScrollableFormDialog, formDialogGridClass, formDialogSelectContentClass } from '@/components/pricing/ScrollableFormDialog'
 import { Dialog } from '@/components/ui/dialog'
 import { DateRangePicker } from '@/components/dates/DateRangePicker'
@@ -90,8 +86,8 @@ export function PromoCodesPage() {
               <TableHead>Ліміт використань</TableHead>
               <TableHead>Використано</TableHead>
               <TableHead>Статус</TableHead>
-              <TableHead stickyActions className="text-right">
-                Дії
+              <TableHead stickyActions>
+                <span className="sr-only">Дії</span>
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -171,13 +167,7 @@ function PromoRowActions({
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button ref={triggerRef} size="sm" variant="outline" aria-haspopup="menu">
-            Дії
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" collisionPadding={16} onCloseAutoFocus={(event) => event.preventDefault()}>
+      <ActionsMenu label={`Дії для промокоду ${promo.code}`} triggerRef={triggerRef}>
           <DropdownMenuItem
             onSelect={() => {
               onEdit()
@@ -195,8 +185,7 @@ function PromoRowActions({
               Видалити
             </DropdownMenuItem>
           ) : null}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      </ActionsMenu>
       {onDelete ? (
         <ConfirmDialog
           open={confirmOpen}

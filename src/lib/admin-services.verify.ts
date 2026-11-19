@@ -20,9 +20,13 @@ import {
   SERVICE_PRICE_CHANGE_NOTICE,
   SERVICE_DEFAULT_CREATE_PRICE,
   SERVICE_PRICE_UNSET_LABEL,
+  SERVICE_CRM_BADGE,
+  SERVICE_ONLINE_UNAVAILABLE_BADGE,
   SERVICE_PUBLIC_STAY_ONLY_HINT,
   SERVICE_SAVED_ONLINE_FLAG_HINT,
+  SERVICE_SITE_BADGE,
   SERVICE_UNSUPPORTED_PUBLIC_BASIS_HINT,
+  SERVICE_PER_NIGHT_PENDING_HINT,
   SUGGESTED_SERVICE_DEFAULTS,
   buildAdminServiceCreateBody,
   buildAdminServicePatchBody,
@@ -47,6 +51,8 @@ import {
   isPubliclyBookableService,
   LIVE_PUBLIC_SERVICE_CHARGE_BASES,
   canEnablePublicOnlineBooking,
+  serviceOnlineFieldHint,
+  serviceOnlineUnavailableReason,
   serviceSiteVisibilityLabel,
 } from './admin-services'
 import { canManageAdminServices } from './roles'
@@ -513,7 +519,26 @@ function main() {
   })
   assert(breakfastPersonDay.bookable === true && breakfastPersonDay.chargeBasis === 'PER_PERSON_DAY', 'saved breakfast keeps the online flag')
   assert(!isPubliclyBookableService(breakfastPersonDay), 'Breakfast per person-day is not on the public catalog')
-  assert(serviceSiteVisibilityLabel(breakfastPersonDay) === 'Лише в CRM', 'the list badge follows public eligibility, not the saved toggle')
+  assert(serviceSiteVisibilityLabel(published) === SERVICE_SITE_BADGE, 'live eligibility is shown as available on the site')
+  assert(serviceSiteVisibilityLabel(loaded) === SERVICE_CRM_BADGE, 'a saved offline flag is CRM-only')
+  assert(
+    serviceSiteVisibilityLabel(breakfastPersonDay) === SERVICE_ONLINE_UNAVAILABLE_BADGE,
+    'a stored online flag without a live public calculation is one unavailable status',
+  )
+  assert(
+    serviceOnlineUnavailableReason(breakfastPersonDay)?.includes('Публічний розрахунок'),
+    'unsupported online extras explain why guests do not see them',
+  )
+  assert(serviceOnlineUnavailableReason(loaded) === null, 'CRM-only rows do not add a second status')
+  assert(
+    serviceSiteVisibilityLabel({ active: false, bookable: true, price: '10.10', chargeBasis: 'PER_STAY' }) ===
+      SERVICE_ONLINE_UNAVAILABLE_BADGE,
+    'inactive extras with a saved online flag are not shown as available on the site',
+  )
+  assert(serviceOnlineFieldHint({ bookable: true, active: true, chargeBasis: 'PER_PERSON_DAY' }) === SERVICE_SAVED_ONLINE_FLAG_HINT, 'the editor distinguishes a saved online preference')
+  assert(serviceOnlineFieldHint({ bookable: false, active: true, chargeBasis: 'PER_NIGHT' }) === SERVICE_PER_NIGHT_PENDING_HINT, 'per-night online booking waits for the server')
+  assert(serviceOnlineFieldHint({ bookable: false, active: true, chargeBasis: 'PER_TRIP' }) === SERVICE_UNSUPPORTED_PUBLIC_BASIS_HINT, 'unsupported extras stay off the switch')
+  assert(serviceOnlineFieldHint({ bookable: false, active: true, chargeBasis: 'PER_STAY' }).includes(SERVICE_PUBLIC_STAY_ONLY_HINT), 'live per-stay copy stays on the field')
   const ignoredToggle = buildAdminServicePatchBody(breakfastPersonDay, {
     name: breakfastPersonDay.name,
     description: '',
@@ -637,14 +662,17 @@ function main() {
   )
 
   assert(page.includes('Доступна для онлайн-бронювання'), 'the form names the public switch')
-  assert(page.includes('За бронювання') || page.includes('SERVICE_PUBLIC_STAY_ONLY_HINT'), 'the form still names the per-stay unit')
+  assert(page.includes('serviceOnlineFieldHint'), 'the form uses one field hint for guest vs saved online')
   assert(page.includes('role="switch"'), 'public availability is a switch')
   assert(page.includes('ADMIN_SERVICE_CHARGE_BASES') && page.includes('SERVICE_CHARGE_BASIS_LABEL'), 'the form offers staff charge bases')
-  assert(page.includes('SERVICE_PUBLIC_STAY_ONLY_HINT'), 'public booking copy names the live per-stay unit')
-  assert(page.includes('SERVICE_PER_NIGHT_PENDING_HINT'), 'per-night online booking waits for the server')
-  assert(page.includes('SERVICE_SITE_BADGE') && page.includes('SERVICE_CRM_BADGE'), 'the catalog shows whether a service is public')
-  assert(page.includes('SERVICE_UNSUPPORTED_PUBLIC_BASIS_HINT') && page.includes('SERVICE_SAVED_ONLINE_FLAG_HINT'), 'unsupported extras explain why they stay off the site')
-  assert(page.includes('У картці онлайн'), 'a saved online flag that is not public is labeled separately')
+  assert(SERVICE_PUBLIC_STAY_ONLY_HINT.includes('За бронювання'), 'public booking copy names the live per-stay unit')
+  assert(SERVICE_PER_NIGHT_PENDING_HINT.includes('За ніч'), 'per-night online booking waits for the server')
+  assert(
+    page.includes('SERVICE_SITE_BADGE') && page.includes('SERVICE_CRM_BADGE') && page.includes('SERVICE_ONLINE_UNAVAILABLE_BADGE'),
+    'the catalog shows effective guest availability',
+  )
+  assert(page.includes('serviceOnlineUnavailableReason'), 'unsupported extras explain why they stay off the site')
+  assert(!page.includes('У картці онлайн'), 'a saved online flag is not a second contradictory badge')
   assert(page.includes('canEnablePublicOnlineBooking'), 'the online switch follows live public bases, not the future PER_NIGHT path')
   assert(
     LIVE_PUBLIC_SERVICE_CHARGE_BASES.length === 1 && LIVE_PUBLIC_SERVICE_CHARGE_BASES[0] === 'PER_STAY',

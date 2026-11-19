@@ -21,6 +21,10 @@ assert(table.includes('overflow-x-auto'), 'wide tables still scroll horizontally
 assert(table.includes('stickyActions'), 'action cells can stick to the viewport edge')
 assert(table.includes('sticky right-0'), 'the actions column stays on the right while the table scrolls')
 assert(menu.includes("label = 'Дії'"), 'row actions share a compact Дії menu')
+assert(menu.includes('EllipsisVertical'), 'the trigger is the existing vertical ellipsis')
+assert(menu.includes('size-11'), 'the trigger keeps a 44px hit area')
+assert(menu.includes('aria-label={label}'), 'the icon trigger keeps a contextual accessible name')
+assert(menu.includes('bg-transparent'), 'the trigger background matches the row and sticky cell')
 assert(menu.includes('collisionPadding={16}'), 'the menu stays inside the viewport')
 assert(menu.includes('aria-haspopup="menu"'), 'the menu trigger is announced as a menu')
 assert(menu.includes('onCloseAutoFocus'), 'closing the menu restores focus to the trigger')
@@ -36,7 +40,11 @@ for (const [name, source] of [
   assert(source.includes('stickyActions'), `${name} pins the last column`)
 }
 
-assert(promo.includes('Дії') && promo.includes('DropdownMenu'), 'promo row actions stay in a dropdown')
+assert(promo.includes('ActionsMenu') && promo.includes('Дії для промокоду'), 'promo row actions stay in the shared menu')
+assert(services.includes('Дії для послуги'), 'service actions name the row')
+assert(users.includes('Дії для'), 'user actions name the row')
+assert(accommodations.includes('Дії для'), 'accommodation actions name the row')
+assert(pricing.includes('Дії для правила') && pricing.includes('Дії для знижки'), 'pricing actions name the row')
 assert(services.includes('ActionsMenu'), 'services use the shared actions menu')
 assert(users.includes('ActionsMenu'), 'users use the shared actions menu')
 assert(accommodations.includes('ActionsMenu'), 'accommodations use the shared actions menu')

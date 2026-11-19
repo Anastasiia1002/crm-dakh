@@ -33,20 +33,18 @@ import {
   SERVICE_DEFAULT_CREATE_PRICE,
   SERVICE_PRICE_UNSET_LABEL,
   SERVICE_CRM_BADGE,
+  SERVICE_ONLINE_UNAVAILABLE_BADGE,
   SERVICE_PUBLIC_NEEDS_PRICE,
-  SERVICE_PER_NIGHT_PENDING_HINT,
-  SERVICE_PUBLIC_STAY_ONLY_HINT,
-  SERVICE_SAVED_ONLINE_FLAG_HINT,
   SERVICE_SITE_BADGE,
-  SERVICE_UNSUPPORTED_PUBLIC_BASIS_HINT,
   buildAdminServiceCreateBody,
   buildAdminServicePatchBody,
   canEnablePublicOnlineBooking,
   filterManagedServices,
   formatManagedServicePrice,
-  isPublicServiceChargeBasis,
-  isPubliclyBookableService,
   parseOptionalServiceQuantity,
+  serviceOnlineFieldHint,
+  serviceOnlineUnavailableReason,
+  serviceSiteVisibilityLabel,
   parseOptionalServiceSortOrder,
   validateOptionalServicePrice,
   validateServiceQuantityBounds,
@@ -282,15 +280,23 @@ export function ServicesPage() {
 }
 
 function ServiceAvailability({ item }: { item: AdminManagedService }) {
+  const visibility = serviceSiteVisibilityLabel(item)
+  const reason = serviceOnlineUnavailableReason(item)
+  const visibilityTone =
+    visibility === SERVICE_SITE_BADGE
+      ? 'confirmed'
+      : visibility === SERVICE_ONLINE_UNAVAILABLE_BADGE
+        ? 'warning'
+        : visibility === SERVICE_CRM_BADGE
+          ? 'neutral'
+          : 'neutral'
   return (
-    <div className="flex flex-wrap gap-1">
-      <Badge tone={item.active ? 'success' : 'neutral'}>{item.active ? 'Активна' : 'Вимкнена'}</Badge>
-      <Badge tone={isPubliclyBookableService(item) ? 'confirmed' : 'neutral'}>
-        {isPubliclyBookableService(item) ? SERVICE_SITE_BADGE : SERVICE_CRM_BADGE}
-      </Badge>
-      {item.bookable && !isPubliclyBookableService(item) ? (
-        <span className="text-xs text-muted-foreground">У картці онлайн</span>
-      ) : null}
+    <div className="space-y-1">
+      <div className="flex flex-wrap gap-1">
+        <Badge tone={item.active ? 'success' : 'neutral'}>{item.active ? 'Активна' : 'Вимкнена'}</Badge>
+        <Badge tone={visibilityTone}>{visibility}</Badge>
+      </div>
+      {reason ? <p className="text-xs text-muted-foreground">{reason}</p> : null}
     </div>
   )
 }
@@ -308,7 +314,7 @@ function ServiceActions({
 }) {
   if (!canWrite) return <span className="text-xs text-muted-foreground">Лише перегляд</span>
   return (
-    <ActionsMenu>
+    <ActionsMenu label={`Дії для послуги ${item.name}`}>
       <DropdownMenuItem onSelect={onEdit}>Редагувати</DropdownMenuItem>
       <DropdownMenuItem onSelect={onToggle}>{item.active ? 'Вимкнути' : 'Увімкнути'}</DropdownMenuItem>
     </ActionsMenu>
@@ -479,20 +485,12 @@ function ServiceDialog({
             </span>
           </button>
           <p id="service-bookable-hint" className="text-xs text-muted-foreground">
-            {SERVICE_PUBLIC_STAY_ONLY_HINT} Вимкнена послуга на сайті не з’являється.
+            {serviceOnlineFieldHint({
+              bookable: form.watch('bookable'),
+              active: form.watch('active') === 'yes',
+              chargeBasis: watchedChargeBasis,
+            })}
           </p>
-          {form.watch('active') === 'no' && form.watch('bookable') ? (
-            <p className="text-xs text-muted-foreground">На сайті послуга не з’явиться, доки вона вимкнена.</p>
-          ) : null}
-          {!isPublicServiceChargeBasis(watchedChargeBasis) ? (
-            <p className="text-xs text-muted-foreground">{SERVICE_UNSUPPORTED_PUBLIC_BASIS_HINT}</p>
-          ) : null}
-          {isPublicServiceChargeBasis(watchedChargeBasis) && !liveOnline ? (
-            <p className="text-xs text-muted-foreground">{SERVICE_PER_NIGHT_PENDING_HINT}</p>
-          ) : null}
-          {form.watch('bookable') && !liveOnline ? (
-            <p className="text-xs text-muted-foreground">{SERVICE_SAVED_ONLINE_FLAG_HINT}</p>
-          ) : null}
         </div>
         <Field label="Нарахування" error={form.formState.errors.chargeBasis?.message}>
           <Select
