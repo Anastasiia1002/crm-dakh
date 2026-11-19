@@ -1,4 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { firstEnabledFocusDate, keyboardDayFromTarget, nextInclusiveRange } from '@/lib/date-range-selection'
 import { formatInclusiveDateRange } from '@/lib/format'
 import { addCalendarDays, todayIso } from '@/lib/dates'
@@ -99,11 +100,16 @@ export function DateRangePicker({
     }
   }, [open])
 
+  function focusGridDay(date: string) {
+    const node = gridRef.current?.querySelector<HTMLButtonElement>(`button[aria-label="${date}"]`)
+    if (!node || node.disabled) return false
+    node.focus()
+    return true
+  }
+
   useLayoutEffect(() => {
     if (!open) return
-    const node = gridRef.current?.querySelector<HTMLButtonElement>(`button[aria-label="${focusDate}"]`)
-    if (!node || node.disabled) return
-    node.focus()
+    focusGridDay(focusDate)
   }, [open, focusDate, month])
 
   const picking = Boolean(draft.start && !draft.end)
@@ -136,11 +142,14 @@ export function DateRangePicker({
       closePicker(false)
       return
     }
-    setDraft({ start, end: end ?? '' })
     const preferred = firstEnabledFocusDate(start || today, closedBefore) || start || today
-    rememberFocus(preferred)
-    setMonth(monthKey(preferred))
-    setOpen(true)
+    flushSync(() => {
+      setDraft({ start, end: end ?? '' })
+      rememberFocus(preferred)
+      setMonth(monthKey(preferred))
+      setOpen(true)
+    })
+    focusGridDay(preferred)
   }
 
   function selectDate(date: string) {
@@ -178,6 +187,10 @@ export function DateRangePicker({
         aria-labelledby={labelId}
         aria-haspopup="dialog"
         aria-expanded={open}
+        onMouseDown={(event) => {
+          if (disabled || open) return
+          event.preventDefault()
+        }}
         onClick={openPicker}
         className="flex h-10 w-full min-w-0 items-center rounded-md border border-input bg-background px-3 text-left text-sm disabled:cursor-not-allowed disabled:opacity-50"
       >
