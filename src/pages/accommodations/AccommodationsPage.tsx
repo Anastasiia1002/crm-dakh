@@ -301,7 +301,7 @@ function UnitSection({
       ) : (
         <Table>
           <TableHeader>
-            <TableRow className="hover:bg-transparent">
+            <TableRow>
               <TableHead>Назва</TableHead>
               <TableHead>Місткість</TableHead>
               <TableHead>Стан</TableHead>

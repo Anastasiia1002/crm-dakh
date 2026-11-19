@@ -65,7 +65,7 @@ export function UnitHistory({ roomId }: { roomId: string }) {
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow className="hover:bg-transparent">
+              <TableRow>
                 <TableHead>Тип</TableHead>
                 <TableHead>Дати</TableHead>
                 <TableHead>Деталі</TableHead>

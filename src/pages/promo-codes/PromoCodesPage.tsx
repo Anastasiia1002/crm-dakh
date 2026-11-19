@@ -76,7 +76,7 @@ export function PromoCodesPage() {
       {!promos.isError && items.length > 0 ? (
         <Table>
           <TableHeader>
-            <TableRow className="hover:bg-transparent">
+            <TableRow>
               <TableHead>Код</TableHead>
               <TableHead>Назва / опис</TableHead>
               <TableHead>Тип знижки</TableHead>

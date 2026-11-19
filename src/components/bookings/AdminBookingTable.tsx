@@ -37,7 +37,7 @@ export function AdminBookingTable({
       <div className="hidden md:block">
         <Table>
           <TableHeader>
-            <TableRow className="hover:bg-transparent">
+            <TableRow>
               <TableHead>Гість</TableHead>
               <TableHead>Номер / будиночок</TableHead>
               <TableHead>Заїзд</TableHead>

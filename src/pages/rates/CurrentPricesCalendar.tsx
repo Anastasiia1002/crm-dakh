@@ -132,7 +132,7 @@ export function CurrentPricesCalendar({
               <h2 className="font-serif text-lg font-medium">{group.label}</h2>
               <Table containerClassName="max-h-[min(70vh,40rem)] overflow-auto rounded-md border border-border bg-surface">
                 <TableHeader className="sticky top-0 z-20 bg-surface">
-                  <TableRow className="hover:bg-transparent">
+                  <TableRow>
                     <TableHead className="sticky left-0 z-30 min-w-[11rem] bg-surface">Одиниця</TableHead>
                     {nights.map((date) => (
                       <TableHead key={date} className="min-w-[7.5rem] bg-surface">

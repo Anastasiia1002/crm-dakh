@@ -18,7 +18,7 @@ export function GuestBookingHistory({ history }: { history: AdminGuestHistoryIte
         <div className="overflow-x-auto">
           <Table className="min-w-[880px]">
             <TableHeader>
-              <TableRow className="hover:bg-transparent">
+              <TableRow>
                 <TableHead>Бронювання</TableHead>
                 <TableHead>Дати</TableHead>
                 <TableHead>Джерело</TableHead>

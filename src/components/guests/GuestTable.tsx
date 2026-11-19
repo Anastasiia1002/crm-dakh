@@ -12,7 +12,7 @@ export function GuestTable({ guests }: { guests: AdminGuestListItem[] }) {
       <div className="hidden overflow-x-auto md:block">
         <Table className="min-w-[860px]">
           <TableHeader>
-            <TableRow className="hover:bg-transparent">
+            <TableRow>
               <TableHead>ПІБ</TableHead>
               <TableHead>Телефон</TableHead>
               <TableHead>Візити</TableHead>

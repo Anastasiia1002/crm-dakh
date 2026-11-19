@@ -29,7 +29,7 @@ export function BookingTable({
   return (
     <Table>
       <TableHeader>
-        <TableRow className="hover:bg-transparent">
+        <TableRow>
           {variant === 'full' || variant === 'upcoming' ? <TableHead>№ бронювання</TableHead> : null}
           <TableHead>Гість</TableHead>
           <TableHead>Номер / будиночок</TableHead>

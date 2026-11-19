@@ -235,7 +235,7 @@ export function UsersPage() {
             <div className="hidden md:block">
             <Table containerClassName="rounded-md border border-border bg-surface">
               <TableHeader>
-                <TableRow className="hover:bg-transparent">
+                <TableRow>
                   <TableHead>Імʼя</TableHead>
                   <TableHead>Пошта</TableHead>
                   <TableHead>Роль</TableHead>
@@ -357,7 +357,7 @@ export function UsersPage() {
           <div className="hidden md:block">
           <Table containerClassName="rounded-md border border-border bg-surface">
             <TableHeader>
-              <TableRow className="hover:bg-transparent">
+              <TableRow>
                 <TableHead>Пошта</TableHead>
                 <TableHead>Роль</TableHead>
                 <TableHead>Стан</TableHead>
