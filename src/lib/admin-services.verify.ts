@@ -441,7 +441,7 @@ function main() {
     updatedAt: '2026-10-02T00:00:00.000Z',
   })
   assert(perNight.chargeBasis === 'PER_NIGHT', 'PER_NIGHT is a catalog charge basis')
-  assert(!isPubliclyBookableService(perNight), 'PER_NIGHT stays off the live public catalog until server quoting is deployed')
+  assert(isPubliclyBookableService(perNight), 'PER_NIGHT is on the live public catalog after quoting is verified')
   const blockedNightCreate = buildAdminServiceCreateBody({
     name: 'Додаткове спальне місце',
     description: '',
@@ -451,8 +451,8 @@ function main() {
     chargeBasis: 'PER_NIGHT',
   })
   assert(
-    blockedNightCreate.ok && blockedNightCreate.body.bookable === false && blockedNightCreate.body.chargeBasis === 'PER_NIGHT',
-    'creating a per-night extra does not enable online booking on the live API',
+    blockedNightCreate.ok && blockedNightCreate.body.bookable === true && blockedNightCreate.body.chargeBasis === 'PER_NIGHT',
+    'creating a per-night extra can enable online booking after quoting is verified',
   )
   const blockedNightEnable = buildAdminServicePatchBody(perNight, {
     name: perNight.name,
@@ -480,7 +480,10 @@ function main() {
     sortOrder: '',
     category: '',
   })
-  assert('empty' in blockedNightTurnOn && blockedNightTurnOn.empty, 'staff cannot enable online booking for PER_NIGHT yet')
+  assert(
+    blockedNightTurnOn.ok && blockedNightTurnOn.body.bookable === true,
+    'staff can enable online booking for PER_NIGHT after quoting is verified',
+  )
   const allowedNightTurnOff = buildAdminServicePatchBody(perNight, {
     name: perNight.name,
     description: '',
@@ -641,16 +644,16 @@ function main() {
   assert(page.includes('role="switch"'), 'public availability is a switch')
   assert(page.includes('ADMIN_SERVICE_CHARGE_BASES') && page.includes('SERVICE_CHARGE_BASIS_LABEL'), 'the form offers staff charge bases')
   assert(page.includes('SERVICE_PUBLIC_STAY_ONLY_HINT'), 'public booking copy names the live per-stay unit')
-  assert(page.includes('SERVICE_PER_NIGHT_PENDING_HINT'), 'per-night online booking waits for the server')
+  assert(page.includes('SERVICE_PER_NIGHT_PENDING_HINT'), 'per-night copy remains available for a gated basis')
   assert(page.includes('SERVICE_SITE_BADGE') && page.includes('SERVICE_CRM_BADGE'), 'the catalog shows whether a service is public')
   assert(page.includes('SERVICE_UNSUPPORTED_PUBLIC_BASIS_HINT') && page.includes('SERVICE_SAVED_ONLINE_FLAG_HINT'), 'unsupported extras explain why they stay off the site')
   assert(page.includes('У картці онлайн'), 'a saved online flag that is not public is labeled separately')
-  assert(page.includes('canEnablePublicOnlineBooking'), 'the online switch follows live public bases, not the future PER_NIGHT path')
+  assert(page.includes('canEnablePublicOnlineBooking'), 'the online switch follows live public bases')
   assert(
-    LIVE_PUBLIC_SERVICE_CHARGE_BASES.length === 1 && LIVE_PUBLIC_SERVICE_CHARGE_BASES[0] === 'PER_STAY',
-    'live online booking stays PER_STAY until backend PER_NIGHT quoting is verified',
+    LIVE_PUBLIC_SERVICE_CHARGE_BASES.includes('PER_STAY') && LIVE_PUBLIC_SERVICE_CHARGE_BASES.includes('PER_NIGHT'),
+    'live online booking accepts PER_STAY and PER_NIGHT after quoting is verified',
   )
-  assert(!canEnablePublicOnlineBooking('PER_NIGHT'), 'PER_NIGHT cannot be turned on for the live API')
+  assert(canEnablePublicOnlineBooking('PER_NIGHT'), 'PER_NIGHT can be turned on for the live API')
   assert(page.includes('!liveOnline && !watchedBookable'), 'the switch cannot enable an unsupported public basis')
   assert(!page.includes('Додати шаблонні послуги'), 'the services page does not offer template seeding')
   assert(!page.includes('SUGGESTED_SERVICES_BUTTON') && !page.includes('SUGGESTED_SERVICES_HINT'), 'template seed copy is unused')

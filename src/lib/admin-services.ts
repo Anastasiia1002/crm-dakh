@@ -16,9 +16,9 @@ export const SERVICE_DEFAULT_CREATE_PRICE = '100'
 export const SERVICE_PUBLIC_NEEDS_PRICE =
   'Щоб зробити послугу доступною на сайті, вкажіть ціну або вимкніть онлайн-бронювання.'
 export const SERVICE_PUBLIC_STAY_ONLY_HINT =
-  'На сайті гість бачить активну послугу з нарахуванням «За бронювання» і встановленою ціною. Нарахування «За ніч» з’явиться в онлайн-бронюванні лише після серверного розрахунку.'
+  'На сайті гість бачить активну послугу з нарахуванням «За бронювання» або «За ніч» і встановленою ціною. «За ніч» рахує оплачувані ночі без дня виїзду.'
 export const SERVICE_PER_NIGHT_PENDING_HINT =
-  'Онлайн-бронювання «За ніч» ще не вмикаємо: серверний розрахунок за оплачувані ночі без дня виїзду не розгорнуто. Збережений прапорець не змінюємо.'
+  'Онлайн-бронювання «За ніч» увімкнено лише після розгорнутого серверного розрахунку за оплачувані ночі без дня виїзду.'
 export const SERVICE_UNSUPPORTED_PUBLIC_BASIS_HINT =
   'Онлайн-розрахунок для цього нарахування ще не заданий. Збережений прапорець онлайн не змінюємо, а новий не вмикаємо.'
 export const SERVICE_SAVED_ONLINE_FLAG_HINT =
@@ -41,10 +41,10 @@ export const ADMIN_SERVICE_CHARGE_BASES = [
 ] as const
 
 export type AdminServiceChargeBasis = (typeof ADMIN_SERVICE_CHARGE_BASES)[number]
-/** Bases the public catalog will accept after backend PER_NIGHT quoting is live. */
+/** Bases the public catalog accepts once backend PER_NIGHT quoting is live. */
 export const PUBLIC_SERVICE_CHARGE_BASES: readonly AdminServiceChargeBasis[] = ['PER_STAY', 'PER_NIGHT']
-/** Bases staff may turn on for the live API. PER_NIGHT stays off until that deploy is verified. */
-export const LIVE_PUBLIC_SERVICE_CHARGE_BASES: readonly AdminServiceChargeBasis[] = ['PER_STAY']
+/** Bases staff may turn on for the live API. Merge only after backend and public website PER_NIGHT support are verified. */
+export const LIVE_PUBLIC_SERVICE_CHARGE_BASES: readonly AdminServiceChargeBasis[] = ['PER_STAY', 'PER_NIGHT']
 
 export function isPublicServiceChargeBasis(basis?: AdminServiceChargeBasis) {
   return PUBLIC_SERVICE_CHARGE_BASES.includes(basis ?? 'PER_STAY')
