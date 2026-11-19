@@ -1,4 +1,5 @@
 import { Menu } from 'lucide-react'
+import { useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { StaffNoticeMenu } from '@/components/layout/StaffNoticeMenu'
 import { Sidebar } from '@/components/layout/Sidebar'
@@ -25,11 +26,13 @@ export function Header({
 }) {
   const { user, logout } = useAuth()
   const desktop = useDesktopNav()
+  const menuButtonRef = useRef<HTMLButtonElement>(null)
 
   return (
     <header className="sticky top-0 z-30 flex min-h-14 items-center justify-between gap-3 border-b border-border bg-background/92 px-4 pt-[env(safe-area-inset-top)] backdrop-blur-sm md:px-7">
       <div className="flex min-w-0 items-center gap-2">
         <button
+          ref={menuButtonRef}
           type="button"
           className="inline-flex size-11 items-center justify-center rounded-md text-foreground lg:hidden"
           onClick={() => onMenuOpenChange(true)}
@@ -83,7 +86,14 @@ export function Header({
 
       {desktop ? null : (
         <Sheet open={menuOpen} onOpenChange={onMenuOpenChange}>
-          <SheetContent id="staff-mobile-nav" aria-label="Меню">
+          <SheetContent
+            id="staff-mobile-nav"
+            aria-label="Меню"
+            onCloseAutoFocus={(event) => {
+              event.preventDefault()
+              menuButtonRef.current?.focus()
+            }}
+          >
             <Sidebar onNavigate={() => onMenuOpenChange(false)} />
           </SheetContent>
         </Sheet>

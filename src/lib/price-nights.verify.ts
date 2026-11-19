@@ -2,7 +2,7 @@
  * Inclusive nightly catalog dates. Run: npx --yes tsx src/lib/price-nights.verify.ts
  */
 import { exclusiveEndFromLastNight, inclusiveNightCount, lastNightFromExclusiveEnd, pricePeriodRange } from './price-nights.ts'
-import { pickDefaultCommercialRatePlan } from './default-rate-plan.ts'
+import { pickDefaultCommercialRatePlan, resolvedCommercialRatePlanId } from './default-rate-plan.ts'
 import type { RatePlan } from '@/types'
 
 function assert(condition: boolean, message: string) {
@@ -40,5 +40,7 @@ const several = pickDefaultCommercialRatePlan([
   { ...standard, id: 'b', code: 'STANDARD-PLUS' },
 ])
 assert(several.mode === 'choose' && several.reason === 'several', 'several commercial standards require a choice')
+assert(resolvedCommercialRatePlanId([standard, testPlan]) === 'a', 'pricing rules can reuse the unique STANDARD id')
+assert(resolvedCommercialRatePlanId([standard, { ...standard, id: 'b', code: 'STANDARD-PLUS' }]) === null, 'ambiguous STANDARD is not guessed')
 
 console.log('PASS: inclusive nights and default rate plan')

@@ -7,7 +7,6 @@ import { z } from 'zod'
 import { getRoomType, listAllRoomTypes } from '@/api/accommodations'
 import { getRatePlan } from '@/api/rates'
 import { DateRangePicker } from '@/components/dates/DateRangePicker'
-import { RatePlanPicker } from '@/components/rates/RatePlanPicker'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -26,6 +25,7 @@ import { useAuth } from '@/hooks/useAuth'
 import {
   useAdminDayPriceRules,
   useAdminLengthStayDiscounts,
+  useAdminRatePlans,
   useAllAdminRooms,
   useCreateAdminDayPriceRule,
   useCreateAdminLengthStayDiscount,
@@ -38,6 +38,7 @@ import {
 } from '@/hooks/useHotel'
 import { unitDisplayTitle } from '@/lib/accommodation-labels'
 import { ApiError } from '@/lib/api-error'
+import { resolvedCommercialRatePlanId } from '@/lib/default-rate-plan'
 import { errorMessage } from '@/lib/errors'
 import { formatDate, formatMoneyAmount, normalizeMoneyString, parseStayNights } from '@/lib/format'
 import { exclusiveEndFromLastNight, lastNightFromExclusiveEnd } from '@/lib/price-nights'
@@ -53,7 +54,7 @@ import {
 } from '@/lib/pricing-scope'
 import { CATALOG_STALE_TIME } from '@/lib/queryClient'
 import { canManageRates } from '@/lib/roles'
-import type { DayPricePreview, DayPriceRule, LengthStayDiscount } from '@/types'
+import type { DayPricePreview, DayPriceRule, LengthStayDiscount, RatePlan } from '@/types'
 
 function useUnitCatalog(units: { id: string; roomTypeId: string; name: string | null; number: string }[] | undefined) {
   const typesQuery = useQuery({
@@ -303,10 +304,15 @@ function LengthStaySection({ canWrite }: { canWrite: boolean }) {
   )
 }
 
+const MISSING_COMMERCIAL_STANDARD = 'Немає однозначних умов STANDARD для цього розміщення.'
+
+function commercialRatePlanId(plans: readonly RatePlan[] | undefined) {
+  return resolvedCommercialRatePlanId(plans ?? [])
+}
+
 const daySchema = z
   .object({
     seasonName: z.string().trim().min(1, 'Вкажіть назву сезону').max(80, 'Назва до 80 символів'),
-    ratePlanId: z.string().min(1, 'Оберіть тариф'),
     unitIds: z.array(z.string()).min(1, 'Оберіть хоча б одне розміщення'),
     weekdayPrice: z.string().trim().regex(MONEY_RE, 'Невідʼємне число з не більше ніж двома знаками після коми'),
     weekendPrice: z.string().trim().regex(MONEY_RE, 'Невідʼємне число з не більше ніж двома знаками після коми'),
@@ -336,7 +342,10 @@ function DayPriceDialog({
   const update = useUpdateAdminDayPriceRule()
   const preview = usePreviewAdminDayPrice()
   const unitsQuery = useAllAdminRooms({ active: true })
+  const plansQuery = useAdminRatePlans({ active: true, page: 1, limit: 100 })
   const catalogReady = unitsQuery.isSuccess
+  const plansReady = item ? true : plansQuery.isSuccess
+  const ratePlanId = item?.ratePlanId ?? commercialRatePlanId(plansQuery.data?.items)
   const pending = create.isPending || update.isPending
   const [previewNights, setPreviewNights] = useState<DayPricePreview['nights']>([])
   const [previewTotal, setPreviewTotal] = useState<string | null>(null)
@@ -346,7 +355,6 @@ function DayPriceDialog({
     resolver: zodResolver(daySchema),
     values: {
       seasonName: item?.name ?? 'Зимовий сезон 2026–2027',
-      ratePlanId: item?.ratePlanId ?? '',
       unitIds: initialUnits,
       weekdayPrice: item?.weekdayPrice ?? '',
       weekendPrice: item?.weekendPrice ?? '',
@@ -370,7 +378,7 @@ function DayPriceDialog({
               toast.error('Недостатньо прав для цієї дії')
               return
             }
-            if (!dayPriceSaveAllowed(catalogReady)) {
+            if (!dayPriceSaveAllowed(catalogReady) || !plansReady) {
               toast.error('Список розміщень завантажено не повністю. Збереження скасовано.')
               return
             }
@@ -392,7 +400,6 @@ function DayPriceDialog({
             try {
               const base = {
                 name: values.seasonName.trim(),
-                ratePlanId: values.ratePlanId,
                 weekdayPrice,
                 weekendPrice,
                 weekendDays: values.weekendDays,
@@ -402,8 +409,12 @@ function DayPriceDialog({
               }
               if (item) await update.mutateAsync({ id: item.id, input: { ...base, roomTypeId: item.roomTypeId } })
               else {
+                if (!ratePlanId) {
+                  toast.error(MISSING_COMMERCIAL_STANDARD)
+                  return
+                }
                 for (const roomTypeId of selectedTypes) {
-                  await create.mutateAsync({ ...base, roomTypeId })
+                  await create.mutateAsync({ ...base, ratePlanId, roomTypeId })
                 }
               }
               toast.success('Збережено')
@@ -417,7 +428,7 @@ function DayPriceDialog({
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Скасувати
               </Button>
-              <Button type="submit" disabled={!canWrite || pending || !catalogReady} loading={pending}>
+              <Button type="submit" disabled={!canWrite || pending || !catalogReady || !plansReady} loading={pending}>
                 Зберегти
               </Button>
             </>
@@ -426,17 +437,14 @@ function DayPriceDialog({
           {unitsQuery.isError ? (
             <p className="text-sm text-destructive">Не вдалося завантажити повний список розміщень. Збереження вимкнено.</p>
           ) : null}
+          {!item && plansQuery.isError ? (
+            <p className="text-sm text-destructive">Не вдалося визначити умови STANDARD. Збереження вимкнено.</p>
+          ) : null}
+          {!item && plansReady && !ratePlanId ? (
+            <p className="text-sm text-destructive">{MISSING_COMMERCIAL_STANDARD}</p>
+          ) : null}
           <Field label="Назва сезону" hint="Зберігається і показується в списку. Наприклад, «Зимовий сезон 2026–2027»." error={form.formState.errors.seasonName?.message}>
             <Input disabled={!canWrite} {...form.register('seasonName')} />
-          </Field>
-          <Field label="Тариф" error={form.formState.errors.ratePlanId?.message}>
-            <RatePlanPicker
-              value={form.watch('ratePlanId')}
-              activeOnly={!item}
-              disabled={!canWrite}
-              placeholder="Оберіть тариф"
-              onChange={(value) => form.setValue('ratePlanId', value, { shouldValidate: true })}
-            />
           </Field>
           <Field
             label="Розміщення"
@@ -522,7 +530,7 @@ function DayPriceDialog({
           <Button
             type="button"
             variant="outline"
-            disabled={typeIds.length === 0 || !form.watch('ratePlanId') || !form.watch('startDate') || !form.watch('endDate')}
+            disabled={typeIds.length === 0 || !ratePlanId || !form.watch('startDate') || !form.watch('endDate')}
             onClick={async () => {
               const weekdayPrice = normalizeMoneyString(form.getValues('weekdayPrice'))
               const weekendPrice = normalizeMoneyString(form.getValues('weekendPrice'))
@@ -530,9 +538,13 @@ function DayPriceDialog({
                 toast.error('Вкажіть обидві ціни перед переглядом')
                 return
               }
+              if (!ratePlanId) {
+                toast.error(MISSING_COMMERCIAL_STANDARD)
+                return
+              }
               try {
                 const result = await preview.mutateAsync({
-                  ratePlanId: form.getValues('ratePlanId'),
+                  ratePlanId,
                   roomTypeId: typeIds[0]!,
                   startDate: form.getValues('startDate'),
                   endDate: form.getValues('endDate'),

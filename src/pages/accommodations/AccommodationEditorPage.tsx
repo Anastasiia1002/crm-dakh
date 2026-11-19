@@ -42,7 +42,7 @@ import {
   sameAccommodationNumber,
 } from '@/lib/accommodation-editor'
 import { sharedRoomTypeNotice } from '@/lib/accommodation-labels'
-import { roomStatusLabel } from '@/lib/labels'
+import { roomStatusLabel, roomTypeKindLabel } from '@/lib/labels'
 import { canManageAccommodations } from '@/lib/roles'
 import { cn } from '@/lib/utils'
 import type { RoomStatus, RoomTypeKind } from '@/types'
@@ -72,8 +72,8 @@ function listPath(kind: RoomTypeKind | null) {
 }
 
 const KIND_CHOICES: { id: RoomTypeKind; label: string }[] = [
-  { id: 'ROOM', label: 'Номер' },
-  { id: 'COTTAGE', label: 'Котедж' },
+  { id: 'ROOM', label: roomTypeKindLabel.ROOM },
+  { id: 'COTTAGE', label: roomTypeKindLabel.COTTAGE },
 ]
 
 function parseKind(value: string | null): RoomTypeKind | null {
@@ -330,7 +330,7 @@ export function AccommodationEditorPage() {
               navigate(listPath(kind))
             } else if (kind) {
               const typeName =
-                nextGuestName || payload.name || `${kind === 'COTTAGE' ? 'Котедж' : 'Номер'} ${values.number.trim()}`
+                nextGuestName || payload.name || `${roomTypeKindLabel[kind]} ${values.number.trim()}`
               const rooms = await listAllRooms()
               const rememberedId = pendingTypeId.current
               const linked = rememberedId ? rooms.find((room) => room.roomTypeId === rememberedId) : undefined
