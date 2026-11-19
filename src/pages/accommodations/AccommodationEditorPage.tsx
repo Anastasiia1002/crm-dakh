@@ -8,6 +8,11 @@ import { z } from 'zod'
 import { listAllRooms } from '@/api/accommodations'
 import { AmenityPicker } from '@/components/accommodations/AmenityPicker'
 import { AccommodationPhotoGallery } from '@/components/accommodations/AccommodationPhotoGallery'
+import {
+  PendingAccommodationPhotos,
+  revokePendingPhotos,
+  type PendingPhoto,
+} from '@/components/accommodations/PendingAccommodationPhotos'
 import { UnitHistory } from '@/components/accommodations/UnitHistory'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -26,6 +31,7 @@ import {
   useCreateAdminRoomType,
   useUpdateAdminRoom,
   useUpdateAdminRoomType,
+  useUploadAdminRoomTypeImage,
 } from '@/hooks/useHotel'
 import { assignedAmenityKeys, amenityKeysForSave, sameAmenityKeys, syncAmenitySelection } from '@/lib/amenities'
 import {
@@ -99,6 +105,15 @@ export function AccommodationEditorPage() {
   const [typeError, setTypeError] = useState<string | null>(null)
   const leaveReadyRef = useRef(false)
   const pendingTypeId = useRef<string | null>(isNew ? readPendingAccommodationTypeId(sessionStorage) : null)
+  const createdRoomId = useRef<string | null>(null)
+  const [pendingPhotos, setPendingPhotos] = useState<PendingPhoto[]>([])
+  const [pendingPhotoErrors, setPendingPhotoErrors] = useState<string[]>([])
+  const uploadImage = useUploadAdminRoomTypeImage()
+  const pendingPhotosRef = useRef(pendingPhotos)
+  pendingPhotosRef.current = pendingPhotos
+  useEffect(() => {
+    return () => revokePendingPhotos(pendingPhotosRef.current)
+  }, [])
   const form = useForm<z.infer<typeof unitSchema>>({
     resolver: zodResolver(unitSchema),
     defaultValues: emptyUnit,
@@ -326,7 +341,7 @@ export function AccommodationEditorPage() {
                 navigate(`/admin/accommodations/${linked.id}/edit`)
                 return
               }
-              if (sameAccommodationNumber(rooms, values.number)) {
+              if (!createdRoomId.current && sameAccommodationNumber(rooms, values.number)) {
                 form.setError('number', { message: 'Такий номер уже існує' })
                 return
               }
@@ -357,9 +372,26 @@ export function AccommodationEditorPage() {
                   },
                 })
               }
-              const created = await create.mutateAsync({ ...payload, roomTypeId: typeId })
-              pendingTypeId.current = null
-              rememberPendingAccommodationTypeId(sessionStorage, null)
+              const created = createdRoomId.current
+                ? { id: createdRoomId.current }
+                : await create.mutateAsync({ ...payload, roomTypeId: typeId })
+              createdRoomId.current = created.id
+              const remaining: PendingPhoto[] = []
+              for (const photo of pendingPhotosRef.current) {
+                try {
+                  await uploadImage.mutateAsync({ roomTypeId: typeId, file: photo.file })
+                  URL.revokeObjectURL(photo.previewUrl)
+                } catch {
+                  remaining.push({ ...photo, error: 'Не вдалося завантажити. Спробуйте ще раз.' })
+                }
+              }
+              setPendingPhotos(remaining)
+              pendingTypeId.current = remaining.length > 0 ? typeId : null
+              rememberPendingAccommodationTypeId(sessionStorage, remaining.length > 0 ? typeId : null)
+              if (remaining.length > 0) {
+                toast.error('Розміщення збережено. Деякі фото не завантажились — повторіть збереження.')
+                return
+              }
               toast.success('Збережено')
               leaveReadyRef.current = true
               navigate(`/admin/accommodations/${created.id}/edit`)
@@ -506,10 +538,13 @@ export function AccommodationEditorPage() {
           {item && assignedType.data ? (
             <AccommodationPhotoGallery roomTypeId={assignedType.data.id} canWrite={canWrite} />
           ) : (
-            <div className="space-y-2">
-              <h2 className="font-serif text-2xl font-medium">Фото</h2>
-              <p className="text-sm text-muted-foreground">Фото можна додати після збереження розміщення.</p>
-            </div>
+            <PendingAccommodationPhotos
+              photos={pendingPhotos}
+              canWrite={canWrite}
+              fileErrors={pendingPhotoErrors}
+              onChange={setPendingPhotos}
+              onFileErrors={setPendingPhotoErrors}
+            />
           )}
           {item ? <UnitHistory roomId={item.id} /> : null}
         </section>

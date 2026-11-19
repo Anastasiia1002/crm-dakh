@@ -2,11 +2,12 @@ import { format } from 'date-fns'
 import { uk } from 'date-fns/locale'
 import { chessboardStickyLabel, COTTAGE_KIND_GROUP_LABEL, ROOM_KIND_GROUP_LABEL } from '@/lib/accommodation-labels'
 import { calendarDayOfMonth, calendarWeekday, todayIso } from '@/lib/dates'
-import { roomTypeKindLabel } from '@/lib/labels'
 import { cn } from '@/lib/utils'
 import type { ChessboardAdminBar, ChessboardModel } from '@/types'
 
 const CELL = 52
+const LABEL_WIDTH = 240
+const ROW_MIN = 56
 
 const WEEKDAY_LABELS = ['нд', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'] as const
 
@@ -27,6 +28,12 @@ function localDateLabel(iso: string) {
   return format(new Date(year, month - 1, day), 'd MMM', { locale: uk })
 }
 
+function kindSectionLabel(kind: ChessboardModel['groups'][number]['kind']) {
+  if (kind === 'COTTAGE') return COTTAGE_KIND_GROUP_LABEL
+  if (kind === 'ROOM') return ROOM_KIND_GROUP_LABEL
+  return 'Інше'
+}
+
 export function Chessboard({
   model,
   onBooking,
@@ -40,7 +47,6 @@ export function Chessboard({
   onEmpty: (roomId: string, date: string) => void
   onAdminBar?: (bar: ChessboardAdminBar) => void
   selected?: { roomId: string; startDate: string; endDate: string } | null
-  /** Writers choose a range. Other staff open a booking from one night. */
   emptyMode?: 'book' | 'select'
 }) {
   const today = todayIso()
@@ -51,12 +57,10 @@ export function Chessboard({
     <div className="overflow-auto scroll-thin rounded-md border border-border bg-surface">
       <div className="min-w-max">
         <div className="sticky top-0 z-20 flex bg-surface">
-          <div className="sticky left-0 z-30 flex w-[19rem] shrink-0 border-r border-b border-border bg-surface">
-            <div className="w-52 shrink-0" />
-            <div className="flex w-24 items-end px-2 pb-2 text-[10px] tracking-[0.12em] text-muted uppercase">
-              Тип
-            </div>
-          </div>
+          <div
+            className="sticky left-0 z-30 shrink-0 border-r border-b border-border bg-surface"
+            style={{ width: LABEL_WIDTH }}
+          />
           <div className="flex" style={{ width }}>
             {dates.map((date) => {
               const day = calendarWeekday(date)
@@ -82,16 +86,10 @@ export function Chessboard({
           </div>
         </div>
 
-        {groups.map((group, index) => (
-          <div key={group.roomTypeId}>
-            {group.kind !== 'UNKNOWN' && group.kind !== groups[index - 1]?.kind ? (
-              <div className="sticky left-0 border-b border-border bg-surface-muted px-3 py-2 text-[11px] font-medium tracking-[0.14em] text-foreground uppercase">
-                {group.kind === 'COTTAGE' ? COTTAGE_KIND_GROUP_LABEL : ROOM_KIND_GROUP_LABEL}
-              </div>
-            ) : null}
-            <div className="sticky left-0 border-b border-border bg-surface-muted/60 px-3 py-2 text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
-              {group.displayName}
-              {group.kind === 'UNKNOWN' ? ' · тип невідомий' : ''}
+        {groups.map((group) => (
+          <div key={group.kind}>
+            <div className="sticky left-0 z-20 border-b border-border bg-surface-muted px-3 py-2 text-[11px] font-medium tracking-[0.14em] text-foreground uppercase">
+              {kindSectionLabel(group.kind)}
             </div>
             {group.rooms.map((room) => {
               const stayBars = model.bookingBars
@@ -117,22 +115,22 @@ export function Chessboard({
                 displayTitle: room.displayTitle,
                 displayCode: room.displayCode,
               })
-              const kindWord =
-                room.kind === 'ROOM' || room.kind === 'COTTAGE' ? roomTypeKindLabel[room.kind] : '—'
               return (
-                <div key={room.roomId} className="flex border-b border-border">
-                  <div className="sticky left-0 z-10 flex w-[19rem] shrink-0 items-center overflow-hidden border-r border-border bg-surface">
-                    <div className="min-w-0 w-52 px-3">
-                      <div className="truncate text-sm" title={room.displayTitle}>
-                        {sticky.title}
-                      </div>
+                <div key={room.roomId} className="flex border-b border-border" style={{ minHeight: ROW_MIN }}>
+                  <div
+                    className="sticky left-0 z-10 flex shrink-0 items-center border-r border-border bg-surface px-3 py-2"
+                    style={{ width: LABEL_WIDTH, minHeight: ROW_MIN }}
+                  >
+                    <div className="min-w-0">
+                      <div className="text-sm leading-snug break-words">{sticky.title}</div>
                       {sticky.subtitle ? (
-                        <div className="truncate text-[11px] text-muted-foreground">{sticky.subtitle}</div>
+                        <div className="text-[11px] leading-snug text-muted-foreground break-words">
+                          {sticky.subtitle}
+                        </div>
                       ) : null}
                     </div>
-                    <div className="w-24 shrink-0 px-2 text-[11px] text-muted-foreground">{kindWord}</div>
                   </div>
-                  <div className="relative h-12" style={{ width }}>
+                  <div className="relative" style={{ width, minHeight: ROW_MIN }}>
                     <div className="absolute inset-0 flex">
                       {room.nights.map((night) => {
                         const day = calendarWeekday(night.date)
@@ -176,13 +174,13 @@ export function Chessboard({
                     {adminBars.map(({ start, span, bar }) => {
                       const clickable = Boolean(bar.blockId && onAdminBar)
                       const className = cn(
-                        'absolute top-1.5 flex h-9 items-center overflow-hidden rounded-sm border px-2 text-left text-[11px]',
+                        'absolute top-1.5 flex min-h-9 items-center overflow-hidden rounded-sm border px-2 text-left text-[11px]',
                         bar.kind === 'MAINTENANCE' &&
-                          'border-status-cancelled-mark/30 bg-status-cancelled text-status-cancelled-foreground',
+                          'border-status-cancelled-mark bg-status-cancelled text-status-cancelled-foreground',
                         bar.kind === 'BLOCKED' &&
-                          'border-status-cancelled-mark/30 bg-status-cancelled text-status-cancelled-foreground',
+                          'border-status-cancelled-mark bg-status-cancelled text-status-cancelled-foreground',
                         bar.kind === 'OUT_OF_ORDER' &&
-                          'border-border bg-status-cancelled/70 text-muted-foreground',
+                          'border-status-cancelled-mark/70 bg-status-cancelled/80 text-status-cancelled-foreground',
                         bar.kind === 'INACTIVE' &&
                           'border-border bg-surface-muted text-muted-foreground',
                         clickable && 'cursor-pointer',
@@ -192,7 +190,7 @@ export function Chessboard({
                         width: Math.max(span * CELL - 6, 28),
                         backgroundImage:
                           bar.kind === 'BLOCKED' || bar.kind === 'MAINTENANCE'
-                            ? 'repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(138,74,60,0.08) 4px, rgba(138,74,60,0.08) 8px)'
+                            ? 'repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(138,74,60,0.12) 4px, rgba(138,74,60,0.12) 8px)'
                             : undefined,
                       } as const
                       const title = bar.blockId ? `${bar.label} · ${bar.blockId}` : bar.label
@@ -222,18 +220,18 @@ export function Chessboard({
                         key={`${bar.bookingId}:${bar.roomId}:${bar.startDate}`}
                         type="button"
                         className={cn(
-                          'absolute top-1.5 flex h-9 items-center overflow-hidden rounded-sm border px-2 text-left text-[12px]',
+                          'absolute top-1.5 flex min-h-9 items-center overflow-hidden rounded-sm border px-2 text-left text-[12px]',
                           bar.status === 'CHECKED_IN' &&
-                            'border-status-checked-in-mark/40 bg-status-checked-in text-status-checked-in-foreground',
+                            'border-status-checked-in-mark bg-status-checked-in text-status-checked-in-foreground',
                           bar.status === 'CONFIRMED' &&
-                            'border-status-confirmed-mark/35 bg-status-confirmed text-status-confirmed-foreground',
+                            'border-status-confirmed-mark bg-status-confirmed text-status-confirmed-foreground',
                           bar.status === 'PENDING' &&
-                            'border-status-pending-mark/40 bg-status-pending text-status-pending-foreground',
+                            'border-status-pending-mark bg-status-pending text-status-pending-foreground',
                           (bar.status === 'UNKNOWN' || bar.metadataMissing) &&
                             bar.status !== 'PENDING' &&
                             bar.status !== 'CONFIRMED' &&
                             bar.status !== 'CHECKED_IN' &&
-                            'border-dashed border-foreground/30 bg-status-confirmed/80 text-status-confirmed-foreground',
+                            'border-dashed border-foreground/40 bg-status-confirmed text-status-confirmed-foreground',
                         )}
                         style={{ left: start * CELL + 3, width: Math.max(span * CELL - 6, 28) }}
                         onClick={() => onBooking(bar.bookingId)}

@@ -86,6 +86,10 @@ export function canReassignBookingRoom(role: UserRole | undefined) {
   return hasPermission(role, 'bookings.reassign')
 }
 
+export function canReadGuests(role: UserRole | undefined) {
+  return hasPermission(role, 'guests.read')
+}
+
 export function canWriteGuests(role: UserRole | undefined) {
   return hasPermission(role, 'guests.update')
 }

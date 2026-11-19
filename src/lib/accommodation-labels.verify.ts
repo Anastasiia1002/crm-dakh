@@ -187,7 +187,7 @@ assert(calendar.includes('listAllRooms'), 'calendar loads every room page for la
 assert(calendar.includes('chessboardRoomLabel'), 'calendar uses the shared row label')
 assert(!calendar.includes('number: roomDisplayName'), 'calendar does not overwrite room.number')
 assert(chessboard.includes('chessboardStickyLabel'), 'chessboard avoids repeating the type heading')
-assert(chessboard.includes('roomTypeKindLabel'), 'chessboard has a room vs cottage column')
+assert(chessboard.includes('ROOM_KIND_GROUP_LABEL') && chessboard.includes('COTTAGE_KIND_GROUP_LABEL'), 'chessboard has room and cottage sections')
 assert(page.includes('Закрито на дати'), 'date blocks are not occupancy')
 assert(page.includes('У роботі'), 'catalog status is not free tonight')
 assert(chessboard.includes('onEmpty(room.roomId'), 'chessboard selection keeps roomId')

@@ -439,7 +439,7 @@ function main() {
     updatedAt: '2026-10-02T00:00:00.000Z',
   })
   assert(perNight.chargeBasis === 'PER_NIGHT', 'PER_NIGHT is a catalog charge basis')
-  assert(!isPubliclyBookableService(perNight), 'non-stay charge stays off the public catalog')
+  assert(isPubliclyBookableService(perNight), 'an active per-night extra can be offered online')
   const breakfastPersonDay = parseManagedAdminService({
     id: BREAKFAST,
     name: 'Сніданок',
@@ -583,7 +583,7 @@ function main() {
   assert(page.includes('За бронювання') || page.includes('SERVICE_PUBLIC_STAY_ONLY_HINT'), 'the form still names the per-stay unit')
   assert(page.includes('role="switch"'), 'public availability is a switch')
   assert(page.includes('ADMIN_SERVICE_CHARGE_BASES') && page.includes('SERVICE_CHARGE_BASIS_LABEL'), 'the form offers staff charge bases')
-  assert(page.includes('SERVICE_PUBLIC_STAY_ONLY_HINT'), 'public booking stays PER_STAY in the copy')
+  assert(page.includes('SERVICE_PUBLIC_STAY_ONLY_HINT'), 'public booking copy names stay and night units')
   assert(page.includes('SERVICE_SITE_BADGE') && page.includes('SERVICE_CRM_BADGE'), 'the catalog shows whether a service is public')
   assert(page.includes('SERVICE_UNSUPPORTED_PUBLIC_BASIS_HINT') && page.includes('SERVICE_SAVED_ONLINE_FLAG_HINT'), 'unsupported extras explain why they stay off the site')
   assert(page.includes('У картці онлайн'), 'a saved online flag that is not public is labeled separately')

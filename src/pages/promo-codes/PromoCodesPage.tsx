@@ -1,11 +1,18 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import type { AdminPromoCode } from '@/api/promoCodes'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { ScrollableFormDialog, formDialogGridClass, formDialogSelectContentClass } from '@/components/pricing/ScrollableFormDialog'
 import { Dialog } from '@/components/ui/dialog'
 import { DateRangePicker } from '@/components/dates/DateRangePicker'
@@ -83,7 +90,7 @@ export function PromoCodesPage() {
               <TableHead>Ліміт використань</TableHead>
               <TableHead>Використано</TableHead>
               <TableHead>Статус</TableHead>
-              <TableHead />
+              <TableHead className="text-right">Дії</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -104,40 +111,29 @@ export function PromoCodesPage() {
                 </TableCell>
                 <TableCell className="text-right">
                   {canWrite ? (
-                    <div className="flex justify-end gap-2">
-                      <Button size="sm" variant="ghost" onClick={() => setEditing(promo)}>
-                        Редагувати
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={async () => {
-                          try {
-                            await toggle.mutateAsync({ id: promo.id, active: !promo.active })
-                          } catch (error) {
-                            toast.error(errorMessage(error))
-                          }
-                        }}
-                      >
-                        {promo.active ? 'Вимкнути' : 'Увімкнути'}
-                      </Button>
-                      {promo.usageCount === 0 ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={async () => {
-                            try {
-                              await remove.mutateAsync(promo.id)
-                              toast.success('Видалено')
-                            } catch (error) {
-                              toast.error(errorMessage(error))
+                    <PromoRowActions
+                      promo={promo}
+                      onEdit={() => setEditing(promo)}
+                      onToggle={async () => {
+                        try {
+                          await toggle.mutateAsync({ id: promo.id, active: !promo.active })
+                        } catch (error) {
+                          toast.error(errorMessage(error))
+                        }
+                      }}
+                      onDelete={
+                        promo.usageCount === 0
+                          ? async () => {
+                              try {
+                                await remove.mutateAsync(promo.id)
+                                toast.success('Видалено')
+                              } catch (error) {
+                                toast.error(errorMessage(error))
+                              }
                             }
-                          }}
-                        >
-                          Видалити
-                        </Button>
-                      ) : null}
-                    </div>
+                          : undefined
+                      }
+                    />
                   ) : (
                     <span className="text-xs text-muted-foreground">Лише перегляд</span>
                   )}
@@ -154,6 +150,66 @@ export function PromoCodesPage() {
         onOpenChange={(open) => !open && setEditing(null)}
       />
     </div>
+  )
+}
+
+function PromoRowActions({
+  promo,
+  onEdit,
+  onToggle,
+  onDelete,
+}: {
+  promo: AdminPromoCode
+  onEdit: () => void
+  onToggle: () => Promise<void>
+  onDelete?: () => Promise<void>
+}) {
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button ref={triggerRef} size="sm" variant="outline" aria-haspopup="menu">
+            Дії
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" collisionPadding={16} onCloseAutoFocus={(event) => event.preventDefault()}>
+          <DropdownMenuItem
+            onSelect={() => {
+              onEdit()
+              queueMicrotask(() => triggerRef.current?.focus())
+            }}
+          >
+            Редагувати
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => void onToggle()}>{promo.active ? 'Вимкнути' : 'Увімкнути'}</DropdownMenuItem>
+          {onDelete ? (
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onSelect={() => setConfirmOpen(true)}
+            >
+              Видалити
+            </DropdownMenuItem>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {onDelete ? (
+        <ConfirmDialog
+          open={confirmOpen}
+          title="Видалити промокод?"
+          description="Цю дію не можна скасувати."
+          confirmLabel="Видалити"
+          destructive
+          returnFocusRef={triggerRef}
+          onOpenChange={setConfirmOpen}
+          onConfirm={() => {
+            void onDelete().then(() => setConfirmOpen(false))
+          }}
+        />
+      ) : null}
+    </>
   )
 }
 

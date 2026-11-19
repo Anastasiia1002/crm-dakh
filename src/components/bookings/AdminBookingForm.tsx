@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { AccommodationSelectGroups } from '@/components/bookings/AccommodationSelectGroups'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { listAdminBookingGuests, quoteAdminBooking } from '@/api/admin-bookings'
 import { getAdminGuest } from '@/api/guests'
@@ -48,6 +48,7 @@ import {
   serviceSelectionsEqual,
 } from '@/lib/admin-services'
 import { useAdminServices } from '@/hooks/useAdminServices'
+import { pickDefaultCommercialRatePlan } from '@/lib/default-rate-plan'
 import { normalizePhone, phonesMatch } from '@/lib/phone'
 import {
   HOTEL_TIME_ZONE,
@@ -135,7 +136,9 @@ export function AdminBookingForm({
   const [searchError, setSearchError] = useState<string | null>(null)
   const [pendingGuest, setPendingGuest] = useState<GuestCard | null>(null)
   const [roomId, setRoomId] = useState(booking?.rooms[0]?.roomId ?? preset?.roomId ?? '')
-  const [ratePlanId, setRatePlanId] = useState(booking?.rooms[0]?.ratePlanId ?? '')
+  const commercialChoice = pickDefaultCommercialRatePlan(ratePlans)
+  const ratePlanId =
+    booking?.rooms[0]?.ratePlanId ?? (commercialChoice.mode === 'auto' ? commercialChoice.plan.id : '')
   const [initialStay] = useState(() =>
     booking
       ? { checkIn: booking.checkIn, checkOut: booking.checkOut }
@@ -170,7 +173,6 @@ export function AdminBookingForm({
   const roomType = roomTypes.find((type) => type.id === selectedRoom?.roomTypeId)
   const maxGuests = roomType?.maxGuests ?? null
   const guestCount = guestCountFromOccupancy(adults, children)
-  const activePlans = ratePlans.filter((plan) => plan.active || plan.id === ratePlanId)
   const roomLocked = isEdit && (!commercial || !canReassign)
   const timeZone = hotelQuery.data?.timezone || HOTEL_TIME_ZONE
   const rules = policyQuery.data
@@ -329,11 +331,6 @@ export function AdminBookingForm({
     if (next.checkOut !== checkOut) setCheckOut(next.checkOut)
     if (next.error) setSelectionError(next.error)
   }, [booking?.checkIn, booking?.checkOut, checkIn, checkOut, clock, commercial, hotelToday, rules])
-
-  const solePlanId = activePlans.length === 1 ? activePlans[0].id : ''
-  useEffect(() => {
-    if (!ratePlanId && solePlanId) setRatePlanId(solePlanId)
-  }, [ratePlanId, solePlanId])
 
   const draftErrors = useMemo(() => {
     const guestErrors = profile
@@ -801,20 +798,9 @@ export function AdminBookingForm({
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Тариф" error={visibleErrors.ratePlanId}>
-            <Select value={ratePlanId || undefined} onValueChange={setRatePlanId} disabled={!commercial || (isEdit && !canReassign)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Оберіть тариф" />
-              </SelectTrigger>
-              <SelectContent>
-                {activePlans.map((plan) => (
-                  <SelectItem key={plan.id} value={plan.id}>
-                    {plan.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
+          {visibleErrors.ratePlanId ? (
+            <p className="sm:col-span-2 text-sm text-destructive">{visibleErrors.ratePlanId}</p>
+          ) : null}
           <Field label="Дорослі" error={visibleErrors.guestCount}>
             <Input
               type="number"

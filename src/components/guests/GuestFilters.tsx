@@ -1,5 +1,6 @@
 import { DateRangePicker } from '@/components/dates/DateRangePicker'
 import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { LAST_VISIT_FILTERS, type LastVisitFilter } from '@/lib/admin-guests'
 
 const LAST_VISIT_LABEL: Record<LastVisitFilter, string> = {
@@ -70,82 +71,88 @@ export function GuestFilters({
     order !== 'asc'
 
   return (
-    <div className="space-y-4">
-      <Input
-        value={search}
-        onChange={(event) => onSearch(event.target.value)}
-        placeholder="Пошук за ім'ям, телефоном або email"
-        aria-label="Пошук за ім'ям, телефоном або email"
-        className="max-w-xl"
-      />
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <label className="space-y-1 text-sm">
-          <span className="text-muted-foreground">Останній візит</span>
-          <select
-            className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
-            value={lastVisit}
-            onChange={(event) => onLastVisit(event.target.value as LastVisitFilter)}
-          >
+    <div className="filter-toolbar rounded-md border border-border bg-surface p-3">
+      <label className="min-w-[16rem] flex-[2] space-y-1.5">
+        <span className="block text-[11px] tracking-[0.12em] text-muted uppercase">Пошук</span>
+        <Input
+          value={search}
+          onChange={(event) => onSearch(event.target.value)}
+          placeholder="Імʼя, телефон або email"
+          aria-label="Пошук за ім'ям, телефоном або email"
+        />
+      </label>
+      <label className="min-w-[10rem] flex-1 space-y-1.5">
+        <span className="block text-[11px] tracking-[0.12em] text-muted uppercase">Останній візит</span>
+        <Select value={lastVisit} onValueChange={(value: LastVisitFilter) => onLastVisit(value)}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
             {LAST_VISIT_FILTERS.map((value) => (
-              <option key={value} value={value}>
+              <SelectItem key={value} value={value}>
                 {LAST_VISIT_LABEL[value]}
-              </option>
+              </SelectItem>
             ))}
-          </select>
-        </label>
-        <label className="space-y-1 text-sm">
-          <span className="text-muted-foreground">Візитів від</span>
-          <Input type="number" min={0} value={visitCountMin} onChange={(event) => onVisitCountMin(event.target.value)} />
-        </label>
-        <label className="space-y-1 text-sm">
-          <span className="text-muted-foreground">Візитів до</span>
-          <Input type="number" min={0} value={visitCountMax} onChange={(event) => onVisitCountMax(event.target.value)} />
-        </label>
-        <label className="space-y-1 text-sm sm:col-span-2">
-          <span className="text-muted-foreground">Реєстрація</span>
-          <DateRangePicker
-            start={registeredFrom}
-            end={registeredTo}
-            allowPast
-            onChange={({ start, end }) => {
-              onRegisteredFrom(start)
-              if (end) onRegisteredTo(end)
-            }}
-          />
-        </label>
-        <label className="space-y-1 text-sm">
-          <span className="text-muted-foreground">Сортування</span>
-          <select
-            className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
-            value={sort}
-            onChange={(event) => onSort(event.target.value as (typeof SORT_OPTIONS)[number]['value'])}
-          >
+          </SelectContent>
+        </Select>
+      </label>
+      <label className="w-28 space-y-1.5">
+        <span className="block text-[11px] tracking-[0.12em] text-muted uppercase">Візитів від</span>
+        <Input type="number" min={0} value={visitCountMin} onChange={(event) => onVisitCountMin(event.target.value)} />
+      </label>
+      <label className="w-28 space-y-1.5">
+        <span className="block text-[11px] tracking-[0.12em] text-muted uppercase">Візитів до</span>
+        <Input type="number" min={0} value={visitCountMax} onChange={(event) => onVisitCountMax(event.target.value)} />
+      </label>
+      <label className="min-w-[16rem] flex-[2] space-y-1.5">
+        <span className="block text-[11px] tracking-[0.12em] text-muted uppercase">Реєстрація</span>
+        <DateRangePicker
+          start={registeredFrom}
+          end={registeredTo}
+          allowPast
+          onChange={({ start, end }) => {
+            onRegisteredFrom(start)
+            if (end) onRegisteredTo(end)
+          }}
+        />
+      </label>
+      <label className="min-w-[8rem] space-y-1.5">
+        <span className="block text-[11px] tracking-[0.12em] text-muted uppercase">Сортування</span>
+        <Select
+          value={sort}
+          onValueChange={(value: (typeof SORT_OPTIONS)[number]['value']) => onSort(value)}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
             {SORT_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
+              <SelectItem key={option.value} value={option.value}>
                 {option.label}
-              </option>
+              </SelectItem>
             ))}
-          </select>
-        </label>
-        <label className="space-y-1 text-sm">
-          <span className="text-muted-foreground">Напрямок</span>
-          <select
-            className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
-            value={order}
-            onChange={(event) => onOrder(event.target.value as 'asc' | 'desc')}
-          >
-            <option value="asc">За зростанням</option>
-            <option value="desc">За спаданням</option>
-          </select>
-        </label>
-      </div>
+          </SelectContent>
+        </Select>
+      </label>
+      <label className="min-w-[8rem] space-y-1.5">
+        <span className="block text-[11px] tracking-[0.12em] text-muted uppercase">Напрямок</span>
+        <Select value={order} onValueChange={(value: 'asc' | 'desc') => onOrder(value)}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="asc">За зростанням</SelectItem>
+            <SelectItem value="desc">За спаданням</SelectItem>
+          </SelectContent>
+        </Select>
+      </label>
       <button
         type="button"
-        className="h-10 text-sm text-muted-foreground underline-offset-4 hover:underline disabled:pointer-events-none disabled:opacity-40"
+        className="h-11 text-sm text-muted-foreground underline-offset-4 hover:underline disabled:pointer-events-none disabled:opacity-40"
         onClick={onClear}
         disabled={!dirty}
       >
-        Скинути фільтри
+        Скинути
       </button>
     </div>
   )

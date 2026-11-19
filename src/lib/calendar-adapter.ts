@@ -1,4 +1,4 @@
-import { chessboardRoomLabel, roomTypeDisplayName } from '@/lib/accommodation-labels'
+import { chessboardRoomLabel, COTTAGE_KIND_GROUP_LABEL, ROOM_KIND_GROUP_LABEL } from '@/lib/accommodation-labels'
 import { addCalendarDays } from '@/lib/dates'
 import type {
   AdminBookingListItem,
@@ -47,7 +47,7 @@ export function buildChessboardModel(input: {
   const unresolvedRoomTypeIds: string[] = []
   const bookingBars: ChessboardBookingBar[] = []
   const adminBars: ChessboardAdminBar[] = []
-  const groups: ChessboardGroup[] = []
+  const roomsByKind = new Map<RoomTypeKind | 'UNKNOWN', ChessboardRoomRow[]>()
 
   for (const type of input.calendar.roomTypes) {
     const meta = metaById.get(type.roomTypeId)
@@ -117,10 +117,21 @@ export function buildChessboardModel(input: {
       }
     }
 
+    const bucket = roomsByKind.get(kind) ?? []
+    bucket.push(...rooms)
+    roomsByKind.set(kind, bucket)
+  }
+
+  const groups: ChessboardGroup[] = []
+  for (const kind of ['ROOM', 'COTTAGE', 'UNKNOWN'] as const) {
+    const rooms = roomsByKind.get(kind)
+    if (!rooms || rooms.length === 0) continue
+    const label =
+      kind === 'COTTAGE' ? COTTAGE_KIND_GROUP_LABEL : kind === 'ROOM' ? ROOM_KIND_GROUP_LABEL : 'Інше'
     groups.push({
-      roomTypeId: type.roomTypeId,
-      name: typeName,
-      displayName: roomTypeDisplayName(typeName),
+      roomTypeId: kind,
+      name: label,
+      displayName: label,
       kind,
       rooms,
     })

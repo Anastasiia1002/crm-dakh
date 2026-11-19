@@ -5,7 +5,7 @@ import type { ButtonHTMLAttributes, MouseEvent, Ref } from 'react'
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
-  'inline-flex min-h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-40 aria-disabled:pointer-events-none aria-disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+  'inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-40 aria-disabled:pointer-events-none aria-disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
   {
     variants: {
       variant: {
@@ -16,10 +16,10 @@ const buttonVariants = cva(
         destructive: 'bg-destructive text-primary-foreground hover:bg-destructive/90',
       },
       size: {
-        default: 'h-10 px-4',
+        default: 'h-11 px-4',
         sm: 'h-9 min-h-9 px-3 text-[13px]',
         lg: 'h-11 px-5',
-        icon: 'size-10',
+        icon: 'size-11',
       },
     },
     defaultVariants: {
