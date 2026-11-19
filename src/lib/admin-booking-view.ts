@@ -48,7 +48,8 @@ export function adminRoomsLabel(rooms: readonly AdminBookingRoom[]) {
     .join(', ')
 }
 
-export function formatAdminBookingMoney(amount: string, currency: string) {
+export function formatAdminBookingMoney(amount: string | null, currency: string) {
+  if (amount == null) return 'Оплата за домовленістю'
   if (currency === 'UAH') return formatMoneyAmount(amount)
   const normalized = amount.trim() || '0.00'
   return `${normalized} ${currency}`

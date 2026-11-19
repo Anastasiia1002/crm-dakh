@@ -14,7 +14,7 @@ export const SERVICE_DEACTIVATE_CONFIRMATION =
 export const SERVICE_PRICE_UNSET_LABEL = 'Ціну не зазначено'
 export const SERVICE_DEFAULT_CREATE_PRICE = '100'
 export const SERVICE_PUBLIC_NEEDS_PRICE =
-  'Порожня ціна не означає безкоштовно. Без ціни гість зможе лише подати заявку з оплатою за домовленістю.'
+  'Порожня ціна не означає безкоштовно. Для платного способу розрахунку на сайті потрібна ціна; заявку з оплатою за домовленістю задають окремо.'
 export const SERVICE_ONLINE_TOGGLE_HINT =
   'Незалежно від «Активна». Гість бачить послугу лише коли обидва перемикачі увімкнені.'
 export const SERVICE_PUBLIC_STAY_ONLY_HINT =
@@ -22,7 +22,7 @@ export const SERVICE_PUBLIC_STAY_ONLY_HINT =
 export const SERVICE_PER_NIGHT_PENDING_HINT =
   '«За ніч» на сайті множиться на ночі проживання (виїзд не враховується).'
 export const SERVICE_UNSUPPORTED_PUBLIC_BASIS_HINT =
-  'Без ціни гість надсилає заявку. Порожня ціна ніколи не показується як 0 ₴.'
+  'Порожня ціна ніколи не показується як 0 ₴. Заявку з оплатою за домовленістю задають окремим способом розрахунку на сайті.'
 export const SERVICE_SAVED_ONLINE_FLAG_HINT =
   'Онлайн увімкнено. Вимкнена послуга на сайті все одно не з’являється.'
 export const SERVICE_AGREED_PRICE_LABEL = 'Оплата за домовленістю'
@@ -49,12 +49,45 @@ export type AdminServiceChargeBasis = (typeof ADMIN_SERVICE_CHARGE_BASES)[number
 export const PUBLIC_SERVICE_CHARGE_BASES: readonly AdminServiceChargeBasis[] = ADMIN_SERVICE_CHARGE_BASES
 export const LIVE_PUBLIC_SERVICE_CHARGE_BASES: readonly AdminServiceChargeBasis[] = ADMIN_SERVICE_CHARGE_BASES
 
-export type OnlinePricingMode = 'GUEST_QUANTITY' | 'PER_NIGHT' | 'REQUEST_ONLY'
+export const ONLINE_PRICING_MODES = ['FIXED_ONCE', 'GUEST_QUANTITY', 'PER_NIGHT', 'REQUEST_ONLY'] as const
+export type OnlinePricingMode = (typeof ONLINE_PRICING_MODES)[number]
 
-export function resolveOnlinePricing(input: { chargeBasis?: AdminServiceChargeBasis; price?: string | null }): OnlinePricingMode {
-  if (input.chargeBasis === 'PER_TRIP' || !input.price) return 'REQUEST_ONLY'
-  if (input.chargeBasis === 'PER_NIGHT') return 'PER_NIGHT'
-  return 'GUEST_QUANTITY'
+export const SERVICE_ONLINE_PRICING_LABEL: Record<OnlinePricingMode, string> = {
+  FIXED_ONCE: 'Фіксована ціна один раз',
+  GUEST_QUANTITY: 'Кількість × ціна',
+  PER_NIGHT: 'Ціна × ночі проживання',
+  REQUEST_ONLY: 'Оплата за домовленістю',
+}
+
+export const SERVICE_ONLINE_PRICING_REQUIRED = 'Оберіть спосіб розрахунку на сайті.'
+export const SERVICE_ONLINE_PRICED_NEEDS_PRICE =
+  'Для цього способу розрахунку потрібна ціна. Порожня ціна не є безкоштовною і не стає заявкою сама.'
+
+export function isOnlinePricingMode(value: unknown): value is OnlinePricingMode {
+  return typeof value === 'string' && (ONLINE_PRICING_MODES as readonly string[]).includes(value)
+}
+
+export function requiresOnlineUnitPrice(mode: OnlinePricingMode) {
+  return mode !== 'REQUEST_ONLY'
+}
+
+export function onlineConfigurationError(input: {
+  bookable: boolean
+  onlinePricing: OnlinePricingMode | null
+  price?: string | null
+}) {
+  if (!input.bookable) return null
+  if (!input.onlinePricing) return SERVICE_ONLINE_PRICING_REQUIRED
+  if (requiresOnlineUnitPrice(input.onlinePricing) && !input.price) return SERVICE_ONLINE_PRICED_NEEDS_PRICE
+  return null
+}
+
+/** Owner-approved names only. Other catalog rows stay unassigned until staff pick a mode. */
+export function suggestedOnlinePricingForName(name: string): OnlinePricingMode | null {
+  if (name === 'Сніданок') return 'GUEST_QUANTITY'
+  if (name === 'Трансфер') return 'REQUEST_ONLY'
+  if (name === 'Додаткове спальне місце') return 'PER_NIGHT'
+  return null
 }
 
 export function isPublicServiceChargeBasis(basis?: AdminServiceChargeBasis) {
@@ -103,6 +136,7 @@ export type AdminManagedService = {
   active: boolean
   bookable: boolean
   chargeBasis: AdminServiceChargeBasis
+  onlinePricing: OnlinePricingMode | null
   minQuantity: number | null
   maxQuantity: number | null
   sortOrder: number
@@ -118,6 +152,7 @@ export type AdminServiceCreateInput = {
   active?: boolean
   bookable: boolean
   chargeBasis: AdminServiceChargeBasis
+  onlinePricing: OnlinePricingMode | null
   minQuantity?: number | null
   maxQuantity?: number | null
   sortOrder?: number
@@ -131,6 +166,7 @@ export type AdminServicePatchInput = {
   active?: boolean
   bookable?: boolean
   chargeBasis?: AdminServiceChargeBasis
+  onlinePricing?: OnlinePricingMode | null
   minQuantity?: number | null
   maxQuantity?: number | null
   sortOrder?: number
@@ -153,6 +189,7 @@ export type AdminServiceFormValues = {
   /** Omitted stays private. Existing callers do not send this field. */
   bookable?: boolean
   chargeBasis?: AdminServiceChargeBasis
+  onlinePricing?: OnlinePricingMode | null
   minQuantity?: string
   maxQuantity?: string
   sortOrder?: string
@@ -351,6 +388,7 @@ export function parseManagedAdminService(raw: unknown): AdminManagedService {
     active: record.active,
     bookable: parseServiceBookable(record.bookable),
     chargeBasis: parseServiceChargeBasis(record.chargeBasis),
+    onlinePricing: parseServiceOnlinePricing(record.onlinePricing),
     minQuantity: parseServiceQuantityLimit(record.minQuantity),
     maxQuantity: parseServiceQuantityLimit(record.maxQuantity),
     sortOrder: parseServiceSortOrder(record.sortOrder),
@@ -358,6 +396,14 @@ export function parseManagedAdminService(raw: unknown): AdminManagedService {
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
   }
+}
+
+function parseServiceOnlinePricing(value: unknown): OnlinePricingMode | null {
+  if (value === undefined || value === null) return null
+  if (!isOnlinePricingMode(value)) {
+    throw new ApiError('Каталог послуг має некоректний спосіб розрахунку на сайті.', 0, 'SERVICE_CATALOG_INVALID')
+  }
+  return value
 }
 
 /** A missing flag stays private so older catalog rows are not exposed on the site. */
@@ -423,9 +469,18 @@ export function isPubliclyBookableService(service: {
   active: boolean
   bookable: boolean
   chargeBasis?: AdminServiceChargeBasis
+  onlinePricing?: OnlinePricingMode | null
   price?: string | null
 }) {
-  return service.active && service.bookable
+  return (
+    service.active &&
+    service.bookable &&
+    onlineConfigurationError({
+      bookable: service.bookable,
+      onlinePricing: service.onlinePricing ?? null,
+      price: service.price,
+    }) == null
+  )
 }
 
 export function serviceSiteVisibilityLabel(service: {
@@ -443,10 +498,17 @@ export function serviceOnlineUnavailableReason(service: {
   active: boolean
   bookable: boolean
   chargeBasis?: AdminServiceChargeBasis
+  onlinePricing?: OnlinePricingMode | null
   price?: string | null
 }) {
   if (!service.bookable || isPubliclyBookableService(service)) return null
   if (!service.active) return 'Послуга вимкнена, тому на сайті її немає.'
+  const config = onlineConfigurationError({
+    bookable: service.bookable,
+    onlinePricing: service.onlinePricing ?? null,
+    price: service.price,
+  })
+  if (config) return config
   return 'На сайті зараз недоступна.'
 }
 
@@ -454,23 +516,23 @@ export function serviceOnlineFieldHint(input: {
   bookable: boolean
   active: boolean
   chargeBasis: AdminServiceChargeBasis
+  onlinePricing?: OnlinePricingMode | null
   price?: string | null
 }) {
-  const mode = resolveOnlinePricing({ chargeBasis: input.chargeBasis, price: input.price ?? null })
   if (input.bookable && !input.active) return SERVICE_SAVED_ONLINE_FLAG_HINT
-  if (input.chargeBasis === 'PER_TRIP' || mode === 'REQUEST_ONLY') {
-    return `${SERVICE_ONLINE_TOGGLE_HINT} Заявка з оплатою за домовленістю, без суми в підсумку.`
+  if (input.onlinePricing === 'REQUEST_ONLY') {
+    return `${SERVICE_ONLINE_TOGGLE_HINT} ${SERVICE_ONLINE_PRICING_LABEL.REQUEST_ONLY}, без суми в підсумку.`
   }
-  if (input.chargeBasis === 'PER_PERSON_DAY') {
-    return `${SERVICE_ONLINE_TOGGLE_HINT} Гість вводить кількість сніданків. Ціна за сніданок, без множення на ночі чи гостей.`
+  if (input.onlinePricing === 'GUEST_QUANTITY') {
+    return `${SERVICE_ONLINE_TOGGLE_HINT} ${SERVICE_ONLINE_PRICING_LABEL.GUEST_QUANTITY}. Для сніданку — кількість сніданків, без множення на ночі чи гостей.`
   }
-  if (input.chargeBasis === 'PER_NIGHT') {
+  if (input.onlinePricing === 'PER_NIGHT') {
     return `${SERVICE_ONLINE_TOGGLE_HINT} ${SERVICE_PER_NIGHT_PENDING_HINT}`
   }
-  if (input.chargeBasis === 'PER_DAY' || input.chargeBasis === 'ONE_TIME') {
-    return `${SERVICE_ONLINE_TOGGLE_HINT} Гість вводить кількість × ціна. Автоматичне множення на календарні дні ще не підтверджено.`
+  if (input.onlinePricing === 'FIXED_ONCE') {
+    return `${SERVICE_ONLINE_TOGGLE_HINT} ${SERVICE_ONLINE_PRICING_LABEL.FIXED_ONCE}.`
   }
-  return `${SERVICE_ONLINE_TOGGLE_HINT} ${SERVICE_PUBLIC_STAY_ONLY_HINT}`
+  return `${SERVICE_ONLINE_TOGGLE_HINT} Спосіб розрахунку на сайті задається окремо від нарахування в CRM.`
 }
 
 export function parseOptionalServiceQuantity(
@@ -615,6 +677,15 @@ export function buildAdminServiceCreateBody(
     return { ok: false, error: 'Каталог послуг має непідтримуване нарахування.', field: 'chargeBasis' }
   }
   const bookable = input.bookable ?? false
+  const onlinePricing = input.onlinePricing ?? null
+  const pricingError = onlineConfigurationError({ bookable, onlinePricing, price: price.price })
+  if (pricingError) {
+    return {
+      ok: false,
+      error: pricingError,
+      field: onlinePricing && requiresOnlineUnitPrice(onlinePricing) ? 'price' : 'onlinePricing',
+    }
+  }
   const minQuantity = parseOptionalServiceQuantity(input.minQuantity)
   if (!minQuantity.ok) return { ok: false, error: minQuantity.error, field: 'minQuantity' }
   const maxQuantity = parseOptionalServiceQuantity(input.maxQuantity)
@@ -632,6 +703,7 @@ export function buildAdminServiceCreateBody(
     active: input.active,
     bookable,
     chargeBasis,
+    onlinePricing,
   }
   if (minQuantity.quantity !== null) body.minQuantity = minQuantity.quantity
   if (maxQuantity.quantity !== null) body.maxQuantity = maxQuantity.quantity
@@ -662,6 +734,15 @@ export function buildAdminServicePatchBody(
   }
   const bookable = input.bookable ?? false
   const nextPrice = price.price
+  const onlinePricing = input.onlinePricing === undefined ? current.onlinePricing : input.onlinePricing
+  const pricingError = onlineConfigurationError({ bookable, onlinePricing, price: nextPrice })
+  if (pricingError) {
+    return {
+      ok: false,
+      error: pricingError,
+      field: onlinePricing && requiresOnlineUnitPrice(onlinePricing) ? 'price' : 'onlinePricing',
+    }
+  }
   const minQuantity = parseOptionalServiceQuantity(input.minQuantity)
   if (!minQuantity.ok) return { ok: false, error: minQuantity.error, field: 'minQuantity' }
   const maxQuantity = parseOptionalServiceQuantity(input.maxQuantity)
@@ -680,6 +761,7 @@ export function buildAdminServicePatchBody(
   if (input.active !== current.active) body.active = input.active
   if (bookable !== current.bookable) body.bookable = bookable
   if (chargeBasis !== current.chargeBasis) body.chargeBasis = chargeBasis
+  if (onlinePricing !== current.onlinePricing) body.onlinePricing = onlinePricing
   if (minQuantity.quantity !== current.minQuantity) body.minQuantity = minQuantity.quantity
   if (maxQuantity.quantity !== current.maxQuantity) body.maxQuantity = maxQuantity.quantity
   if (sortOrder.sortOrder !== current.sortOrder) body.sortOrder = sortOrder.sortOrder

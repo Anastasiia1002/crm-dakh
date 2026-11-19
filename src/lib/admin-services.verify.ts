@@ -50,7 +50,9 @@ import {
   validateServiceQuantityBounds,
   isPubliclyBookableService,
   LIVE_PUBLIC_SERVICE_CHARGE_BASES,
-  resolveOnlinePricing,
+  suggestedOnlinePricingForName,
+  onlineConfigurationError,
+  SERVICE_ONLINE_PRICING_LABEL,
   SERVICE_ONLINE_TOGGLE_HINT,
   serviceOnlineFieldHint,
   serviceOnlineUnavailableReason,
@@ -423,6 +425,7 @@ function main() {
     currency: 'UAH',
     active: true,
     bookable: true,
+    onlinePricing: 'FIXED_ONCE',
     chargeBasis: 'PER_STAY',
     minQuantity: 2,
     maxQuantity: 4,
@@ -441,6 +444,7 @@ function main() {
     currency: 'UAH',
     active: true,
     bookable: true,
+    onlinePricing: 'PER_NIGHT',
     chargeBasis: 'PER_NIGHT',
     minQuantity: null,
     maxQuantity: null,
@@ -455,6 +459,7 @@ function main() {
     price: '200',
     active: true,
     bookable: true,
+    onlinePricing: 'PER_NIGHT',
     chargeBasis: 'PER_NIGHT',
   })
   assert(
@@ -512,6 +517,7 @@ function main() {
     currency: 'UAH',
     active: true,
     bookable: true,
+    onlinePricing: 'GUEST_QUANTITY',
     chargeBasis: 'PER_PERSON_DAY',
     minQuantity: null,
     maxQuantity: null,
@@ -527,12 +533,17 @@ function main() {
     'breakfast with both switches on is available on the site',
   )
   assert(
-    resolveOnlinePricing({ chargeBasis: 'PER_PERSON_DAY', price: '250.00' }) === 'GUEST_QUANTITY',
+    suggestedOnlinePricingForName('Сніданок') === 'GUEST_QUANTITY',
     'breakfast uses guest-entered quantity online',
   )
   assert(
-    resolveOnlinePricing({ chargeBasis: 'PER_TRIP', price: null }) === 'REQUEST_ONLY',
+    suggestedOnlinePricingForName('Трансфер') === 'REQUEST_ONLY',
     'transfer is request-only',
+  )
+  assert(suggestedOnlinePricingForName('Паркування') === null, 'parking waits for an owner-selected online mode')
+  assert(
+    onlineConfigurationError({ bookable: true, onlinePricing: 'GUEST_QUANTITY', price: null }) != null,
+    'a priced online mode without a price is invalid',
   )
   assert(serviceOnlineUnavailableReason(loaded) === null, 'CRM-only rows do not add a second status')
   assert(
@@ -545,11 +556,22 @@ function main() {
     'inactive extras stay hidden even with the online switch on',
   )
   assert(
-    serviceOnlineFieldHint({ bookable: false, active: true, chargeBasis: 'PER_NIGHT', price: '40.00' }).includes('За ніч'),
+    serviceOnlineFieldHint({
+      bookable: true,
+      active: true,
+      chargeBasis: 'PER_NIGHT',
+      onlinePricing: 'PER_NIGHT',
+      price: '40.00',
+    }).includes('За ніч'),
     'per-night copy names nights',
   )
   assert(
-    serviceOnlineFieldHint({ bookable: false, active: true, chargeBasis: 'PER_TRIP' }).includes('домовленістю'),
+    serviceOnlineFieldHint({
+      bookable: true,
+      active: true,
+      chargeBasis: 'PER_TRIP',
+      onlinePricing: 'REQUEST_ONLY',
+    }).includes('домовленістю'),
     'transfer copy names payment by agreement',
   )
   assert(serviceOnlineFieldHint({ bookable: false, active: true, chargeBasis: 'PER_STAY' }).includes(SERVICE_ONLINE_TOGGLE_HINT), 'the two switches are independent')
@@ -572,6 +594,7 @@ function main() {
     price: '250',
     active: true,
     bookable: true,
+    onlinePricing: 'GUEST_QUANTITY',
     chargeBasis: 'PER_PERSON_DAY',
   })
   assert(coercedCreate.ok && coercedCreate.body.bookable === true, 'breakfast can be shown online without changing its CRM unit')
@@ -613,6 +636,7 @@ function main() {
     price: '150.00',
     active: true,
     bookable: true,
+    onlinePricing: 'GUEST_QUANTITY',
     minQuantity: '2',
     maxQuantity: '4',
   })
@@ -638,14 +662,32 @@ function main() {
   assert(parseOptionalServiceQuantity('').ok && parseOptionalServiceQuantity('').quantity === null, 'an empty quantity is optional')
   assert(validateServiceQuantityBounds(1, 99) === null && validateServiceQuantityBounds(2, 2) === null, 'equal bounds are allowed')
 
-  const enabled = buildAdminServicePatchBody(loaded, {
+  const enabledWithoutMode = buildAdminServicePatchBody(loaded, {
     name: loaded.name,
     description: '',
     price: loaded.price ?? '',
     active: true,
     bookable: true,
   })
-  assert(enabled.ok && enabled.body.bookable === true && Object.keys(enabled.body).join() === 'bookable', 'enabling public availability sends only bookable')
+  assert(
+    !enabledWithoutMode.ok && 'field' in enabledWithoutMode && enabledWithoutMode.field === 'onlinePricing',
+    'enabling online booking requires an explicit pricing mode',
+  )
+  const enabled = buildAdminServicePatchBody(loaded, {
+    name: loaded.name,
+    description: '',
+    price: loaded.price ?? '',
+    active: true,
+    bookable: true,
+    onlinePricing: 'GUEST_QUANTITY',
+  })
+  assert(
+    enabled.ok &&
+      enabled.body.bookable === true &&
+      enabled.body.onlinePricing === 'GUEST_QUANTITY' &&
+      Object.keys(enabled.body).sort().join() === 'bookable,onlinePricing',
+    'enabling public availability sends bookable and the chosen online mode',
+  )
   const disabled = buildAdminServicePatchBody(published, {
     name: published.name,
     description: '',
@@ -676,6 +718,7 @@ function main() {
   )
 
   assert(page.includes('Показувати при онлайн-бронюванні'), 'the form names the public switch')
+  assert(page.includes('Розрахунок на сайті') && page.includes('SERVICE_ONLINE_PRICING_LABEL'), 'the form names the explicit online pricing modes')
   assert(page.includes('serviceOnlineFieldHint'), 'the form uses one field hint for guest vs saved online')
   assert(page.includes('role="switch"'), 'public availability is a switch')
   assert(page.includes('ADMIN_SERVICE_CHARGE_BASES') && page.includes('SERVICE_CHARGE_BASIS_LABEL'), 'the form offers staff charge bases')
@@ -729,8 +772,19 @@ function main() {
     'create can be active without a price',
   )
   assert(
-    buildAdminServiceCreateBody({ name: 'Трансфер', description: '', price: '', active: true, bookable: true }).ok,
-    'public bookable create may omit a price for a request-only extra',
+    !buildAdminServiceCreateBody({ name: 'Трансфер', description: '', price: '', active: true, bookable: true }).ok,
+    'bookable create without an explicit online mode is rejected even when the price is empty',
+  )
+  assert(
+    buildAdminServiceCreateBody({
+      name: 'Трансфер',
+      description: '',
+      price: '',
+      active: true,
+      bookable: true,
+      onlinePricing: 'REQUEST_ONLY',
+    }).ok,
+    'public bookable create may omit a price only for request-only extras',
   )
   const existing = parseManagedAdminService({
     id: BREAKFAST,
@@ -757,7 +811,7 @@ function main() {
     clearedPrice.ok && clearedPrice.body.price === null && !('active' in clearedPrice.body),
     'clearing the price of an active CRM service does not change active',
   )
-  const publicPriced = parseManagedAdminService({ ...existing, bookable: true })
+  const publicPriced = parseManagedAdminService({ ...existing, bookable: true, onlinePricing: 'GUEST_QUANTITY' })
   const publicCleared = buildAdminServicePatchBody(publicPriced, {
     name: 'Сніданок',
     description: '',
@@ -765,12 +819,18 @@ function main() {
     active: true,
     bookable: true,
     chargeBasis: 'PER_PERSON_DAY',
+    onlinePricing: 'GUEST_QUANTITY',
   })
   assert(
-    publicCleared.ok && publicCleared.body.price === null && !('bookable' in publicCleared.body),
-    'clearing CRM price on an unsupported extra does not rewrite the saved online flag',
+    !publicCleared.ok && 'field' in publicCleared && publicCleared.field === 'price',
+    'a priced online mode cannot drop the catalog price',
   )
-  const stayPublic = parseManagedAdminService({ ...existing, bookable: true, chargeBasis: 'PER_STAY' })
+  const stayPublic = parseManagedAdminService({
+    ...existing,
+    bookable: true,
+    chargeBasis: 'PER_STAY',
+    onlinePricing: 'REQUEST_ONLY',
+  })
   const stayCleared = buildAdminServicePatchBody(stayPublic, {
     name: 'Сніданок',
     description: '',
@@ -778,10 +838,11 @@ function main() {
     active: true,
     bookable: true,
     chargeBasis: 'PER_STAY',
+    onlinePricing: 'REQUEST_ONLY',
   })
   assert(
     stayCleared.ok && stayCleared.body.price === null && !('bookable' in stayCleared.body),
-    'clearing the price of an online extra keeps the request without inventing 0 ₴',
+    'clearing the price of a request-only extra keeps the request without inventing 0 ₴',
   )
   const draft = buildAdminServiceCreateBody({
     name: 'Трансфер',

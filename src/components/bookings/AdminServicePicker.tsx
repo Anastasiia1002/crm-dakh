@@ -14,7 +14,7 @@ import {
 type SavedLine = {
   serviceId: string
   quantity: number
-  unitPrice: string
+  unitPrice: string | null
 }
 
 type Props = {
@@ -119,7 +119,8 @@ export function AdminServicePicker({
                   <span className="font-medium">{serviceDisplayName(row.serviceId, catalog)}</span>
                   {savedLine ? (
                     <span className="ml-2 tabular-nums text-muted-foreground">
-                      збережена ціна {formatCatalogPrice(savedLine.unitPrice)}
+                      збережена ціна{' '}
+                      {savedLine.unitPrice == null ? 'Оплата за домовленістю' : formatCatalogPrice(savedLine.unitPrice)}
                     </span>
                   ) : null}
                   <span className="mt-0.5 block text-muted-foreground">
