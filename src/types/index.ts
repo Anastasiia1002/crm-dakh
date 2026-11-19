@@ -177,11 +177,16 @@ export type Accommodation = {
   roomTypeId: string
   number: string
   name: string | null
+  guestName?: string | null
+  description?: string | null
+  maxGuests?: number | null
+  publicSlug?: string | null
   floor: number | null
   status: RoomStatus
   active: boolean
   createdAt: string
   updatedAt: string
+  amenities?: Amenity[]
   /** Mock-only calendar filter (`room`/`house`) until bookings/calendar migrate. */
   kind?: AccommodationKind
 }
@@ -201,6 +206,7 @@ export type Block = {
 export type RoomTypeImage = {
   id: string
   roomTypeId: string
+  roomId?: string | null
   url: string
   alt: string | null
   sortOrder: number
@@ -260,18 +266,28 @@ export type RoomCreateInput = {
   roomTypeId: string
   number: string
   name?: string | null
+  guestName?: string | null
+  description?: string | null
+  maxGuests?: number | null
+  publicSlug?: string | null
   floor?: number | null
   status?: RoomStatus
   active?: boolean
+  amenityKeys?: string[]
 }
 
 export type RoomUpdateInput = {
   roomTypeId?: string
   number?: string
   name?: string | null
+  guestName?: string | null
+  description?: string | null
+  maxGuests?: number | null
+  publicSlug?: string | null
   floor?: number | null
   status?: RoomStatus
   active?: boolean
+  amenityKeys?: string[]
 }
 
 export type RoomBlockCreateInput = {

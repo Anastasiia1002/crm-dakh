@@ -13,7 +13,7 @@ import {
   isTechnicalUnitCode,
   referencedRoomOption,
   roomTypeColumnLabel,
-  sharedRoomTypeNotice,
+  unitContentNotice,
   unitDisplayCode,
   unitDisplayLabel,
   unitDisplayTitle,
@@ -109,12 +109,10 @@ assert(
   'a unique unit name stays on the row',
 )
 
-const withoutCount = sharedRoomTypeNotice(null)
-const withCount = sharedRoomTypeNotice(3)
-assert(withoutCount.includes('всіх розміщень цього типу'), 'shared edit explains the room type')
-assert(!withoutCount.includes('Кількість'), 'shared edit omits a count that was not provided')
-assert(withCount.includes('Кількість розміщень цього типу: 3.'), 'shared edit shows a known count')
-assert(!withCount.includes('Sunny') && !withoutCount.includes('sunny'), 'shared copy has no legacy business name')
+const unitNotice = unitContentNotice()
+assert(unitNotice.includes('цьому розміщенню'), 'guest content belongs to the physical unit')
+assert(!unitNotice.includes('типу розміщення'), 'staff copy does not say content belongs to a shared type')
+assert(!unitNotice.includes('Sunny'), 'unit copy has no legacy business name')
 const archived = bookingRoomFilterLabel(
   { name: null, number: 'dakh-room-14-3', active: false },
   'Будинок 7',
@@ -168,8 +166,9 @@ assert(page.includes('/admin/accommodations/new?kind='), 'create opens a full pa
 assert(page.includes('/admin/accommodations/${item.id}/edit'), 'edit opens a full page')
 assert(!page.includes('function UnitDialog'), 'unit editing is no longer a modal')
 const editor = readFileSync(new URL('../pages/accommodations/AccommodationEditorPage.tsx', import.meta.url), 'utf8')
-assert(editor.includes('sharedRoomTypeNotice'), 'shared room-type editing is explicit')
-assert(editor.includes('maxGuests: guests'), 'shared capacity still uses the room-type payload')
+assert(!editor.includes('sharedRoomTypeNotice'), 'shared room-type editing is not shown')
+assert(editor.includes('unitContentNotice'), 'unit-owned content is explained')
+assert(editor.includes('maxGuests: guests'), 'capacity is saved on the unit')
 assert(editor.includes('Назва для гостей'), 'guest-facing name stays editable on the unit')
 assert(editor.includes('Опис'), 'description stays editable on the unit')
 assert(editor.includes('Місткість'), 'capacity stays editable on the unit')

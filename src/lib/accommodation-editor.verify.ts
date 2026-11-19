@@ -10,7 +10,9 @@ import {
   sortRoomTypeImages,
   accommodationTypeSlug,
   accommodationUploadFailure,
+  readPendingAccommodationRoomId,
   readPendingAccommodationTypeId,
+  rememberPendingAccommodationRoomId,
   rememberPendingAccommodationTypeId,
   sameAccommodationNumber,
   validateAccommodationImageFile,
@@ -84,6 +86,8 @@ assert(editor.includes('AccommodationPhotoGallery'), 'edit page includes the pho
 assert(editor.includes('PendingAccommodationPhotos'), 'create can select photos before save')
 assert(!editor.includes('Фото можна додати після збереження розміщення'), 'create no longer defers photos')
 assert(editor.includes('createdRoomId'), 'photo retry reuses the created accommodation')
+assert(editor.includes('rememberPendingAccommodationRoomId'), 'photo retry persists the created unit')
+assert(!editor.includes('useUpdateAdminRoomType'), 'guest content is not saved onto a shared type')
 assert(editor.includes('UnitHistory'), 'edit page includes unit history')
 assert(editor.includes('AmenityPicker'), 'the editor includes amenity selection')
 assert(editor.includes('amenityKeysForSave'), 'unrelated saves omit unchanged amenities')
@@ -110,6 +114,10 @@ rememberPendingAccommodationTypeId(storage, 'type-1')
 assert(readPendingAccommodationTypeId(storage) === 'type-1', 'the unfinished room type is remembered')
 rememberPendingAccommodationTypeId(storage, null)
 assert(readPendingAccommodationTypeId(storage) === null, 'a finished save clears the unfinished room type')
+rememberPendingAccommodationRoomId(storage, 'room-1')
+assert(readPendingAccommodationRoomId(storage) === 'room-1', 'an unfinished unit is remembered')
+rememberPendingAccommodationRoomId(storage, null)
+assert(readPendingAccommodationRoomId(storage) === null, 'a finished save clears the unfinished unit')
 const slug = accommodationTypeSlug('COTTAGE', '14/3')
 assert(/^cottage-[a-z0-9-]+$/.test(slug) && slug.length <= 80, 'generated slugs stay within the room-type contract')
 assert(gallery.includes('data-photo-toolbar'), 'photo actions sit on the thumbnail')
@@ -131,8 +139,8 @@ assert(gallery.includes('multiple'), 'several files can be selected')
 assert(gallery.includes('data-photo-drop'), 'files can be dropped')
 assert(gallery.includes('data-photo-upload-progress'), 'an upload shows progress before it is saved')
 assert(gallery.includes('Повторити'), 'a failed upload can be retried')
-assert(gallery.includes('useUploadAdminRoomTypeImage'), 'the picker uses the upload mutation')
-assert(imageApi.includes('/images/upload'), 'the picker posts to the staff upload endpoint')
+assert(gallery.includes('useUploadAdminRoomImage'), 'the picker uses the unit upload mutation')
+assert(imageApi.includes('/rooms/${roomId}/images/upload'), 'the picker posts to the unit upload endpoint')
 assert(imageApi.includes('new FormData()'), 'the upload sends the file as multipart')
 assert(!gallery.includes('data-photo-local-preview'), 'saved gallery does not use local file previews')
 assert(!gallery.includes('createObjectURL'), 'saved gallery does not keep local image urls')

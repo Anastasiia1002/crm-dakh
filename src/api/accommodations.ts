@@ -211,9 +211,14 @@ export async function createRoom(input: RoomCreateInput): Promise<Accommodation>
       roomTypeId: input.roomTypeId,
       number: input.number.trim(),
       name: input.name?.trim() ? input.name.trim() : null,
+      guestName: input.guestName?.trim() ? input.guestName.trim() : null,
+      description: input.description?.trim() ? input.description.trim() : null,
+      maxGuests: input.maxGuests,
+      publicSlug: input.publicSlug ?? undefined,
       floor: input.floor ?? null,
       status: input.status,
       active: input.active,
+      ...(input.amenityKeys !== undefined ? { amenityKeys: [...input.amenityKeys] } : {}),
     },
   })
 }
@@ -223,9 +228,16 @@ export async function updateRoom(id: string, input: RoomUpdateInput): Promise<Ac
   if (input.roomTypeId !== undefined) body.roomTypeId = input.roomTypeId
   if (input.number !== undefined) body.number = input.number.trim()
   if (input.name !== undefined) body.name = input.name?.trim() ? input.name.trim() : null
+  if (input.guestName !== undefined) body.guestName = input.guestName?.trim() ? input.guestName.trim() : null
+  if (input.description !== undefined) {
+    body.description = input.description?.trim() ? input.description.trim() : null
+  }
+  if (input.maxGuests !== undefined) body.maxGuests = input.maxGuests
+  if (input.publicSlug !== undefined) body.publicSlug = input.publicSlug
   if (input.floor !== undefined) body.floor = input.floor
   if (input.status !== undefined) body.status = input.status
   if (input.active !== undefined) body.active = input.active
+  if (input.amenityKeys !== undefined) body.amenityKeys = [...input.amenityKeys]
   return apiRequest(`/api/admin/accommodations/rooms/${id}`, {
     method: 'PATCH',
     body,
@@ -342,6 +354,63 @@ export async function reorderRoomTypeImages(roomTypeId: string, imageIds: string
 
 export async function deleteRoomTypeImage(roomTypeId: string, imageId: string) {
   return apiRequest<{ ok: true }>(`/api/admin/accommodations/types/${roomTypeId}/images/${imageId}`, {
+    method: 'DELETE',
+  })
+}
+
+export async function listRoomImages(roomId: string): Promise<RoomTypeImage[]> {
+  return apiRequest(`/api/admin/accommodations/rooms/${roomId}/images`)
+}
+
+export function uploadRoomImage(
+  roomId: string,
+  file: File,
+  onProgress?: (percent: number) => void,
+): Promise<RoomTypeImage> {
+  const body = new FormData()
+  body.append('file', file, file.name)
+  return authorizedFormUpload<RoomTypeImage>(
+    `/api/admin/accommodations/rooms/${roomId}/images/upload`,
+    body,
+    onProgress,
+  )
+}
+
+export async function createRoomImage(roomId: string, input: RoomImageCreateInput): Promise<RoomTypeImage> {
+  return apiRequest(`/api/admin/accommodations/rooms/${roomId}/images`, {
+    method: 'POST',
+    body: {
+      url: input.url.trim(),
+      alt: input.alt?.trim() ? input.alt.trim() : null,
+      sortOrder: input.sortOrder,
+    },
+  })
+}
+
+export async function updateRoomImage(
+  roomId: string,
+  imageId: string,
+  input: RoomImageUpdateInput,
+): Promise<RoomTypeImage> {
+  const body: RoomImageUpdateInput = {}
+  if (input.url !== undefined) body.url = input.url.trim()
+  if (input.alt !== undefined) body.alt = input.alt?.trim() ? input.alt.trim() : null
+  if (input.sortOrder !== undefined) body.sortOrder = input.sortOrder
+  return apiRequest(`/api/admin/accommodations/rooms/${roomId}/images/${imageId}`, {
+    method: 'PATCH',
+    body,
+  })
+}
+
+export async function reorderRoomImages(roomId: string, imageIds: string[]): Promise<RoomTypeImage[]> {
+  return apiRequest(`/api/admin/accommodations/rooms/${roomId}/images/reorder`, {
+    method: 'PATCH',
+    body: { imageIds },
+  })
+}
+
+export async function deleteRoomImage(roomId: string, imageId: string) {
+  return apiRequest<{ ok: true }>(`/api/admin/accommodations/rooms/${roomId}/images/${imageId}`, {
     method: 'DELETE',
   })
 }

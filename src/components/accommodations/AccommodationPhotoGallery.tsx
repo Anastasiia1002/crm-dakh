@@ -10,11 +10,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import {
-  useAdminRoomTypeImages,
-  useDeleteAdminRoomTypeImage,
-  useReorderAdminRoomTypeImages,
-  useUpdateAdminRoomTypeImage,
-  useUploadAdminRoomTypeImage,
+  useAdminRoomImages,
+  useDeleteAdminRoomImage,
+  useReorderAdminRoomImages,
+  useUpdateAdminRoomImage,
+  useUploadAdminRoomImage,
 } from '@/hooks/useHotel'
 import {
   accommodationErrorMessage,
@@ -41,17 +41,17 @@ const imageSchema = z.object({
 })
 
 export function AccommodationPhotoGallery({
-  roomTypeId,
+  roomId,
   canWrite,
 }: {
-  roomTypeId: string
+  roomId: string
   canWrite: boolean
 }) {
-  const images = useAdminRoomTypeImages(roomTypeId)
-  const upload = useUploadAdminRoomTypeImage()
-  const update = useUpdateAdminRoomTypeImage()
-  const reorder = useReorderAdminRoomTypeImages()
-  const remove = useDeleteAdminRoomTypeImage()
+  const images = useAdminRoomImages(roomId)
+  const upload = useUploadAdminRoomImage()
+  const update = useUpdateAdminRoomImage()
+  const reorder = useReorderAdminRoomImages()
+  const remove = useDeleteAdminRoomImage()
   const [pendingDelete, setPendingDelete] = useState<RoomTypeImage | null>(null)
   const [replacingId, setReplacingId] = useState<string | null>(null)
   const [brokenIds, setBrokenIds] = useState<Record<string, boolean>>({})
@@ -70,7 +70,7 @@ export function AccommodationPhotoGallery({
   async function sendFile(file: File, jobId: string) {
     try {
       await upload.mutateAsync({
-        roomTypeId,
+        roomId,
         file,
         onProgress: (progress) => {
           setUploads((current) => current.map((job) => (job.id === jobId ? { ...job, progress, error: null } : job)))
@@ -111,7 +111,7 @@ export function AccommodationPhotoGallery({
     }
     setBusyId('order')
     try {
-      await reorder.mutateAsync({ roomTypeId, imageIds })
+      await reorder.mutateAsync({ roomId, imageIds })
       toast.success('Порядок фото оновлено')
     } catch (error) {
       toast.error(accommodationErrorMessage(error))
@@ -398,7 +398,7 @@ export function AccommodationPhotoGallery({
                 }
                 try {
                   await update.mutateAsync({
-                    roomTypeId,
+                    roomId,
                     imageId: replacing.id,
                     input: {
                       url: values.url,
@@ -445,7 +445,7 @@ export function AccommodationPhotoGallery({
             return
           }
           void remove
-            .mutateAsync({ roomTypeId, imageId: pendingDelete.id })
+            .mutateAsync({ roomId, imageId: pendingDelete.id })
             .then(() => {
               setPendingDelete(null)
               toast.success('Фото прибрано')

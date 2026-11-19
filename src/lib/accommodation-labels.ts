@@ -22,10 +22,11 @@ function meaningfulLabel(value: string | null | undefined) {
 
 /** Prefer the unit name, then the room-type name, then a physical number. */
 export function unitDisplayTitle(
-  unit: { name: string | null; number: string },
+  unit: { name: string | null; number: string; guestName?: string | null },
   typeName?: string | null,
 ) {
   return (
+    meaningfulLabel(unit.guestName) ??
     meaningfulLabel(unit.name) ??
     meaningfulLabel(typeName) ??
     meaningfulLabel(unit.number) ??
@@ -154,10 +155,7 @@ export function referencedRoomOption(input: {
   }
 }
 
-/** Shared RoomType copy. A count is included only when the caller already knows it. */
-export function sharedRoomTypeNotice(unitCount: number | null) {
-  const base =
-    'Назва для гостей, опис, місткість і фото належать типу розміщення. Зміна застосовується до всіх розміщень цього типу.'
-  if (unitCount === null) return base
-  return `${base} Кількість розміщень цього типу: ${unitCount}.`
+/** Guest-facing copy, photos, capacity, and amenities belong to this physical unit. */
+export function unitContentNotice() {
+  return 'Назва для гостей, опис, місткість, зручності і фото належать цьому розміщенню. Зміни не застосовуються до інших номерів чи будиночків.'
 }

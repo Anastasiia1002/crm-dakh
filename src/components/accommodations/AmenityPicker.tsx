@@ -127,7 +127,7 @@ export function AmenityPicker({
           <p className="text-xs text-muted-foreground">
             {selected === null
               ? 'Завантажуємо збережені зручності.'
-              : `Обрано ${selectedCount}. Спільні для всіх розміщень цього типу.`}
+              : `Обрано ${selectedCount}. Лише для цього розміщення.`}
           </p>
         </div>
         {selectedCount > 0 && !confirmClear ? (
