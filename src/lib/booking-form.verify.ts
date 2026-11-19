@@ -340,6 +340,8 @@ function main() {
   assert(detail.includes('formatDate(booking.checkIn)') && detail.includes('formatDate(booking.checkOut)'), 'booking detail shows the stored dates')
   assert(!detail.includes('StayCalendar') && !detail.includes('stayDateDisabled'), 'booking detail does not apply the past-date calendar')
   const formSource = readFileSync(new URL('../components/bookings/AdminBookingForm.tsx', import.meta.url), 'utf8')
+  assert(formSource.includes('pickDefaultCommercialRatePlan'), 'staff create resolves the commercial STANDARD plan')
+  assert(!formSource.includes('Оберіть тариф'), 'staff booking form has no tariff selector')
   assert(formSource.includes('storedStayDatesUnchanged'), 'the edit form keeps an unchanged stored stay')
   assert(formSource.includes('useAdminServices') && formSource.includes('AdminServicePicker'), 'create form selects live catalog services')
   assert(formSource.includes('preset?.guestId') && formSource.includes('getAdminGuest'), 'create form can preselect a client')

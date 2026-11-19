@@ -262,11 +262,11 @@ export function runCalendarAdapterChecks(): string[] {
     kindFilter: 'ROOM',
   })
   assert(
-    modelKind.groups.some((group) => group.roomTypeId === 'rt1' && group.kind === 'UNKNOWN'),
+    modelKind.groups.some((group) => group.kind === 'UNKNOWN' && group.rooms.some((room) => room.roomTypeId === 'rt1')),
     'kind: unresolved ROOM filter keeps unknown types',
   )
   assert(
-    !modelKind.groups.some((group) => group.roomTypeId === 'rt-cottage'),
+    !modelKind.groups.some((group) => group.rooms.some((room) => room.roomTypeId === 'rt-cottage')),
     'kind: known COTTAGE excluded when filter=ROOM',
   )
   results.push('Filter PASS: unknown kind not silently dropped; known mismatch excluded')
@@ -373,8 +373,8 @@ export function runCalendarAdapterChecks(): string[] {
     bookings: [],
     kindFilter: 'all',
   })
-  const slugRoom = labeled.groups.find((group) => group.roomTypeId === 'rt-slug')?.rooms[0]
-  const physicalRoom = labeled.groups.find((group) => group.roomTypeId === 'rt-phys')?.rooms[0]
+  const slugRoom = labeled.groups.flatMap((group) => group.rooms).find((room) => room.roomTypeId === 'rt-slug')
+  const physicalRoom = labeled.groups.flatMap((group) => group.rooms).find((room) => room.roomTypeId === 'rt-phys')
   assert(slugRoom?.roomId === 'room-slug' && slugRoom.number === 'dakh-room-14-3', 'label: room id and raw number stay')
   assert(slugRoom?.displayTitle === 'Номер 14/3' && slugRoom.displayCode === null, 'label: slug is not the row title')
   assert(
@@ -390,6 +390,12 @@ export function runCalendarAdapterChecks(): string[] {
   assert(
     !labeled.bookingBars.some((bar) => bar.roomId === '14/1' || bar.roomId === 'Номер з терасою'),
     'label: booking is not attached to the display text',
+  )
+  assert(
+    labeled.groups.length === 1 &&
+      labeled.groups[0]?.kind === 'ROOM' &&
+      labeled.groups[0].rooms.length === 2,
+    'label: rooms share one Номери section and appear once each',
   )
   results.push('Label PASS: display text is separate from roomId and bookingId')
 

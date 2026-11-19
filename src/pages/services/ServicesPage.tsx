@@ -114,7 +114,7 @@ export function ServicesPage() {
     <div className="space-y-4">
       <PageHeader
         title="Додаткові послуги"
-        description={`Каталог цього готелю, включно з вимкненими. Порожня ціна — ${SERVICE_PRICE_UNSET_LABEL.toLowerCase()}, не безкоштовна послуга. Нова ціна не змінює вже збережені рядки в бронюваннях. ${SERVICE_PUBLIC_STAY_ONLY_HINT}`}
+        description={`Каталог цього готелю, включно з вимкненими. Порожня ціна — ${SERVICE_PRICE_UNSET_LABEL.toLowerCase()}, не безкоштовна послуга. Нова ціна не змінює вже збережені рядки в бронюваннях.`}
         actions={canWrite ? <Button onClick={() => setEditing('new')}>Додати послугу</Button> : undefined}
       />
       <div className="filter-toolbar rounded-md border border-border bg-surface p-3">

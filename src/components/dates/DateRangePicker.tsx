@@ -192,7 +192,7 @@ export function DateRangePicker({
           event.preventDefault()
         }}
         onClick={openPicker}
-        className="flex h-10 w-full min-w-0 items-center rounded-md border border-input bg-background px-3 text-left text-sm disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex h-11 w-full min-w-0 items-center rounded-md border border-border bg-surface px-3 text-left text-sm hover:border-primary/30 disabled:cursor-not-allowed disabled:opacity-40"
       >
         <span id={labelId} className={displayStart ? 'text-foreground' : 'text-muted-foreground'}>
           {display}

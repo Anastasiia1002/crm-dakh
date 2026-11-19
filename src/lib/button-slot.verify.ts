@@ -103,11 +103,24 @@ function main() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+  const bookingsUser: AdminUser = {
+    id: 'user-1',
+    firstName: 'Staging',
+    lastName: 'Admin',
+    email: 'admin@example.test',
+    role: 'admin',
+    active: true,
+  }
+  client.setQueryData(['session'], bookingsUser)
   const bookings = render(
     createElement(
       QueryClientProvider,
       { client },
-      createElement(MemoryRouter, { initialEntries: ['/admin/bookings'] }, createElement(BookingsPage)),
+      createElement(
+        AuthProvider,
+        null,
+        createElement(MemoryRouter, { initialEntries: ['/admin/bookings'] }, createElement(BookingsPage)),
+      ),
     ),
   )
   assert(bookings.includes('Нове бронювання'), 'bookings page mounts the new-booking action')

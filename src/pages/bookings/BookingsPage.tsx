@@ -14,6 +14,7 @@ import { AccommodationSelectGroups } from '@/components/bookings/AccommodationSe
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { PageSkeleton } from '@/components/ui/page-status'
 import { EmptyState } from '@/components/ui/states'
+import { useAuth } from '@/hooks/useAuth'
 import { useAdminBookings } from '@/hooks/useBookings'
 import { useAllAdminRooms } from '@/hooks/useHotel'
 import { ACCOMMODATION_FALLBACK_LABEL } from '@/lib/accommodation-labels'
@@ -33,6 +34,7 @@ function dateParam(value: string | null) {
 }
 
 export function BookingsPage() {
+  const { user } = useAuth()
   const [searchParams] = useSearchParams()
   const [search, setSearch] = useState('')
   const deferredSearch = useDeferredValue(search)
@@ -264,7 +266,11 @@ export function BookingsPage() {
           {bookings.data.items.length === 0 ? (
             <EmptyState>Бронювань за цими умовами немає.</EmptyState>
           ) : (
-            <AdminBookingTable bookings={bookings.data.items} empty="Бронювань за цими умовами немає." />
+            <AdminBookingTable
+              bookings={bookings.data.items}
+              empty="Бронювань за цими умовами немає."
+              role={user?.role}
+            />
           )}
           <Pagination
             page={bookings.data.pagination.page}

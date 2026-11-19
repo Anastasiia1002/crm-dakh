@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { BookingStatusBadge } from '@/components/bookings/BookingStatusBadge'
 import { EmptyState, SectionHeading } from '@/components/ui/states'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -43,7 +43,15 @@ export function GuestBookingHistory({ history }: { history: AdminGuestHistoryIte
                     }
                   }}
                 >
-                  <TableCell className="max-w-40 font-mono text-xs break-all">{booking.id}</TableCell>
+                  <TableCell className="max-w-40 font-mono text-xs break-all">
+                    <Link
+                      to={`/admin/bookings/${booking.id}`}
+                      className="hover:underline"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      {booking.id.slice(0, 8)}
+                    </Link>
+                  </TableCell>
                   <TableCell>
                     {formatDateShort(booking.checkIn)}–{formatDateShort(booking.checkOut)}
                   </TableCell>

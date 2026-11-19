@@ -1,5 +1,6 @@
 import { ApiError } from '@/lib/api-error'
 import { formatMoneyAmount, normalizeMoneyString } from '@/lib/format'
+import { textIncludesSearch } from '@/lib/text-search'
 
 /** Booking picker reads GET /api/admin/services (active-only). Management uses GET ?active=all. */
 export const ADMIN_SERVICE_CATALOG_AVAILABLE = true
@@ -15,9 +16,9 @@ export const SERVICE_DEFAULT_CREATE_PRICE = '100'
 export const SERVICE_PUBLIC_NEEDS_PRICE =
   'Щоб зробити послугу доступною на сайті, вкажіть ціну або вимкніть онлайн-бронювання.'
 export const SERVICE_PUBLIC_STAY_ONLY_HINT =
-  'На сайті гість бачить лише активну послугу з нарахуванням «За бронювання» і встановленою ціною.'
+  'На сайті гість бачить активну послугу з нарахуванням «За бронювання» або «За ніч» і встановленою ціною. За ніч кількість дорівнює оплачуваним ночам проживання без дня виїзду.'
 export const SERVICE_UNSUPPORTED_PUBLIC_BASIS_HINT =
-  'Сайт ще не рахує це нарахування. Збережений прапорець онлайн не змінюємо, а новий не вмикаємо.'
+  'Онлайн-розрахунок для цього нарахування ще не заданий. Збережений прапорець онлайн не змінюємо, а новий не вмикаємо.'
 export const SERVICE_SAVED_ONLINE_FLAG_HINT =
   'У картці стоїть «доступна онлайн», але гість послугу не бачить, доки нарахування не з’явиться в публічному розрахунку.'
 export const SERVICE_SITE_BADGE = 'На сайті'
@@ -38,10 +39,10 @@ export const ADMIN_SERVICE_CHARGE_BASES = [
 ] as const
 
 export type AdminServiceChargeBasis = (typeof ADMIN_SERVICE_CHARGE_BASES)[number]
-export const PUBLIC_SERVICE_CHARGE_BASES: readonly AdminServiceChargeBasis[] = ['PER_STAY']
+export const PUBLIC_SERVICE_CHARGE_BASES: readonly AdminServiceChargeBasis[] = ['PER_STAY', 'PER_NIGHT']
 
 export function isPublicServiceChargeBasis(basis?: AdminServiceChargeBasis) {
-  return (basis ?? 'PER_STAY') === 'PER_STAY'
+  return PUBLIC_SERVICE_CHARGE_BASES.includes(basis ?? 'PER_STAY')
 }
 
 export const SERVICE_CHARGE_BASIS_LABEL: Record<AdminServiceChargeBasis, string> = {
@@ -397,7 +398,7 @@ function parseServiceQuantityLimit(value: unknown): number | null {
   return value
 }
 
-/** Public checkout lists a service only when it is active, priced, bookable, and charged once per stay. */
+/** Public checkout lists a service only when it is active, priced, bookable, and charged per stay or per night. */
 export function isPubliclyBookableService(service: {
   active: boolean
   bookable: boolean
@@ -649,11 +650,10 @@ export function filterManagedServices(
   items: readonly AdminManagedService[],
   options: { query: string; status: ServiceStatusFilter },
 ): AdminManagedService[] {
-  const needle = options.query.trim().toLowerCase()
   return items.filter((item) => {
     if (options.status === 'active' && !item.active) return false
     if (options.status === 'inactive' && item.active) return false
-    if (needle && !item.name.toLowerCase().includes(needle)) return false
+    if (!textIncludesSearch(item.name, options.query)) return false
     return true
   })
 }

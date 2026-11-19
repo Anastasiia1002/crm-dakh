@@ -50,7 +50,6 @@ export function CalendarPage() {
   const nightIntent = emptyNightIntent(user?.role)
   const [start, setStart] = useState(todayIso())
   const [kind, setKind] = useState<RoomTypeKind | 'all'>('all')
-  const [roomTypeId, setRoomTypeId] = useState<string>('all')
   const [inventoryFilter, setInventoryFilter] = useState<InventoryActiveFilter>('active')
   const [blocking, setBlocking] = useState(false)
   const [dialogSession, setDialogSession] = useState(0)
@@ -69,7 +68,6 @@ export function CalendarPage() {
     from: start,
     days: CALENDAR_WINDOW_DAYS,
     kind,
-    roomTypeId: roomTypeId === 'all' ? undefined : roomTypeId,
     inventoryFilter,
   })
   const inventoryActive = activeFilterToQuery(inventoryFilter)
@@ -101,13 +99,7 @@ export function CalendarPage() {
   useEffect(() => {
     setSelection(null)
     setSelectionNote(null)
-  }, [start, kind, roomTypeId, inventoryFilter])
-
-  const typeOptions = useMemo(() => {
-    const types = board.pickerTypesQuery.data ?? []
-    if (kind === 'all') return types
-    return types.filter((type) => type.kind === kind)
-  }, [board.pickerTypesQuery.data, kind])
+  }, [start, kind, inventoryFilter])
 
   const rangeLabel =
     board.model && board.model.dates.length > 0
@@ -215,7 +207,9 @@ export function CalendarPage() {
 
   const typeNamesByRoomTypeId = useMemo(() => {
     const names = new Map<string, string>()
-    for (const group of board.model?.groups ?? []) names.set(group.roomTypeId, group.name)
+    for (const group of board.model?.groups ?? []) {
+      for (const room of group.rooms) names.set(room.roomTypeId, room.roomTypeName)
+    }
     return names
   }, [board.model])
 
@@ -275,31 +269,16 @@ export function CalendarPage() {
                 }`}
                 onClick={() => {
                   setKind(item.id)
-                  setRoomTypeId('all')
                 }}
               >
                 {item.label}
               </button>
             ))}
           </div>
-          <Select value={roomTypeId} onValueChange={(value) => setRoomTypeId(value)}>
-            <SelectTrigger className="w-full sm:w-52">
-              <SelectValue placeholder="Тип" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Усі типи</SelectItem>
-              {typeOptions.map((type) => (
-                <SelectItem key={type.id} value={type.id}>
-                  {type.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
           <Select
             value={inventoryFilter}
             onValueChange={(value: InventoryActiveFilter) => {
               setInventoryFilter(value)
-              setRoomTypeId('all')
             }}
           >
             <SelectTrigger className="w-full sm:w-40">

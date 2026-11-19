@@ -100,7 +100,7 @@ export function GuestsPage() {
         title="Клієнти"
         description="Ваша клієнтська база тут"
         actions={
-          <>
+          <div className="flex flex-wrap items-center gap-2">
             {canImport ? (
               <Button type="button" variant="outline" onClick={() => setImportOpen(true)}>
                 Імпорт
@@ -116,7 +116,7 @@ export function GuestsPage() {
                 Додати клієнта
               </Button>
             ) : null}
-          </>
+          </div>
         }
       />
 

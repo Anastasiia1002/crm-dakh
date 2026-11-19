@@ -69,11 +69,11 @@ export function GuestPage() {
           ← Клієнти
         </Link>
         <div className="flex flex-wrap gap-2">
-          <Button asChild size="sm" variant="outline">
+          <Button asChild variant="outline">
             <Link to={`/admin/bookings/new?guestId=${encodeURIComponent(guest.id)}`}>Створити бронювання</Link>
           </Button>
           {canWrite ? (
-            <Button size="sm" onClick={() => setEditing((open) => !open)}>
+            <Button onClick={() => setEditing((open) => !open)}>
               {editing ? 'Закрити редагування' : 'Редагувати'}
             </Button>
           ) : null}
@@ -81,38 +81,44 @@ export function GuestPage() {
       </div>
 
       {editing && canWrite ? (
-        <GuestForm
-          guest={guest}
-          contactLocked={guest.contactShared}
-          submitLabel="Зберегти"
-          pending={save.isPending}
-          duplicateHint={hint}
-          onCancel={() => setEditing(false)}
-          onSubmit={(values) => {
-            setHint(null)
-            void save.mutateAsync({ ...values, id: guest.id }).then(
-              () => setEditing(false),
-              (error: unknown) => {
-                setHint(guestSaveHint(error))
-              },
-            )
-          }}
-        />
+        <section className="rounded-md border border-border bg-surface p-5">
+          <GuestForm
+            guest={guest}
+            contactLocked={guest.contactShared}
+            submitLabel="Зберегти"
+            pending={save.isPending}
+            duplicateHint={hint}
+            onCancel={() => setEditing(false)}
+            onSubmit={(values) => {
+              setHint(null)
+              void save.mutateAsync({ ...values, id: guest.id }).then(
+                () => setEditing(false),
+                (error: unknown) => {
+                  setHint(guestSaveHint(error))
+                },
+              )
+            }}
+          />
+        </section>
       ) : (
-        <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
-          {fields.map((field) => (
-            <div key={field.label} className={field.prominent ? 'sm:col-span-2' : undefined}>
-              <dt className="text-[11px] tracking-[0.12em] text-muted uppercase">{field.label}</dt>
-              <dd className={field.prominent ? 'mt-2 font-serif text-4xl leading-none font-medium' : 'mt-1 text-sm'}>{field.value}</dd>
-            </div>
-          ))}
-          {notes ? (
-            <div className="sm:col-span-2">
-              <dt className="text-[11px] tracking-[0.12em] text-muted uppercase">Внутрішній коментар</dt>
-              <dd className="mt-1 max-w-2xl text-sm whitespace-pre-wrap">{notes}</dd>
-            </div>
-          ) : null}
-        </dl>
+        <section className="rounded-md border border-border bg-surface p-5">
+          <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
+            {fields.map((field) => (
+              <div key={field.label} className={field.prominent ? 'sm:col-span-2' : undefined}>
+                <dt className="text-[11px] tracking-[0.12em] text-muted uppercase">{field.label}</dt>
+                <dd className={field.prominent ? 'mt-2 font-serif text-4xl leading-none font-medium' : 'mt-1 text-sm'}>
+                  {field.value}
+                </dd>
+              </div>
+            ))}
+            {notes ? (
+              <div className="sm:col-span-2">
+                <dt className="text-[11px] tracking-[0.12em] text-muted uppercase">Внутрішній коментар</dt>
+                <dd className="mt-1 max-w-2xl text-sm whitespace-pre-wrap">{notes}</dd>
+              </div>
+            ) : null}
+          </dl>
+        </section>
       )}
 
       <GuestStats stats={stats} importedStats={profile.data.importedStats} />
