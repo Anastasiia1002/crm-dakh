@@ -169,7 +169,7 @@ function DayPriceSection({ canWrite }: { canWrite: boolean }) {
                 </TableCell>
                 <TableCell stickyActions className="text-right">
                   {canWrite ? (
-                    <ActionsMenu>
+                    <ActionsMenu label={`Дії для правила ${rule.name}`}>
                       <DropdownMenuItem onSelect={() => setEditing(rule)}>Редагувати</DropdownMenuItem>
                       <DropdownMenuItem
                         className="text-destructive focus:text-destructive"
@@ -258,7 +258,7 @@ function LengthStaySection({ canWrite }: { canWrite: boolean }) {
                 </TableCell>
                 <TableCell stickyActions className="text-right">
                   {canWrite ? (
-                    <ActionsMenu>
+                    <ActionsMenu label={`Дії для знижки ${rule.name}`}>
                       <DropdownMenuItem onSelect={() => setEditing(rule)}>Редагувати</DropdownMenuItem>
                       <DropdownMenuItem
                         className="text-destructive focus:text-destructive"

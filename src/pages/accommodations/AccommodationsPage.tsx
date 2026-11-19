@@ -20,7 +20,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAuth } from '@/hooks/useAuth'
 import { useAdminRoomBlocks, useAdminRooms, useAdminRoomTypes, useDeleteAdminRoomBlock } from '@/hooks/useHotel'
-import { roomTypeColumnLabel, unitDisplayCode, unitDisplayTitle } from '@/lib/accommodation-labels'
+import { unitDisplayCode, unitDisplayTitle } from '@/lib/accommodation-labels'
 import { isDateInHalfOpenRange, todayIso } from '@/lib/dates'
 import { formatDate } from '@/lib/format'
 import { roomStatusLabel } from '@/lib/labels'
@@ -303,7 +303,6 @@ function UnitSection({
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead>Назва</TableHead>
-              <TableHead>Тип</TableHead>
               <TableHead>Місткість</TableHead>
               <TableHead>Стан</TableHead>
               <TableHead stickyActions>
@@ -324,7 +323,6 @@ function UnitSection({
                     <div>{title}</div>
                     {code ? <div className="text-xs text-muted-foreground">{code}</div> : null}
                   </TableCell>
-                  <TableCell>{roomTypeColumnLabel(typeMeta?.name, kind)}</TableCell>
                   <TableCell>{typeMeta ? `до ${typeMeta.maxGuests}` : '—'}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap items-center gap-2">
@@ -360,7 +358,7 @@ function UnitSection({
                   </TableCell>
                   <TableCell stickyActions className="text-right">
                     {canWrite ? (
-                      <ActionsMenu>
+                      <ActionsMenu label={`Дії для ${title}`}>
                         <DropdownMenuItem asChild>
                           <Link to={`/admin/accommodations/${item.id}/edit`}>Редагувати</Link>
                         </DropdownMenuItem>

@@ -363,8 +363,8 @@ export function UsersPage() {
                 <TableHead>Стан</TableHead>
                 <TableHead>Створено</TableHead>
                 <TableHead>Дійсне до</TableHead>
-                <TableHead stickyActions className="text-right">
-                  Дії
+                <TableHead stickyActions>
+                  <span className="sr-only">Дії</span>
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -556,7 +556,7 @@ function UserRowActions({
     return <span className="text-xs text-muted-foreground">Лише перегляд</span>
   }
   return (
-    <ActionsMenu>
+    <ActionsMenu label={`Дії для ${item.firstName} ${item.lastName}`.trim()}>
       {canUpdateAdminUsers(role) || canDeactivateUsers(role) ? (
         <DropdownMenuItem onSelect={onEdit}>Редагувати</DropdownMenuItem>
       ) : null}

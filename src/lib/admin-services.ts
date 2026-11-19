@@ -15,16 +15,18 @@ export const SERVICE_PRICE_UNSET_LABEL = 'Ціну не зазначено'
 export const SERVICE_DEFAULT_CREATE_PRICE = '100'
 export const SERVICE_PUBLIC_NEEDS_PRICE =
   'Щоб зробити послугу доступною на сайті, вкажіть ціну або вимкніть онлайн-бронювання.'
-export const SERVICE_PUBLIC_STAY_ONLY_HINT =
-  'На сайті гість бачить активну послугу з нарахуванням «За бронювання» і встановленою ціною. Нарахування «За ніч» з’явиться в онлайн-бронюванні лише після серверного розрахунку.'
+export const SERVICE_ONLINE_TOGGLE_HINT =
+  'Це збережене бажання показувати послугу онлайн. Гість бачить її лише коли послуга активна, з ціною, і нарахування вже є в публічному розрахунку.'
+export const SERVICE_PUBLIC_STAY_ONLY_HINT = 'Зараз публічний розрахунок підтримує лише «За бронювання».'
 export const SERVICE_PER_NIGHT_PENDING_HINT =
-  'Онлайн-бронювання «За ніч» ще не вмикаємо: серверний розрахунок за оплачувані ночі без дня виїзду не розгорнуто. Збережений прапорець не змінюємо.'
+  '«За ніч» на сайті з’явиться після розгортання серверного розрахунку. Збережений прапорець не змінюємо.'
 export const SERVICE_UNSUPPORTED_PUBLIC_BASIS_HINT =
-  'Онлайн-розрахунок для цього нарахування ще не заданий. Збережений прапорець онлайн не змінюємо, а новий не вмикаємо.'
+  'Це нарахування публічний розрахунок ще не підтримує. Прапорець не змінюємо і новий не вмикаємо.'
 export const SERVICE_SAVED_ONLINE_FLAG_HINT =
-  'У картці стоїть «доступна онлайн», але гість послугу не бачить, доки нарахування не з’явиться в публічному розрахунку.'
-export const SERVICE_SITE_BADGE = 'На сайті'
+  'Онлайн у картці увімкнено, але гість послугу не бачить: публічний розрахунок для цього нарахування ще не розгорнуто.'
+export const SERVICE_SITE_BADGE = 'Доступна на сайті'
 export const SERVICE_CRM_BADGE = 'Лише в CRM'
+export const SERVICE_ONLINE_UNAVAILABLE_BADGE = 'Онлайн недоступна'
 export const ADMIN_SERVICE_QUANTITY_MAX = 99
 export const ADMIN_SERVICE_CATEGORY_MAX = 40
 export const ADMIN_SERVICE_SORT_ORDER_MAX = 9999
@@ -428,7 +430,45 @@ export function serviceSiteVisibilityLabel(service: {
   chargeBasis?: AdminServiceChargeBasis
   price?: string | null
 }) {
-  return isPubliclyBookableService(service) ? SERVICE_SITE_BADGE : SERVICE_CRM_BADGE
+  if (isPubliclyBookableService(service)) return SERVICE_SITE_BADGE
+  if (!service.bookable) return SERVICE_CRM_BADGE
+  return SERVICE_ONLINE_UNAVAILABLE_BADGE
+}
+
+export function serviceOnlineUnavailableReason(service: {
+  active: boolean
+  bookable: boolean
+  chargeBasis?: AdminServiceChargeBasis
+  price?: string | null
+}) {
+  if (!service.bookable || isPubliclyBookableService(service)) return null
+  if (!service.active) return 'Послуга вимкнена, тому на сайті її немає.'
+  if (!service.price) return 'Немає ціни — гість не може замовити її онлайн.'
+  if (!canEnablePublicOnlineBooking(service.chargeBasis)) {
+    return 'Публічний розрахунок для цього нарахування ще не розгорнуто.'
+  }
+  return 'На сайті зараз недоступна.'
+}
+
+export function serviceOnlineFieldHint(input: {
+  bookable: boolean
+  active: boolean
+  chargeBasis: AdminServiceChargeBasis
+}) {
+  const live = canEnablePublicOnlineBooking(input.chargeBasis)
+  if (!live && input.bookable) return SERVICE_SAVED_ONLINE_FLAG_HINT
+  if (!live) {
+    return isPublicServiceChargeBasis(input.chargeBasis)
+      ? SERVICE_PER_NIGHT_PENDING_HINT
+      : SERVICE_UNSUPPORTED_PUBLIC_BASIS_HINT
+  }
+  if (input.bookable && !input.active) {
+    return 'Онлайн у картці увімкнено, але вимкнена послуга на сайті не з’являється.'
+  }
+  if (input.bookable) {
+    return 'Онлайн у картці увімкнено. Гість бачить активну послугу з ціною.'
+  }
+  return `${SERVICE_ONLINE_TOGGLE_HINT} ${SERVICE_PUBLIC_STAY_ONLY_HINT}`
 }
 
 export function parseOptionalServiceQuantity(
