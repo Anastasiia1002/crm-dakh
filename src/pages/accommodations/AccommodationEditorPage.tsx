@@ -25,23 +25,23 @@ import { useAuth } from '@/hooks/useAuth'
 import {
   useAdminAmenities,
   useAdminRoom,
-  useAdminRooms,
   useAdminRoomType,
   useCreateAdminRoom,
   useCreateAdminRoomType,
   useUpdateAdminRoom,
-  useUpdateAdminRoomType,
-  useUploadAdminRoomTypeImage,
+  useUploadAdminRoomImage,
 } from '@/hooks/useHotel'
 import { assignedAmenityKeys, amenityKeysForSave, sameAmenityKeys, syncAmenitySelection } from '@/lib/amenities'
 import {
   accommodationErrorMessage,
   accommodationTypeSlug,
+  readPendingAccommodationRoomId,
   readPendingAccommodationTypeId,
+  rememberPendingAccommodationRoomId,
   rememberPendingAccommodationTypeId,
   sameAccommodationNumber,
 } from '@/lib/accommodation-editor'
-import { sharedRoomTypeNotice } from '@/lib/accommodation-labels'
+import { unitContentNotice } from '@/lib/accommodation-labels'
 import { roomStatusLabel, roomTypeKindLabel } from '@/lib/labels'
 import { canManageAccommodations } from '@/lib/roles'
 import { cn } from '@/lib/utils'
@@ -94,8 +94,7 @@ export function AccommodationEditorPage() {
   const create = useCreateAdminRoom()
   const createType = useCreateAdminRoomType()
   const update = useUpdateAdminRoom()
-  const updateType = useUpdateAdminRoomType()
-  const pending = create.isPending || createType.isPending || update.isPending || updateType.isPending
+  const pending = create.isPending || createType.isPending || update.isPending
   const [guestName, setGuestName] = useState('')
   const [description, setDescription] = useState('')
   const [maxGuests, setMaxGuests] = useState('2')
@@ -105,10 +104,10 @@ export function AccommodationEditorPage() {
   const [typeError, setTypeError] = useState<string | null>(null)
   const leaveReadyRef = useRef(false)
   const pendingTypeId = useRef<string | null>(isNew ? readPendingAccommodationTypeId(sessionStorage) : null)
-  const createdRoomId = useRef<string | null>(null)
+  const createdRoomId = useRef<string | null>(isNew ? readPendingAccommodationRoomId(sessionStorage) : null)
   const [pendingPhotos, setPendingPhotos] = useState<PendingPhoto[]>([])
   const [pendingPhotoErrors, setPendingPhotoErrors] = useState<string[]>([])
-  const uploadImage = useUploadAdminRoomTypeImage()
+  const uploadImage = useUploadAdminRoomImage()
   const pendingPhotosRef = useRef(pendingPhotos)
   pendingPhotosRef.current = pendingPhotos
   useEffect(() => {
@@ -121,11 +120,6 @@ export function AccommodationEditorPage() {
 
   const item = room.data
   const assignedType = useAdminRoomType(item?.roomTypeId)
-  const sharedUnits = useAdminRooms(
-    { page: 1, limit: 1, roomTypeId: item?.roomTypeId },
-    { enabled: Boolean(item?.roomTypeId) },
-  )
-  const sharedUnitCount = sharedUnits.isSuccess ? sharedUnits.data.pagination.total : null
   const kind = item ? (assignedType.data?.kind ?? requestedKind) : requestedKind
   const createTypeReady = Boolean(kind)
   const typeDirty = item
@@ -159,25 +153,24 @@ export function AccommodationEditorPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId])
 
-  const loadedTypeId = assignedType.data?.id
-  const loadedAmenityKeys = assignedAmenityKeys(assignedType.data)
+  const loadedAmenityKeys = assignedAmenityKeys(item)
   const loadedAmenitySig = loadedAmenityKeys === null ? null : loadedAmenityKeys.slice().sort().join('\u0001')
   useEffect(() => {
-    if (!item || !assignedType.data || assignedType.data.id !== item.roomTypeId) return
+    if (!item) return
     const next = {
-      name: assignedType.data.name,
-      description: assignedType.data.description ?? '',
-      maxGuests: String(assignedType.data.maxGuests),
+      name: item.guestName ?? item.name ?? '',
+      description: item.description ?? '',
+      maxGuests: String(item.maxGuests ?? assignedType.data?.maxGuests ?? 2),
     }
     setGuestName(next.name)
     setDescription(next.description)
     setMaxGuests(next.maxGuests)
     setTypeBaseline(next)
     setTypeError(null)
-  }, [assignedType.data, item, loadedTypeId])
+  }, [assignedType.data?.maxGuests, item])
 
   useEffect(() => {
-    if (!item || !assignedType.data || assignedType.data.id !== item.roomTypeId) return
+    if (!item) return
     const next = syncAmenitySelection({
       loadedKeys: loadedAmenityKeys,
       baseline: amenityBaseline,
@@ -185,9 +178,9 @@ export function AccommodationEditorPage() {
     })
     setAmenityBaseline(next.baseline)
     setSelectedAmenities(next.selected)
-    // Re-run when the type or persisted keys change. Do not list the draft in deps or a refetch wipes it.
+    // Re-run when the unit or persisted keys change. Do not list the draft in deps or a refetch wipes it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item?.id, loadedTypeId, loadedAmenitySig])
+  }, [item?.id, loadedAmenitySig])
 
   useEffect(() => {
     if (!dirty) return
@@ -267,26 +260,22 @@ export function AccommodationEditorPage() {
             }
             floorValue = parsed
           }
-          const type = item ? assignedType.data : undefined
-          const editingType = Boolean(item && type)
           const guests = Number(maxGuests)
-          if (!item || editingType) {
-            if (!Number.isInteger(guests) || guests < 1) {
-              setTypeError('Місткість має бути цілим числом від 1')
-              return
-            }
-            if (editingType && !guestName.trim()) {
-              setTypeError('Вкажіть назву для гостей')
-              return
-            }
-            if (guestName.trim().length > 200) {
-              setTypeError('Назва для гостей задовга')
-              return
-            }
-            if (description.length > 4000) {
-              setTypeError('Опис задовгий')
-              return
-            }
+          if (!Number.isInteger(guests) || guests < 1) {
+            setTypeError('Місткість має бути цілим числом від 1')
+            return
+          }
+          if (item && !guestName.trim()) {
+            setTypeError('Вкажіть назву для гостей')
+            return
+          }
+          if (guestName.trim().length > 200) {
+            setTypeError('Назва для гостей задовга')
+            return
+          }
+          if (description.length > 4000) {
+            setTypeError('Опис задовгий')
+            return
           }
           const nextGuestName = guestName.trim()
           const nextDescription = description.trim() ? description.trim() : null
@@ -300,31 +289,13 @@ export function AccommodationEditorPage() {
               floor: floorValue,
               status: values.status,
               active: values.active === 'yes',
+              guestName: nextGuestName || null,
+              description: nextDescription,
+              maxGuests: guests,
+              ...(nextAmenityKeys !== undefined ? { amenityKeys: nextAmenityKeys } : {}),
             }
             if (item) {
               await update.mutateAsync({ id: item.id, input: payload })
-              const guestFieldsChanged = Boolean(
-                type &&
-                  nextGuestName &&
-                  (nextGuestName !== type.name ||
-                    nextDescription !== (type.description ?? null) ||
-                    guests !== type.maxGuests),
-              )
-              if (type && (guestFieldsChanged || nextAmenityKeys !== undefined)) {
-                await updateType.mutateAsync({
-                  id: type.id,
-                  input: {
-                    ...(guestFieldsChanged && nextGuestName
-                      ? {
-                          name: nextGuestName,
-                          description: nextDescription,
-                          maxGuests: guests,
-                        }
-                      : {}),
-                    ...(nextAmenityKeys !== undefined ? { amenityKeys: nextAmenityKeys } : {}),
-                  },
-                })
-              }
               toast.success('Збережено')
               leaveReadyRef.current = true
               navigate(listPath(kind))
@@ -334,12 +305,8 @@ export function AccommodationEditorPage() {
               const rooms = await listAllRooms()
               const rememberedId = pendingTypeId.current
               const linked = rememberedId ? rooms.find((room) => room.roomTypeId === rememberedId) : undefined
-              if (linked) {
-                pendingTypeId.current = null
-                rememberPendingAccommodationTypeId(sessionStorage, null)
-                leaveReadyRef.current = true
-                navigate(`/admin/accommodations/${linked.id}/edit`)
-                return
+              if (linked && !createdRoomId.current) {
+                createdRoomId.current = linked.id
               }
               if (!createdRoomId.current && sameAccommodationNumber(rooms, values.number)) {
                 form.setError('number', { message: 'Такий номер уже існує' })
@@ -359,27 +326,16 @@ export function AccommodationEditorPage() {
                 typeId = createdType.id
                 pendingTypeId.current = typeId
                 rememberPendingAccommodationTypeId(sessionStorage, typeId)
-              } else {
-                await updateType.mutateAsync({
-                  id: typeId,
-                  input: {
-                    name: typeName,
-                    description: nextDescription,
-                    kind,
-                    maxGuests: guests,
-                    active: values.active === 'yes',
-                    ...(nextAmenityKeys !== undefined ? { amenityKeys: nextAmenityKeys } : {}),
-                  },
-                })
               }
               const created = createdRoomId.current
                 ? { id: createdRoomId.current }
                 : await create.mutateAsync({ ...payload, roomTypeId: typeId })
               createdRoomId.current = created.id
+              rememberPendingAccommodationRoomId(sessionStorage, created.id)
               const remaining: PendingPhoto[] = []
               for (const photo of pendingPhotosRef.current) {
                 try {
-                  await uploadImage.mutateAsync({ roomTypeId: typeId, file: photo.file })
+                  await uploadImage.mutateAsync({ roomId: created.id, file: photo.file })
                   URL.revokeObjectURL(photo.previewUrl)
                 } catch {
                   remaining.push({ ...photo, error: 'Не вдалося завантажити. Спробуйте ще раз.' })
@@ -388,6 +344,7 @@ export function AccommodationEditorPage() {
               setPendingPhotos(remaining)
               pendingTypeId.current = remaining.length > 0 ? typeId : null
               rememberPendingAccommodationTypeId(sessionStorage, remaining.length > 0 ? typeId : null)
+              rememberPendingAccommodationRoomId(sessionStorage, remaining.length > 0 ? created.id : null)
               if (remaining.length > 0) {
                 toast.error('Розміщення збережено. Деякі фото не завантажились — повторіть збереження.')
                 return
@@ -438,23 +395,23 @@ export function AccommodationEditorPage() {
             </div>
             {item ? (
               <p className="mt-1 text-xs text-muted-foreground">
-                Тип береться з категорії цього розміщення. Інші розміщення тут не вибираються.
+                Категорія — «Номери» або «Будиночки». Вміст цього розміщення не ділиться з іншими.
               </p>
             ) : null}
           </Field>
           {item ? (
             <>
-              <p className="text-sm text-muted-foreground">{sharedRoomTypeNotice(sharedUnitCount)}</p>
-              <Field label="Назва для гостей" hint="Спільна для всіх розміщень цього типу">
+              <p className="text-sm text-muted-foreground">{unitContentNotice()}</p>
+              <Field label="Назва для гостей" hint="Лише для цього розміщення">
                 <Input
-                  disabled={!canWrite || !assignedType.data}
+                  disabled={!canWrite}
                   value={guestName}
                   onChange={(event) => setGuestName(event.target.value)}
                 />
               </Field>
-              <Field label="Опис" hint="Спільний для всіх розміщень цього типу">
+              <Field label="Опис" hint="Лише для цього розміщення">
                 <Textarea
-                  disabled={!canWrite || !assignedType.data}
+                  disabled={!canWrite}
                   value={description}
                   onChange={(event) => setDescription(event.target.value)}
                 />
@@ -469,21 +426,16 @@ export function AccommodationEditorPage() {
 
         <section className="space-y-4">
           <h2 className="font-serif text-2xl font-medium">Місткість і стан</h2>
-          <Field label="Місткість" hint={item ? 'Спільний максимум гостей для всіх розміщень цього типу' : 'Максимум гостей'}>
+          <Field label="Місткість" hint="Максимум гостей для цього розміщення">
             <Input
               type="number"
               min={1}
-              disabled={!canWrite || Boolean(item && !assignedType.data)}
+              disabled={!canWrite}
               value={maxGuests}
               onChange={(event) => setMaxGuests(event.target.value)}
             />
           </Field>
           {typeError ? <p className="text-sm text-destructive">{typeError}</p> : null}
-          {item && assignedType.isError ? (
-            <p className="text-sm text-muted-foreground">
-              Не вдалося завантажити опис і місткість. Назву, номер і стан усе одно можна зберегти.
-            </p>
-          ) : null}
           <AmenityPicker
             catalog={amenityCatalog.data ?? []}
             selected={selectedAmenities}
@@ -535,8 +487,8 @@ export function AccommodationEditorPage() {
         </section>
 
         <section className="space-y-8 pb-24">
-          {item && assignedType.data ? (
-            <AccommodationPhotoGallery roomTypeId={assignedType.data.id} canWrite={canWrite} />
+          {item ? (
+            <AccommodationPhotoGallery roomId={item.id} canWrite={canWrite} />
           ) : (
             <PendingAccommodationPhotos
               photos={pendingPhotos}
@@ -556,7 +508,7 @@ export function AccommodationEditorPage() {
           <Button
             type="submit"
             className="min-h-11"
-            disabled={!canWrite || pending || (isNew && !createTypeReady) || Boolean(item && assignedType.isLoading)}
+            disabled={!canWrite || pending || (isNew && !createTypeReady)}
             loading={pending}
           >
             Зберегти

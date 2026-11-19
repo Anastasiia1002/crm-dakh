@@ -77,6 +77,7 @@ export function makeImageMain(ids: readonly string[], imageId: string): string[]
 }
 
 export const PENDING_ACCOMMODATION_TYPE_KEY = 'dakh.pendingAccommodationTypeId'
+export const PENDING_ACCOMMODATION_ROOM_KEY = 'dakh.pendingAccommodationRoomId'
 
 export function readPendingAccommodationTypeId(storage: Pick<Storage, 'getItem'>): string | null {
   try {
@@ -94,6 +95,27 @@ export function rememberPendingAccommodationTypeId(
   try {
     if (id) storage.setItem(PENDING_ACCOMMODATION_TYPE_KEY, id)
     else storage.removeItem(PENDING_ACCOMMODATION_TYPE_KEY)
+  } catch {
+    // The page still keeps the id in memory for this visit.
+  }
+}
+
+export function readPendingAccommodationRoomId(storage: Pick<Storage, 'getItem'>): string | null {
+  try {
+    const value = storage.getItem(PENDING_ACCOMMODATION_ROOM_KEY)?.trim() ?? ''
+    return value || null
+  } catch {
+    return null
+  }
+}
+
+export function rememberPendingAccommodationRoomId(
+  storage: Pick<Storage, 'setItem' | 'removeItem'>,
+  id: string | null,
+) {
+  try {
+    if (id) storage.setItem(PENDING_ACCOMMODATION_ROOM_KEY, id)
+    else storage.removeItem(PENDING_ACCOMMODATION_ROOM_KEY)
   } catch {
     // The page still keeps the id in memory for this visit.
   }

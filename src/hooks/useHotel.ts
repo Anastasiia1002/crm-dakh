@@ -18,13 +18,19 @@ import {
   listRoomHistory,
   listAllRooms,
   listRooms,
+  listRoomImages,
   listRoomTypeImages,
   listRoomTypes,
+  reorderRoomImages,
   reorderRoomTypeImages,
   updateRoom,
   updateRoomBlock,
+  updateRoomImage,
   updateRoomType,
   updateRoomTypeImage,
+  uploadRoomImage,
+  createRoomImage,
+  deleteRoomImage,
 } from '@/api/accommodations'
 import { getCalendar } from '@/api/availability'
 import {
@@ -206,6 +212,14 @@ export function useAdminRoomTypeImages(roomTypeId: string | undefined) {
   })
 }
 
+export function useAdminRoomImages(roomId: string | undefined) {
+  return useQuery({
+    queryKey: ['admin-room-images', roomId],
+    queryFn: () => listRoomImages(roomId!),
+    enabled: Boolean(roomId),
+  })
+}
+
 export function useCreateAdminRoomType() {
   const refresh = useRefresh()
   return useMutation({
@@ -288,6 +302,63 @@ export function useUploadAdminRoomTypeImage() {
       onProgress?: (percent: number) => void
     }) => uploadRoomTypeImage(roomTypeId, file, onProgress),
     onSuccess: () => refresh(['admin-room-type-images']),
+  })
+}
+
+export function useUploadAdminRoomImage() {
+  const refresh = useRefresh()
+  return useMutation({
+    mutationFn: ({
+      roomId,
+      file,
+      onProgress,
+    }: {
+      roomId: string
+      file: File
+      onProgress?: (percent: number) => void
+    }) => uploadRoomImage(roomId, file, onProgress),
+    onSuccess: () => refresh(['admin-room-images', 'admin-room']),
+  })
+}
+
+export function useUpdateAdminRoomImage() {
+  const refresh = useRefresh()
+  return useMutation({
+    mutationFn: ({
+      roomId,
+      imageId,
+      input,
+    }: {
+      roomId: string
+      imageId: string
+      input: Parameters<typeof updateRoomImage>[2]
+    }) => updateRoomImage(roomId, imageId, input),
+    onSuccess: () => refresh(['admin-room-images']),
+  })
+}
+
+export function useReorderAdminRoomImages() {
+  const refresh = useRefresh()
+  return useMutation({
+    mutationFn: ({ roomId, imageIds }: { roomId: string; imageIds: string[] }) => reorderRoomImages(roomId, imageIds),
+    onSuccess: () => refresh(['admin-room-images']),
+  })
+}
+
+export function useDeleteAdminRoomImage() {
+  const refresh = useRefresh()
+  return useMutation({
+    mutationFn: ({ roomId, imageId }: { roomId: string; imageId: string }) => deleteRoomImage(roomId, imageId),
+    onSuccess: () => refresh(['admin-room-images']),
+  })
+}
+
+export function useCreateAdminRoomImage() {
+  const refresh = useRefresh()
+  return useMutation({
+    mutationFn: ({ roomId, input }: { roomId: string; input: Parameters<typeof createRoomImage>[1] }) =>
+      createRoomImage(roomId, input),
+    onSuccess: () => refresh(['admin-room-images']),
   })
 }
 
