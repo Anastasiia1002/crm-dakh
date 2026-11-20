@@ -104,7 +104,7 @@ export function GuestFilters({
         <span className="block text-[11px] tracking-[0.12em] text-muted uppercase">Візитів до</span>
         <Input type="number" min={0} value={visitCountMax} onChange={(event) => onVisitCountMax(event.target.value)} />
       </label>
-      <label className="min-w-[16rem] flex-[2] space-y-1.5">
+      <label className="date-range-filter space-y-1.5">
         <span className="block text-[11px] tracking-[0.12em] text-muted uppercase">Реєстрація</span>
         <DateRangePicker
           start={registeredFrom}

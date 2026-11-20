@@ -82,7 +82,7 @@ export function CurrentPricesCalendar({
         }
       />
 
-      <div className="grid gap-4 rounded-md border border-border bg-surface p-3 sm:grid-cols-2">
+      <div className="grid gap-4 overflow-visible rounded-md border border-border bg-surface p-3 sm:grid-cols-2">
         <Field label="Шаблон">
           <Select value={preset} onValueChange={(value: PricePeriodPresetId) => applyPreset(value)}>
             <SelectTrigger>

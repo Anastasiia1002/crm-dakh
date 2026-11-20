@@ -1,5 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { flushSync } from 'react-dom'
+import { createPortal, flushSync } from 'react-dom'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { firstEnabledFocusDate, keyboardDayFromTarget, nextInclusiveRange } from '@/lib/date-range-selection'
 import { formatInclusiveDateRange } from '@/lib/format'
 import { addCalendarDays, todayIso } from '@/lib/dates'
@@ -26,9 +27,28 @@ const MONTHS = [
   'грудень',
 ]
 
+const POPOVER_WIDTH_PX = 360
+const VIEWPORT_MARGIN_PX = 12
+const SHEET_BREAKPOINT_PX = 360
+
 function monthTitle(month: string) {
   const [year, monthNumber] = month.split('-').map(Number)
   return `${MONTHS[monthNumber - 1]} ${year}`
+}
+
+function useSheetLayout() {
+  const [sheet, setSheet] = useState(() =>
+    typeof window === 'undefined' ? false : window.innerWidth < SHEET_BREAKPOINT_PX,
+  )
+  useLayoutEffect(() => {
+    function sync() {
+      setSheet(window.innerWidth < SHEET_BREAKPOINT_PX)
+    }
+    sync()
+    window.addEventListener('resize', sync)
+    return () => window.removeEventListener('resize', sync)
+  }, [])
+  return sheet
 }
 
 export type DateRangeValue = {
@@ -63,11 +83,14 @@ export function DateRangePicker({
   const [month, setMonth] = useState(() => monthKey(start || end || today))
   const [draft, setDraft] = useState<DateRangeValue>({ start, end: end ?? '' })
   const [focusDate, setFocusDate] = useState(start || today)
+  const [popoverBox, setPopoverBox] = useState({ top: 0, left: 0, width: POPOVER_WIDTH_PX })
   const focusDateRef = useRef(focusDate)
   const rootRef = useRef<HTMLDivElement>(null)
   const gridRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   const labelId = useId()
+  const sheet = useSheetLayout()
   const dates = useMemo(() => monthGrid(month), [month])
 
   function rememberFocus(date: string) {
@@ -81,10 +104,17 @@ export function DateRangePicker({
     if (start) setMonth(monthKey(start))
   }, [open, start, end])
 
+  function closePicker(returnFocus: boolean) {
+    setOpen(false)
+    if (returnFocus) triggerRef.current?.focus()
+  }
+
   useEffect(() => {
     if (!open) return
     function onPointer(event: MouseEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) closePicker(false)
+      const target = event.target as Node
+      if (rootRef.current?.contains(target) || panelRef.current?.contains(target)) return
+      closePicker(false)
     }
     function onKey(event: KeyboardEvent) {
       if (event.key === 'Escape') {
@@ -110,7 +140,37 @@ export function DateRangePicker({
   useLayoutEffect(() => {
     if (!open) return
     focusGridDay(focusDate)
-  }, [open, focusDate, month])
+  }, [open, focusDate, month, sheet])
+
+  useLayoutEffect(() => {
+    if (!open || sheet) return
+    function place() {
+      const trigger = triggerRef.current
+      const panel = panelRef.current
+      if (!trigger || !panel) return
+      const rect = trigger.getBoundingClientRect()
+      const width = Math.min(POPOVER_WIDTH_PX, Math.max(0, window.innerWidth - VIEWPORT_MARGIN_PX * 2))
+      const height = panel.offsetHeight
+      let left = rect.left
+      if (left + width > window.innerWidth - VIEWPORT_MARGIN_PX) {
+        left = window.innerWidth - VIEWPORT_MARGIN_PX - width
+      }
+      if (left < VIEWPORT_MARGIN_PX) left = VIEWPORT_MARGIN_PX
+      let top = rect.bottom + 8
+      if (top + height > window.innerHeight - VIEWPORT_MARGIN_PX) {
+        const above = rect.top - 8 - height
+        top = above >= VIEWPORT_MARGIN_PX ? above : Math.max(VIEWPORT_MARGIN_PX, window.innerHeight - VIEWPORT_MARGIN_PX - height)
+      }
+      setPopoverBox({ top, left, width })
+    }
+    place()
+    window.addEventListener('resize', place)
+    window.addEventListener('scroll', place, true)
+    return () => {
+      window.removeEventListener('resize', place)
+      window.removeEventListener('scroll', place, true)
+    }
+  }, [open, sheet, month])
 
   const picking = Boolean(draft.start && !draft.end)
   const displayStart = picking ? draft.start : start
@@ -129,11 +189,6 @@ export function DateRangePicker({
   function dateClosed(date: string) {
     if (closedBefore && date < closedBefore) return true
     return false
-  }
-
-  function closePicker(returnFocus: boolean) {
-    setOpen(false)
-    if (returnFocus) triggerRef.current?.focus()
   }
 
   function openPicker() {
@@ -177,8 +232,94 @@ export function DateRangePicker({
   const rangeStart = picking ? draft.start : start
   const rangeEnd = picking ? draft.start : end
 
+  const calendar = (
+    <>
+      <div className="date-range-calendar-nav">
+        <button
+          type="button"
+          className="date-range-calendar-nav-btn"
+          onClick={() => previousMonthEnabled && setMonth(shiftMonth(month, -1))}
+          disabled={!previousMonthEnabled}
+          aria-label="Попередній місяць"
+        >
+          <ChevronLeft className="size-4" aria-hidden />
+        </button>
+        <p className="date-range-calendar-title">{monthTitle(month)}</p>
+        <button
+          type="button"
+          className="date-range-calendar-nav-btn"
+          onClick={() => setMonth(shiftMonth(month, 1))}
+          aria-label="Наступний місяць"
+        >
+          <ChevronRight className="size-4" aria-hidden />
+        </button>
+      </div>
+      <div className="date-range-calendar-week">
+        {weekdayLabels().map((label) => (
+          <div key={label} className="date-range-weekday">
+            {label}
+          </div>
+        ))}
+      </div>
+      <div
+        ref={gridRef}
+        className="date-range-calendar-grid"
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowLeft') {
+            event.preventDefault()
+            moveFocus(-1)
+          } else if (event.key === 'ArrowRight') {
+            event.preventDefault()
+            moveFocus(1)
+          } else if (event.key === 'ArrowUp') {
+            event.preventDefault()
+            moveFocus(-7)
+          } else if (event.key === 'ArrowDown') {
+            event.preventDefault()
+            moveFocus(7)
+          } else if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+            selectDate(keyboardDayFromTarget(event.target, focusDateRef.current))
+          }
+        }}
+      >
+        {dates.map((date) => {
+          const closed = dateClosed(date)
+          const inRange = Boolean(rangeStart && rangeEnd && date >= rangeStart && date <= rangeEnd)
+          const isEdge = date === rangeStart || date === rangeEnd
+          return (
+            <button
+              key={date}
+              type="button"
+              disabled={disabled || closed}
+              tabIndex={date === focusDate ? 0 : -1}
+              onFocus={() => rememberFocus(date)}
+              onMouseDown={() => rememberFocus(date)}
+              onClick={() => selectDate(date)}
+              className={`date-range-day ${
+                isEdge
+                  ? 'date-range-day-edge'
+                  : inRange
+                    ? 'date-range-day-in-range'
+                    : closed
+                      ? 'date-range-day-closed'
+                      : date.startsWith(month)
+                        ? 'date-range-day-in-month'
+                        : 'date-range-day-outside'
+              }`}
+              aria-label={date}
+              aria-pressed={inRange || undefined}
+            >
+              {Number(date.slice(8, 10))}
+            </button>
+          )
+        })}
+      </div>
+    </>
+  )
+
   return (
-    <div ref={rootRef} className="relative min-w-0">
+    <div ref={rootRef} className="date-range-picker">
       <button
         ref={triggerRef}
         id={id}
@@ -192,99 +333,41 @@ export function DateRangePicker({
           event.preventDefault()
         }}
         onClick={openPicker}
-        className="flex h-11 w-full min-w-0 items-center rounded-md border border-border bg-surface px-3 text-left text-sm hover:border-primary/30 disabled:cursor-not-allowed disabled:opacity-40"
+        className="date-range-picker-trigger"
       >
         <span id={labelId} className={displayStart ? 'text-foreground' : 'text-muted-foreground'}>
           {display}
         </span>
       </button>
-      {open ? (
-        <div
-          role="dialog"
-          aria-label="Календар періоду"
-          className="absolute z-50 mt-2 w-[min(100vw-2rem,22rem)] max-w-full rounded-lg border border-border bg-background p-3 shadow-lg"
-        >
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <button
-              type="button"
-              className="rounded-md border border-border px-2 py-1 text-sm disabled:opacity-40"
-              onClick={() => previousMonthEnabled && setMonth(shiftMonth(month, -1))}
-              disabled={!previousMonthEnabled}
-              aria-label="Попередній місяць"
-            >
-              Назад
-            </button>
-            <p className="min-w-28 text-center text-sm capitalize">{monthTitle(month)}</p>
-            <button
-              type="button"
-              className="rounded-md border border-border px-2 py-1 text-sm"
-              onClick={() => setMonth(shiftMonth(month, 1))}
-              aria-label="Наступний місяць"
-            >
-              Далі
-            </button>
-          </div>
-          <div className="grid grid-cols-7 gap-1 text-center text-[11px] text-muted-foreground">
-            {weekdayLabels().map((label) => (
-              <div key={label}>{label}</div>
-            ))}
-          </div>
-          <div
-            ref={gridRef}
-            className="grid grid-cols-7 gap-1"
-            onKeyDown={(event) => {
-              if (event.key === 'ArrowLeft') {
-                event.preventDefault()
-                moveFocus(-1)
-              } else if (event.key === 'ArrowRight') {
-                event.preventDefault()
-                moveFocus(1)
-              } else if (event.key === 'ArrowUp') {
-                event.preventDefault()
-                moveFocus(-7)
-              } else if (event.key === 'ArrowDown') {
-                event.preventDefault()
-                moveFocus(7)
-              } else if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault()
-                selectDate(keyboardDayFromTarget(event.target, focusDateRef.current))
-              }
-            }}
-          >
-            {dates.map((date) => {
-              const closed = dateClosed(date)
-              const inRange = Boolean(rangeStart && rangeEnd && date >= rangeStart && date <= rangeEnd)
-              const isEdge = date === rangeStart || date === rangeEnd
-              return (
-                <button
-                  key={date}
-                  type="button"
-                  disabled={disabled || closed}
-                  tabIndex={date === focusDate ? 0 : -1}
-                  onFocus={() => rememberFocus(date)}
-                  onMouseDown={() => rememberFocus(date)}
-                  onClick={() => selectDate(date)}
-                  className={`h-9 rounded-md text-sm tabular-nums disabled:cursor-not-allowed ${
-                    isEdge
-                      ? 'bg-primary font-semibold text-primary-foreground'
-                      : inRange
-                        ? 'bg-secondary font-medium'
-                        : closed
-                          ? 'text-muted-foreground/45 opacity-40'
-                          : date.startsWith(month)
-                            ? 'bg-surface hover:bg-surface-muted'
-                            : 'text-muted-foreground/70 italic'
-                  }`}
-                  aria-label={date}
-                  aria-pressed={inRange || undefined}
+      {open
+        ? createPortal(
+            sheet ? (
+              <>
+                <div className="date-range-calendar-backdrop" onMouseDown={() => closePicker(true)} />
+                <div
+                  ref={panelRef}
+                  role="dialog"
+                  aria-label="Календар періоду"
+                  aria-modal="true"
+                  className="date-range-calendar date-range-calendar--sheet"
                 >
-                  {Number(date.slice(8, 10))}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      ) : null}
+                  {calendar}
+                </div>
+              </>
+            ) : (
+              <div
+                ref={panelRef}
+                role="dialog"
+                aria-label="Календар періоду"
+                className="date-range-calendar date-range-calendar--popover"
+                style={{ top: popoverBox.top, left: popoverBox.left, width: popoverBox.width }}
+              >
+                {calendar}
+              </div>
+            ),
+            document.body,
+          )
+        : null}
     </div>
   )
 }
