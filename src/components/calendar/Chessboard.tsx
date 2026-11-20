@@ -9,13 +9,16 @@ import {
   chessboardCompactStickyLabel,
   chessboardMetrics,
   chessboardPointerIsTap,
+  CHESSBOARD_DESKTOP_ROW_PX,
+  CHESSBOARD_MOBILE_ROW_PX,
+  CHESSBOARD_MOBILE_SECTION_PX,
 } from '@/lib/chessboard-layout'
 import { calendarDayOfMonth, calendarWeekday, todayIso } from '@/lib/dates'
 import { cn } from '@/lib/utils'
 import type { ChessboardAdminBar, ChessboardModel, ChessboardRoomRow } from '@/types'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
-const ROW_MIN = 56
+const ROW_MIN = CHESSBOARD_DESKTOP_ROW_PX
 
 const WEEKDAY_LABELS = ['нд', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'] as const
 
@@ -79,6 +82,8 @@ export function Chessboard({
   const metrics = chessboardMetrics({ compact, availableWidth })
   const LABEL_WIDTH = metrics.labelWidth
   const CELL = metrics.cellWidth
+  const rowHeight = compact ? CHESSBOARD_MOBILE_ROW_PX : ROW_MIN
+  const sectionHeight = compact ? CHESSBOARD_MOBILE_SECTION_PX : undefined
   const width = dates.length * CELL
 
   useLayoutEffect(() => {
@@ -131,7 +136,7 @@ export function Chessboard({
                     <div className="text-[10px] tracking-[0.12em] text-muted uppercase">
                       {WEEKDAY_LABELS[day]}
                     </div>
-                    <div className={cn('font-serif leading-none', compact ? 'text-base' : 'text-lg')}>
+                    <div className={cn('leading-none', compact ? 'text-sm font-medium' : 'font-serif text-lg')}>
                       {calendarDayOfMonth(date)}
                     </div>
                   </div>
@@ -142,10 +147,13 @@ export function Chessboard({
 
           {groups.map((group) => (
             <div key={group.kind}>
-              <div className="flex border-b border-border bg-surface-muted" style={{ width: LABEL_WIDTH + width }}>
+              <div className="flex border-b border-border bg-surface-muted" style={{ width: LABEL_WIDTH + width, height: sectionHeight }}>
                 <div
-                  className="sticky left-0 z-20 shrink-0 border-r border-border bg-surface-muted px-3 py-2 text-[11px] font-medium tracking-[0.14em] text-foreground uppercase"
-                  style={{ width: LABEL_WIDTH }}
+                  className={cn(
+                    'sticky left-0 z-20 shrink-0 flex items-center border-r border-border bg-surface-muted text-[11px] font-medium tracking-[0.14em] text-foreground uppercase',
+                    compact ? 'px-2' : 'px-3 py-2',
+                  )}
+                  style={{ width: LABEL_WIDTH, height: sectionHeight }}
                 >
                   {kindSectionLabel(group.kind)}
                 </div>
@@ -181,36 +189,49 @@ export function Chessboard({
                         displayTitle: room.displayTitle,
                         displayCode: room.displayCode,
                       })
-                      return { primary: desktop.title, secondary: desktop.subtitle }
+                      return { primary: desktop.title, secondary: desktop.subtitle, hasStructuredNumber: Boolean(room.displayCode) }
                     })()
                 return (
-                  <div key={room.roomId} className="flex border-b border-border" style={{ minHeight: ROW_MIN }}>
-                    <div
-                      className="sticky left-0 z-10 flex shrink-0 items-center gap-1 border-r border-border bg-surface px-2 py-2"
-                      style={{ width: LABEL_WIDTH, minHeight: ROW_MIN }}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className={cn('leading-snug break-words', compact ? 'font-serif text-base' : 'text-sm')}>
-                          {sticky.primary}
-                        </div>
-                        {sticky.secondary ? (
-                          <div className="text-[11px] leading-snug text-muted-foreground break-words line-clamp-2">
-                            {sticky.secondary}
-                          </div>
-                        ) : null}
-                      </div>
-                      {compact ? (
-                        <button
-                          type="button"
-                          className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-surface-muted hover:text-foreground"
-                          aria-label="Показати повну назву"
-                          onClick={() => setRoomDetails(room)}
+                  <div key={room.roomId} className="flex border-b border-border" style={{ height: rowHeight, minHeight: compact ? rowHeight : ROW_MIN }}>
+                    {compact ? (
+                      <button
+                        type="button"
+                        className="relative sticky left-0 z-10 flex min-h-11 shrink-0 flex-col justify-center overflow-hidden border-r border-border bg-surface px-2 py-1 pr-5 text-left"
+                        style={{ width: LABEL_WIDTH, height: rowHeight }}
+                        aria-label="Показати повну назву"
+                        onClick={() => setRoomDetails(room)}
+                      >
+                        <span
+                          className={cn(
+                            'min-w-0 text-sm font-medium leading-tight text-foreground',
+                            sticky.hasStructuredNumber ? 'truncate' : 'line-clamp-2',
+                          )}
                         >
-                          <Info className="size-4" />
-                        </button>
-                      ) : null}
-                    </div>
-                    <div className="relative" style={{ width, minHeight: ROW_MIN }}>
+                          {sticky.primary}
+                        </span>
+                        {sticky.secondary ? (
+                          <span className="min-w-0 text-[11px] leading-tight text-muted-foreground line-clamp-2">
+                            {sticky.secondary}
+                          </span>
+                        ) : null}
+                        <Info className="pointer-events-none absolute top-1.5 right-1 size-3.5 text-muted-foreground" aria-hidden />
+                      </button>
+                    ) : (
+                      <div
+                        className="sticky left-0 z-10 flex shrink-0 items-center border-r border-border bg-surface px-3 py-2"
+                        style={{ width: LABEL_WIDTH, minHeight: ROW_MIN }}
+                      >
+                        <div className="min-w-0">
+                          <div className="text-sm leading-snug break-words">{sticky.primary}</div>
+                          {sticky.secondary ? (
+                            <div className="text-[11px] leading-snug text-muted-foreground break-words">
+                              {sticky.secondary}
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    )}
+                    <div className="relative overflow-hidden" style={{ width, height: rowHeight, minHeight: compact ? rowHeight : ROW_MIN }}>
                       <div className="absolute inset-0 flex">
                         {room.nights.map((night) => {
                           const day = calendarWeekday(night.date)
@@ -264,7 +285,8 @@ export function Chessboard({
                         const barWidth = Math.max(span * CELL - 6, 28)
                         const caption = chessboardBarCaption(bar.label, barWidth)
                         const className = cn(
-                          'absolute top-1.5 flex min-h-9 items-center overflow-hidden rounded-sm border px-1.5 text-left text-[11px]',
+                          'absolute flex items-center overflow-hidden rounded-sm border px-1.5 text-left text-[11px]',
+                          compact ? 'top-2 bottom-2 min-h-11' : 'top-1.5 min-h-9',
                           bar.kind === 'MAINTENANCE' &&
                             'border-status-cancelled-mark bg-status-cancelled text-status-cancelled-foreground',
                           bar.kind === 'BLOCKED' &&
@@ -317,7 +339,8 @@ export function Chessboard({
                             key={`${bar.bookingId}:${bar.roomId}:${bar.startDate}`}
                             type="button"
                             className={cn(
-                              'absolute top-1.5 flex min-h-9 items-center overflow-hidden rounded-sm border px-1.5 text-left text-[12px]',
+                              'absolute flex items-center overflow-hidden rounded-sm border px-1.5 text-left text-[12px]',
+                              compact ? 'top-2 bottom-2 min-h-11' : 'top-1.5 min-h-9',
                               bar.status === 'CHECKED_IN' &&
                                 'border-status-checked-in-mark bg-status-checked-in text-status-checked-in-foreground',
                               bar.status === 'CONFIRMED' &&
@@ -356,7 +379,7 @@ export function Chessboard({
       </div>
       {moreDates ? (
         <div
-          className="pointer-events-none absolute inset-y-0 right-0 z-30 w-8 rounded-r-md bg-gradient-to-l from-surface to-transparent"
+          className="pointer-events-none absolute inset-y-0 right-0 z-30 w-4 rounded-r-md bg-gradient-to-l from-surface/40 to-transparent"
           aria-hidden
         />
       ) : null}
