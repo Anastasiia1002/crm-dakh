@@ -1,6 +1,7 @@
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { QueryErrorState } from '@/components/ui/page-status'
+import { formatAdminBookingServiceMoney } from '@/lib/admin-booking-view'
 import {
   SERVICE_CHARGE_BASIS_LABEL,
   formatCatalogPrice,
@@ -120,7 +121,7 @@ export function AdminServicePicker({
                   {savedLine ? (
                     <span className="ml-2 tabular-nums text-muted-foreground">
                       збережена ціна{' '}
-                      {savedLine.unitPrice == null ? 'Оплата за домовленістю' : formatCatalogPrice(savedLine.unitPrice)}
+                      {formatAdminBookingServiceMoney(savedLine.unitPrice, 'UAH')}
                     </span>
                   ) : null}
                   <span className="mt-0.5 block text-muted-foreground">

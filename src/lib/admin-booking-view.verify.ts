@@ -17,6 +17,7 @@ import {
   canReassignAdminBookingRoom,
   createBodyHasForbiddenFields,
   formatAdminBookingMoney,
+  formatAdminBookingServiceMoney,
   guestCountFromOccupancy,
   parseCalendarPrefill,
   sanitizeAdminBookingCreateBody,
@@ -91,6 +92,9 @@ export function runAdminBookingViewChecks(): string[] {
   )
   assert(adminRoomsLabel(baseListItem.rooms) !== baseListItem.rooms[0]?.roomId, 'rooms label is not the room id')
   assert(formatAdminBookingMoney('1200.50', 'UAH').includes('1'), 'uah money')
+  assert(formatAdminBookingServiceMoney(null, 'UAH') === 'Оплата за домовленістю', 'null service snapshot is by agreement')
+  assert(formatAdminBookingServiceMoney('0.00', 'UAH') === 'Безкоштовно', 'zero service snapshot is free')
+  assert(formatAdminBookingMoney('0.00', 'UAH') !== 'Безкоштовно', 'stay totals do not reuse the free service label')
   results.push('Display helpers PASS')
 
   const query = toAdminBookingListQuery({

@@ -55,6 +55,12 @@ export function formatAdminBookingMoney(amount: string | null, currency: string)
   return `${normalized} ${currency}`
 }
 
+export function formatAdminBookingServiceMoney(amount: string | null, currency: string) {
+  if (amount == null) return 'Оплата за домовленістю'
+  if (amount === '0.00') return 'Безкоштовно'
+  return formatAdminBookingMoney(amount, currency)
+}
+
 export function isAdminBookingTerminal(status: AdminBookingListItem['status']) {
   return status === 'CHECKED_OUT' || status === 'CANCELLED' || status === 'NO_SHOW'
 }

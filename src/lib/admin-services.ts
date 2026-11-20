@@ -49,7 +49,7 @@ export type AdminServiceChargeBasis = (typeof ADMIN_SERVICE_CHARGE_BASES)[number
 export const PUBLIC_SERVICE_CHARGE_BASES: readonly AdminServiceChargeBasis[] = ADMIN_SERVICE_CHARGE_BASES
 export const LIVE_PUBLIC_SERVICE_CHARGE_BASES: readonly AdminServiceChargeBasis[] = ADMIN_SERVICE_CHARGE_BASES
 
-export const ONLINE_PRICING_MODES = ['FIXED_ONCE', 'GUEST_QUANTITY', 'PER_NIGHT', 'REQUEST_ONLY'] as const
+export const ONLINE_PRICING_MODES = ['FIXED_ONCE', 'GUEST_QUANTITY', 'PER_NIGHT', 'REQUEST_ONLY', 'FREE'] as const
 export type OnlinePricingMode = (typeof ONLINE_PRICING_MODES)[number]
 
 export const SERVICE_ONLINE_PRICING_LABEL: Record<OnlinePricingMode, string> = {
@@ -57,6 +57,7 @@ export const SERVICE_ONLINE_PRICING_LABEL: Record<OnlinePricingMode, string> = {
   GUEST_QUANTITY: 'Кількість × ціна',
   PER_NIGHT: 'Ціна × ночі проживання',
   REQUEST_ONLY: 'Оплата за домовленістю',
+  FREE: 'Безкоштовно',
 }
 
 export const SERVICE_ONLINE_PRICING_HELP: Record<OnlinePricingMode, string> = {
@@ -64,6 +65,7 @@ export const SERVICE_ONLINE_PRICING_HELP: Record<OnlinePricingMode, string> = {
   GUEST_QUANTITY: 'Гість вводить кількість. Сума = кількість × ціна. Ночі й гості не множаться автоматично.',
   PER_NIGHT: 'Сума = ціна × ночі проживання. Виїзд не враховується. Кількість гість не змінює.',
   REQUEST_ONLY: 'Гість може додати заявку з оплатою за домовленістю. Ціна не обов’язкова; рядок не входить у грошовий підсумок.',
+  FREE: 'Гість може додати послугу без ціни. На сайті вона показується як «Безкоштовно». У бронюванні зберігається 0 ₴ і сума проживання не зростає.',
 }
 
 export const SERVICE_ONLINE_PRICING_REQUIRED = 'Оберіть спосіб розрахунку на сайті.'
@@ -75,7 +77,7 @@ export function isOnlinePricingMode(value: unknown): value is OnlinePricingMode 
 }
 
 export function requiresOnlineUnitPrice(mode: OnlinePricingMode) {
-  return mode !== 'REQUEST_ONLY'
+  return mode !== 'REQUEST_ONLY' && mode !== 'FREE'
 }
 
 export function onlineConfigurationError(input: {
