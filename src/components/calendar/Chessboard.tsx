@@ -155,13 +155,13 @@ export function Chessboard({
   }, [dates.length, LABEL_WIDTH, CELL])
 
   return (
-    <div className="relative min-h-0 flex-1">
+    <div className={cn('relative', !compact && 'min-h-0 flex-1')}>
       <div
         ref={scrollerRef}
         className={cn(
-          'h-full overflow-auto scroll-thin rounded-md border border-border bg-surface overscroll-contain',
+          'scroll-thin rounded-md border border-border bg-surface',
           GRID_PAN,
-          compact && 'max-h-[inherit]',
+          compact ? 'overflow-x-auto overscroll-x-contain' : 'h-full overflow-auto overscroll-contain',
         )}
       >
         <div className="min-w-max">
@@ -251,7 +251,10 @@ export function Chessboard({
                   >
                     {compact ? (
                       <div
-                        className="relative sticky left-0 z-10 flex min-h-11 shrink-0 items-start overflow-hidden border-r border-border bg-surface py-1 pl-2 pr-7"
+                        className={cn(
+                          'relative sticky left-0 z-10 flex min-h-11 shrink-0 items-start overflow-clip border-r border-border bg-surface py-1 pl-2 pr-7',
+                          GRID_PAN,
+                        )}
                         style={{ width: LABEL_WIDTH }}
                       >
                         <div className="min-w-0 py-0.5">
@@ -302,7 +305,10 @@ export function Chessboard({
                       </div>
                     )}
                     <div
-                      className={cn('relative self-stretch overflow-hidden', compact && 'min-h-11')}
+                      className={cn(
+                        'relative self-stretch',
+                        compact ? 'min-h-11 overflow-clip' : 'overflow-hidden',
+                      )}
                       style={{ width, minHeight: compact ? undefined : ROW_MIN }}
                     >
                       <div className="absolute inset-0 flex">
