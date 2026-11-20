@@ -1,5 +1,6 @@
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { MobileCard, MobileCardDetail, MobileCardDetails, MobileCardHeader, MobileList } from '@/components/ui/mobile-list'
 import type { AdminGuestListItem } from '@/lib/admin-guests'
 import { formatCount, formatDate } from '@/lib/format'
 import { fullName } from '@/lib/utils'
@@ -52,27 +53,33 @@ export function GuestTable({ guests }: { guests: AdminGuestListItem[] }) {
           </TableBody>
         </Table>
       </div>
-      <ul className="divide-y divide-border rounded-md border border-border bg-surface md:hidden">
+      <MobileList>
         {guests.map((guest) => {
           const name = fullName(guest.firstName, guest.lastName)
+          const notes = guest.notes?.trim()
           return (
-            <li key={guest.id}>
-              <button
-                type="button"
-                className="w-full space-y-1 px-4 py-3 text-left"
-                onClick={() => navigate(`/admin/guests/${guest.id}`)}
+            <MobileCard key={guest.id}>
+              <Link
+                to={`/admin/guests/${guest.id}`}
+                className="block rounded-sm no-underline hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                aria-label={`Відкрити профіль: ${name}`}
               >
-                <p className="font-medium">{name}</p>
-                <p className="text-sm text-muted-foreground">{guest.phone || '—'}</p>
-                <p className="text-sm text-muted-foreground">
-                  Візити: {formatCount(guest.visitCount)} · Останній: {guest.lastVisit ? formatDate(guest.lastVisit) : 'не було'}
-                </p>
-                {guest.notes?.trim() ? <p className="text-sm text-muted-foreground">{guest.notes}</p> : null}
-              </button>
-            </li>
+                <MobileCardHeader title={name} />
+                <MobileCardDetails>
+                  {guest.phone ? <MobileCardDetail label="Телефон">{guest.phone}</MobileCardDetail> : null}
+                  <MobileCardDetail label="Візити">
+                    <span className="tabular-nums">{formatCount(guest.visitCount)}</span>
+                  </MobileCardDetail>
+                  {guest.lastVisit ? (
+                    <MobileCardDetail label="Останній візит">{formatDate(guest.lastVisit)}</MobileCardDetail>
+                  ) : null}
+                  {notes ? <MobileCardDetail label="Коментар">{notes}</MobileCardDetail> : null}
+                </MobileCardDetails>
+              </Link>
+            </MobileCard>
           )
         })}
-      </ul>
+      </MobileList>
     </>
   )
 }

@@ -194,6 +194,7 @@ assert(page.includes('Активний'), 'catalog activity is not free tonight'
 assert(page.includes('label="Активність"') && page.includes('<TableHead>Активність</TableHead>'), 'filter and column share activity wording')
 assert(!page.includes('«У роботі»'), 'list does not call catalog activity У роботі')
 assert(page.includes('listVisibleRoomBlocks'), 'list shows current and upcoming blocks only')
+assert(page.includes('MobileList') && page.includes('formatCapacityGuests'), 'mobile cards use capacity copy and shared layout')
 assert(chessboard.includes('onEmpty(room.roomId'), 'chessboard selection keeps roomId')
 assert(chessboard.includes('onBooking(bar.bookingId)'), 'chessboard booking click keeps bookingId')
 const bookingForm = readFileSync(new URL('../components/bookings/AdminBookingForm.tsx', import.meta.url), 'utf8')

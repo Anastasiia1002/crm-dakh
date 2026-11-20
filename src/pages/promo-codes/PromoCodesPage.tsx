@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { PageHeader } from '@/components/ui/page-header'
 import { EmptyState, LoadingState } from '@/components/ui/states'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { MobileCard, MobileCardBadges, MobileCardDetail, MobileCardDetails, MobileCardHeader, MobileList } from '@/components/ui/mobile-list'
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/hooks/useAuth'
 import { useDeletePromo, usePromoCodes, useSavePromo, useTogglePromo } from '@/hooks/useHotel'
@@ -144,46 +145,57 @@ export function PromoCodesPage() {
         </div>
       ) : null}
       {!promos.isError && items.length > 0 ? (
-        <ul className="divide-y divide-border rounded-md border border-border bg-surface md:hidden">
+        <MobileList>
           {items.map((promo) => (
-            <li key={promo.id} className="space-y-2 px-4 py-3">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="font-medium tracking-wide">{promo.code}</p>
-                  <p className="text-sm text-muted-foreground">{promo.description || '—'}</p>
-                </div>
-                <Badge tone={promo.active ? 'success' : 'neutral'}>{promo.active ? 'Активний' : 'Вимкнений'}</Badge>
-              </div>
-              {canWrite ? (
-                <PromoRowActions
-                  promo={promo}
-                  onEdit={() => setEditing(promo)}
-                  onToggle={async () => {
-                    try {
-                      await toggle.mutateAsync({ id: promo.id, active: !promo.active })
-                    } catch (error) {
-                      toast.error(errorMessage(error))
-                    }
-                  }}
-                  onDelete={
-                    promo.usageCount === 0
-                      ? async () => {
-                          try {
-                            await remove.mutateAsync(promo.id)
-                            toast.success('Видалено')
-                          } catch (error) {
-                            toast.error(errorMessage(error))
-                          }
+            <MobileCard key={promo.id}>
+              <MobileCardHeader
+                title={<span className="tracking-wide">{promo.code}</span>}
+                actions={
+                  canWrite ? (
+                    <PromoRowActions
+                      promo={promo}
+                      onEdit={() => setEditing(promo)}
+                      onToggle={async () => {
+                        try {
+                          await toggle.mutateAsync({ id: promo.id, active: !promo.active })
+                        } catch (error) {
+                          toast.error(errorMessage(error))
                         }
-                      : undefined
-                  }
-                />
-              ) : (
-                <span className="text-xs text-muted-foreground">Лише перегляд</span>
-              )}
-            </li>
+                      }}
+                      onDelete={
+                        promo.usageCount === 0
+                          ? async () => {
+                              try {
+                                await remove.mutateAsync(promo.id)
+                                toast.success('Видалено')
+                              } catch (error) {
+                                toast.error(errorMessage(error))
+                              }
+                            }
+                          : undefined
+                      }
+                    />
+                  ) : undefined
+                }
+              />
+              <MobileCardBadges>
+                <Badge tone={promo.active ? 'success' : 'neutral'}>{promo.active ? 'Активний' : 'Вимкнений'}</Badge>
+              </MobileCardBadges>
+              <MobileCardDetails>
+                {promo.description ? <MobileCardDetail label="Опис">{promo.description}</MobileCardDetail> : null}
+                <MobileCardDetail label="Знижка">
+                  {promo.discountType === 'PERCENTAGE' ? `${promo.discountValue}%` : formatMoneyAmount(promo.discountValue)}
+                </MobileCardDetail>
+                {promo.validFrom ? <MobileCardDetail label="Діє з">{formatDate(promo.validFrom)}</MobileCardDetail> : null}
+                {promo.validTo ? <MobileCardDetail label="Діє до">{formatDate(promo.validTo)}</MobileCardDetail> : null}
+                <MobileCardDetail label="Ліміт">{promo.usageLimit ?? 'Без ліміту'}</MobileCardDetail>
+                <MobileCardDetail label="Використано">
+                  <span className="tabular-nums">{promo.usageCount}</span>
+                </MobileCardDetail>
+              </MobileCardDetails>
+            </MobileCard>
           ))}
-        </ul>
+        </MobileList>
       ) : null}
       <PromoDialog
         open={editing !== null}

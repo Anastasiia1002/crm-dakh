@@ -18,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ActionsMenu } from '@/components/ui/actions-menu'
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { MobileCard, MobileCardBadges, MobileCardDetail, MobileCardDetails, MobileCardHeader, MobileList } from '@/components/ui/mobile-list'
 import { AuditLogPanel } from '@/pages/audit/AuditLogPanel'
 import { useAuth } from '@/hooks/useAuth'
 import {
@@ -278,33 +279,38 @@ export function UsersPage() {
               </TableBody>
             </Table>
             </div>
-            <ul className="divide-y divide-border rounded-md border border-border bg-surface md:hidden">
+            <MobileList>
               {items.map((item) => (
-                <li key={item.id} className="space-y-2 px-4 py-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="font-medium">
-                        {item.firstName} {item.lastName}
-                      </p>
-                      <p className="truncate text-sm text-muted-foreground">{item.email}</p>
-                      <p className="mt-0.5 text-sm">{userRoleLabel[item.role]}</p>
-                    </div>
+                <MobileCard key={item.id}>
+                  <MobileCardHeader
+                    title={`${item.firstName} ${item.lastName}`.trim()}
+                    actions={
+                      <UserRowActions
+                        item={item}
+                        role={user?.role}
+                        onEdit={() => openEdit(item)}
+                        onPassword={() => openPassword(item)}
+                        onRevoke={() => {
+                          void openRevoke(item)
+                        }}
+                      />
+                    }
+                  />
+                  <MobileCardBadges>
                     <Badge tone={item.active ? 'success' : 'neutral'}>
                       {item.active ? 'Активний' : 'Вимкнений'}
                     </Badge>
-                  </div>
-                  <UserRowActions
-                    item={item}
-                    role={user?.role}
-                    onEdit={() => openEdit(item)}
-                    onPassword={() => openPassword(item)}
-                    onRevoke={() => {
-                      void openRevoke(item)
-                    }}
-                  />
-                </li>
+                  </MobileCardBadges>
+                  <MobileCardDetails>
+                    <MobileCardDetail label="Пошта">{item.email}</MobileCardDetail>
+                    <MobileCardDetail label="Роль">{userRoleLabel[item.role]}</MobileCardDetail>
+                    {item.lastLoginAt ? (
+                      <MobileCardDetail label="Останній вхід">{formatDateTime(item.lastLoginAt)}</MobileCardDetail>
+                    ) : null}
+                  </MobileCardDetails>
+                </MobileCard>
               ))}
-            </ul>
+            </MobileList>
             {pagination ? (
               <Pagination
                 page={pagination.page}
@@ -396,29 +402,35 @@ export function UsersPage() {
             </TableBody>
           </Table>
           </div>
-          <ul className="divide-y divide-border rounded-md border border-border bg-surface md:hidden">
-            {invitationItems.map((item) => (
-              <li key={item.id} className="space-y-2 px-4 py-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate font-medium">{item.email}</p>
-                    <p className="text-sm text-muted-foreground">
+          <MobileList>
+            {invitationItems.map((item) => {
+              const canResend =
+                canInvite && item.status === 'pending' && item.role !== 'owner' && canInviteRole(user?.role, item.role)
+              return (
+                <MobileCard key={item.id}>
+                  <MobileCardHeader
+                    title={item.email}
+                    actions={
+                      canResend ? (
+                        <ActionsMenu label={`Дії для ${item.email}`}>
+                          <DropdownMenuItem onSelect={() => setResending(item)}>Надіслати знову</DropdownMenuItem>
+                        </ActionsMenu>
+                      ) : undefined
+                    }
+                  />
+                  <MobileCardBadges>
+                    <Badge tone={invitationTone(item.status)}>{invitationStatusLabel(item.status)}</Badge>
+                  </MobileCardBadges>
+                  <MobileCardDetails>
+                    <MobileCardDetail label="Роль">
                       {item.role === 'owner' ? userRoleLabel.owner : staffInviteRoleLabel[item.role]}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      До {formatDateTime(item.expiresAt)}
-                    </p>
-                  </div>
-                  <Badge tone={invitationTone(item.status)}>{invitationStatusLabel(item.status)}</Badge>
-                </div>
-                {canInvite && item.status === 'pending' && item.role !== 'owner' && canInviteRole(user?.role, item.role) ? (
-                  <Button size="sm" variant="ghost" onClick={() => setResending(item)}>
-                    Надіслати знову
-                  </Button>
-                ) : null}
-              </li>
-            ))}
-          </ul>
+                    </MobileCardDetail>
+                    <MobileCardDetail label="Дійсне до">{formatDateTime(item.expiresAt)}</MobileCardDetail>
+                  </MobileCardDetails>
+                </MobileCard>
+              )
+            })}
+          </MobileList>
           </>
         )}
       </section>
@@ -553,7 +565,7 @@ function UserRowActions({
   onRevoke: () => void
 }) {
   if (!canManageAdminAccount(role, item)) {
-    return <span className="text-xs text-muted-foreground">Лише перегляд</span>
+    return null
   }
   return (
     <ActionsMenu label={`Дії для ${item.firstName} ${item.lastName}`.trim()}>
