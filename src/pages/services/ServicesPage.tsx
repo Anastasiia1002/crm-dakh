@@ -38,7 +38,6 @@ import {
   SERVICE_ONLINE_PRICING_HELP,
   SERVICE_ONLINE_PRICING_REQUIRED,
   SERVICE_ONLINE_PRICED_NEEDS_PRICE,
-  SERVICE_PUBLIC_NEEDS_PRICE,
   SERVICE_SITE_BADGE,
   ONLINE_PRICING_MODES,
   buildAdminServiceCreateBody,
@@ -369,7 +368,6 @@ function ServiceDialog({
   })
   const watchedPrice = form.watch('price')
   const watchedChargeBasis = form.watch('chargeBasis')
-  const watchedBookable = form.watch('bookable')
   const canToggleOnline = canWrite
   const priceChanged = Boolean(current && watchedPrice.trim() !== (current.price ?? ''))
 
