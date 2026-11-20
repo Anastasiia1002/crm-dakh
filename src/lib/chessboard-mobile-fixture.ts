@@ -177,9 +177,10 @@ export function buildMobileChessboardFixture(from: string) {
   const longCottage =
     '4-кімнатний будиночок до 7 гостей з терасою і видом на ліс'
   const screenshotCottage = '4-кімнатний будиночок до 7 гостей №11'
+  const screenshotRoom = '1-кімнатний номер для 2-х з балконом на гори №14/2'
   const titles: Record<string, { displayTitle: string; displayCode: string | null }> = {
     'room-14-1': { displayTitle: 'Кімната Буковина', displayCode: '14/1' },
-    'room-slug': { displayTitle: longCottage, displayCode: null },
+    'room-slug': { displayTitle: screenshotRoom, displayCode: null },
     'cottage-11': { displayTitle: screenshotCottage, displayCode: '№11' },
     'cottage-9': { displayTitle: longCottage, displayCode: '9' },
   }
