@@ -11,6 +11,7 @@ import {
   guestHistoryPath,
   guestImportCommitPath,
   guestImportPreviewPath,
+  guestPib,
   guestPlaceLabel,
   guestProfilePath,
   guestSaveHint,
@@ -129,6 +130,9 @@ assert(listed.items[0]?.visitCount === 1, 'visit count stays a number')
 assert(listed.items[0]?.lastVisit === '2026-10-03', 'last visit is the API date')
 assert(listed.items[1]?.email === null && listed.items[1]?.lastVisit === null, 'optional contact and date stay null')
 assert(listed.page === 2 && listed.limit === 20 && listed.total === 21 && listed.totalPages === 2, 'pagination is server metadata')
+assert(guestPib('Іван', 'Коваль') === 'Коваль Іван', 'ПІБ is surname then given name')
+assert(guestPib('  Іван ', ' Коваль  ') === 'Коваль Іван', 'ПІБ display trims without storing a rewrite')
+assert(guestPib('Анна', '   ') === 'Анна', 'a missing surname is omitted from ПІБ')
 assert(guestPlaceLabel('Україна', 'Чернівці') === 'Україна, Чернівці', 'country and city stay together')
 assert(guestPlaceLabel(null, null) === '—', 'missing place is blank')
 assert(listed.items[0]?.notes === 'VIP', 'hotel notes stay on the list')
@@ -215,6 +219,11 @@ assert(directory.includes('Ваша клієнтська база тут'), 'dir
 assert(directory.includes('canWrite') && directory.includes('canExport') && directory.includes('canImport'), 'create, export, and import follow staff roles')
 assert(directory.includes('Імпорт') && directory.includes('GuestImportDialog'), 'import wizard is shown for allowed roles')
 assert(directory.includes('sort') && directory.includes('order'), 'directory sends sort to the API')
+assert(directory.includes("onSearch={(value) => patch({ q: value })}"), 'search keeps the selected sort in the query string')
+assert(directory.includes('lastVisit: lastVisitFilter, sort, order'), 'filters keep the selected sort')
+const table = readFileSync(new URL('../components/guests/GuestTable.tsx', import.meta.url), 'utf8')
+assert(table.includes('guestPib'), 'the ПІБ column uses surname-first display')
+assert(!table.includes('fullName('), 'the directory does not show given name first')
 assert(canWriteGuests('receptionist') && !canExportGuests('receptionist'), 'reception can write clients but not export')
 assert(!canExportGuests('manager') && !canExportGuests('admin') && canExportGuests('owner'), 'only owner exports guests')
 assert(guestHeadlineCounts(10, 3).withVisits === 7 && guestHeadlineCounts(10, 3).withoutVisits === 3, 'headline splits never-visited')

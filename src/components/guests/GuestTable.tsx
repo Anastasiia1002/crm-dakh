@@ -1,9 +1,8 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { MobileCard, MobileCardDetail, MobileCardDetails, MobileCardHeader, MobileList } from '@/components/ui/mobile-list'
-import type { AdminGuestListItem } from '@/lib/admin-guests'
+import { guestPib, type AdminGuestListItem } from '@/lib/admin-guests'
 import { formatCount, formatDate } from '@/lib/format'
-import { fullName } from '@/lib/utils'
 
 export function GuestTable({ guests }: { guests: AdminGuestListItem[] }) {
   const navigate = useNavigate()
@@ -24,7 +23,7 @@ export function GuestTable({ guests }: { guests: AdminGuestListItem[] }) {
           </TableHeader>
           <TableBody>
             {guests.map((guest) => {
-              const name = fullName(guest.firstName, guest.lastName)
+              const name = guestPib(guest.firstName, guest.lastName)
               return (
                 <TableRow
                   key={guest.id}
@@ -55,7 +54,7 @@ export function GuestTable({ guests }: { guests: AdminGuestListItem[] }) {
       </div>
       <MobileList>
         {guests.map((guest) => {
-          const name = fullName(guest.firstName, guest.lastName)
+          const name = guestPib(guest.firstName, guest.lastName)
           const notes = guest.notes?.trim()
           return (
             <MobileCard key={guest.id}>
