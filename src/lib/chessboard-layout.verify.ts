@@ -8,6 +8,7 @@ import {
   chessboardCompactStickyLabel,
   chessboardMetrics,
   chessboardPointerIsTap,
+  chessboardTapAllowed,
   chessboardVisibleDateCount,
   CHESSBOARD_DESKTOP_CELL_PX,
   CHESSBOARD_DESKTOP_LABEL_PX,
@@ -62,12 +63,28 @@ assert(chessboardBarCaption('Коваль І.', 20) === '', 'very short bars sta
 
 assert(chessboardPointerIsTap({ x: 10, y: 10 }, { x: 14, y: 12 }), 'a small pointer move is a tap')
 assert(!chessboardPointerIsTap({ x: 10, y: 10 }, { x: 40, y: 12 }), 'a pan is not a tap')
+assert(
+  !chessboardTapAllowed({ origin: { x: 10, y: 10 }, point: { x: 11, y: 10 }, panned: true }),
+  'a gesture marked panned is not a tap',
+)
+assert(
+  !chessboardTapAllowed({ origin: { x: 10, y: 10 }, point: { x: 10, y: 10 }, panned: true }),
+  'pointercancel leftover does not select',
+)
 
 const board = readFileSync(new URL('../components/calendar/Chessboard.tsx', import.meta.url), 'utf8')
 const page = readFileSync(new URL('../pages/calendar/CalendarPage.tsx', import.meta.url), 'utf8')
 const fixture = readFileSync(new URL('./chessboard-mobile-fixture.ts', import.meta.url), 'utf8')
+const css = readFileSync(new URL('../index.css', import.meta.url), 'utf8')
 assert(board.includes('chessboardCompactStickyLabel'), 'compact rows use the number-first label')
-assert(board.includes('chessboardPointerIsTap'), 'empty nights ignore pans')
+assert(board.includes('chessboardTapAllowed'), 'clicks after a pan do not select')
+assert(board.includes('onPointerCancel'), 'pointercancel clears a pending tap')
+assert(!board.includes('setPointerCapture'), 'pointer capture does not steal the scroll gesture')
+assert(!board.includes('touch-pan-x'), 'cells do not use conflicting pan-x-only touch-action')
+assert(!board.includes('touch-pan-y'), 'cells do not use conflicting pan-y-only touch-action')
+assert(board.includes('chessboard-pan'), 'grid cells share the pan touch-action class')
+assert(css.includes('touch-action: pan-x pan-y'), 'native pan is allowed on both axes')
+assert(!board.includes('disabled={!available}'), 'disabled night buttons do not eat iOS pans')
 assert(board.includes('aria-label="Показати повну назву"'), 'full names stay behind an explicit control')
 assert(board.includes('size-11'), 'the details control is a 44px target')
 assert(board.includes('items-stretch'), 'name and date cells share the same row height')
@@ -79,6 +96,11 @@ assert(board.includes('line-clamp-2'), 'nameless rows clamp to two lines')
 assert(board.includes('line-clamp-1'), 'a number plus name still stays within two lines')
 assert(page.includes('filtersOpen'), 'secondary filters collapse on compact widths')
 assert(page.includes('legendOpen'), 'the status legend collapses on compact widths')
+assert(page.includes('aria-label="Статуси"'), 'the statuses disclosure has an accessible name')
+assert(page.includes('Статуси'), 'the statuses disclosure label is Статуси')
+assert(!page.includes('Легенда статусів'), 'the old legend label is gone')
+assert(page.includes('Обрати період'), 'mobile range selection is an explicit mode')
+assert(page.includes("rangePicking ? 'select' : 'browse'"), 'browsing empty nights does not start a range')
 assert(page.includes('ChessboardStayDialog'), 'booking taps open a read-only details panel')
 assert(page.includes('Скасувати'), 'range selection still has an explicit cancel')
 assert(!page.includes('occupancyCheckOut'), 'calendar work does not mix occupancy checkout changes')
