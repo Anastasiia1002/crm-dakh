@@ -34,11 +34,14 @@ import {
   SERVICE_PRICE_UNSET_LABEL,
   SERVICE_CRM_BADGE,
   SERVICE_ONLINE_UNAVAILABLE_BADGE,
-  SERVICE_PUBLIC_NEEDS_PRICE,
+  SERVICE_ONLINE_PRICING_LABEL,
+  SERVICE_ONLINE_PRICING_HELP,
+  SERVICE_ONLINE_PRICING_REQUIRED,
+  SERVICE_ONLINE_PRICED_NEEDS_PRICE,
   SERVICE_SITE_BADGE,
+  ONLINE_PRICING_MODES,
   buildAdminServiceCreateBody,
   buildAdminServicePatchBody,
-  canEnablePublicOnlineBooking,
   filterManagedServices,
   formatManagedServicePrice,
   parseOptionalServiceQuantity,
@@ -68,6 +71,7 @@ const schema = z
     active: z.enum(['yes', 'no']),
     bookable: z.boolean(),
     chargeBasis: z.enum(ADMIN_SERVICE_CHARGE_BASES),
+    onlinePricing: z.enum(ONLINE_PRICING_MODES).nullable(),
     minQuantity: z.string(),
     maxQuantity: z.string(),
     sortOrder: z.string(),
@@ -77,8 +81,6 @@ const schema = z
     const price = validateOptionalServicePrice(values.price)
     if (!price.ok) {
       ctx.addIssue({ code: 'custom', path: ['price'], message: price.error })
-    } else if (values.bookable && canEnablePublicOnlineBooking(values.chargeBasis) && price.price === null) {
-      ctx.addIssue({ code: 'custom', path: ['price'], message: SERVICE_PUBLIC_NEEDS_PRICE })
     }
     const sortOrder = parseOptionalServiceSortOrder(values.sortOrder)
     if (!sortOrder.ok) {
@@ -95,6 +97,17 @@ const schema = z
     if (minQuantity.ok && maxQuantity.ok) {
       const bounds = validateServiceQuantityBounds(minQuantity.quantity, maxQuantity.quantity)
       if (bounds) ctx.addIssue({ code: 'custom', path: ['maxQuantity'], message: bounds })
+    }
+    if (values.bookable && !values.onlinePricing) {
+      ctx.addIssue({ code: 'custom', path: ['onlinePricing'], message: SERVICE_ONLINE_PRICING_REQUIRED })
+    }
+    if (
+      values.bookable &&
+      values.onlinePricing &&
+      values.onlinePricing !== 'REQUEST_ONLY' &&
+      !values.price.trim()
+    ) {
+      ctx.addIssue({ code: 'custom', path: ['price'], message: SERVICE_ONLINE_PRICED_NEEDS_PRICE })
     }
   })
 
@@ -346,6 +359,7 @@ function ServiceDialog({
       active: item ? (current?.active ? 'yes' : 'no') : 'yes',
       bookable: current?.bookable ?? false,
       chargeBasis: current?.chargeBasis ?? 'PER_STAY',
+      onlinePricing: current?.onlinePricing ?? null,
       minQuantity: current?.minQuantity == null ? '' : String(current.minQuantity),
       maxQuantity: current?.maxQuantity == null ? '' : String(current.maxQuantity),
       sortOrder: current?.sortOrder ? String(current.sortOrder) : '',
@@ -354,9 +368,7 @@ function ServiceDialog({
   })
   const watchedPrice = form.watch('price')
   const watchedChargeBasis = form.watch('chargeBasis')
-  const watchedBookable = form.watch('bookable')
-  const liveOnline = canEnablePublicOnlineBooking(watchedChargeBasis)
-  const canToggleOnline = canWrite && (liveOnline || Boolean(current?.bookable))
+  const canToggleOnline = canWrite
   const priceChanged = Boolean(current && watchedPrice.trim() !== (current.price ?? ''))
 
   return (
@@ -377,6 +389,7 @@ function ServiceDialog({
               active: values.active === 'yes',
               bookable: values.bookable,
               chargeBasis: values.chargeBasis,
+              onlinePricing: values.onlinePricing,
               minQuantity: values.minQuantity,
               maxQuantity: values.maxQuantity,
               sortOrder: values.sortOrder,
@@ -467,14 +480,13 @@ function ServiceDialog({
             role="switch"
             aria-checked={form.watch('bookable')}
             aria-describedby="service-bookable-hint"
-            disabled={!canToggleOnline || (!liveOnline && !watchedBookable)}
+            disabled={!canToggleOnline}
             onClick={() => {
-              if (!liveOnline && !form.getValues('bookable')) return
               form.setValue('bookable', !form.getValues('bookable'), { shouldDirty: true })
             }}
             className="flex min-h-11 w-full items-center justify-between gap-3 rounded-md border border-border bg-surface px-3 text-left outline-none hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-40"
           >
-            <span className="text-sm">Доступна для онлайн-бронювання</span>
+            <span className="text-sm">Показувати при онлайн-бронюванні</span>
             <span
               className={`relative h-6 w-11 shrink-0 rounded-full ${form.watch('bookable') ? 'bg-primary' : 'bg-surface-muted'}`}
               aria-hidden
@@ -489,9 +501,42 @@ function ServiceDialog({
               bookable: form.watch('bookable'),
               active: form.watch('active') === 'yes',
               chargeBasis: watchedChargeBasis,
+              onlinePricing: form.watch('onlinePricing'),
+              price: watchedPrice.trim() || null,
             })}
           </p>
         </div>
+        <Field
+          label="Розрахунок на сайті"
+          error={form.formState.errors.onlinePricing?.message}
+          hint={
+            form.watch('onlinePricing')
+              ? SERVICE_ONLINE_PRICING_HELP[form.watch('onlinePricing')!]
+              : 'Обов’язково, якщо послуга показується гостю. Не визначається з назви чи з порожньої ціни.'
+          }
+        >
+          <Select
+            value={form.watch('onlinePricing') ?? 'none'}
+            onValueChange={(value) =>
+              form.setValue('onlinePricing', value === 'none' ? null : (value as (typeof ONLINE_PRICING_MODES)[number]), {
+                shouldDirty: true,
+              })
+            }
+            disabled={!canWrite}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Не задано" />
+            </SelectTrigger>
+            <SelectContent className={formDialogSelectContentClass} collisionPadding={16}>
+              <SelectItem value="none">Не задано</SelectItem>
+              {ONLINE_PRICING_MODES.map((mode) => (
+                <SelectItem key={mode} value={mode}>
+                  {SERVICE_ONLINE_PRICING_LABEL[mode]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
         <Field label="Нарахування" error={form.formState.errors.chargeBasis?.message}>
           <Select
             value={watchedChargeBasis}
