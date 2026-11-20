@@ -6,6 +6,7 @@
 */
 
 :root {
+  --admin-header-offset: calc(3.5rem + env(safe-area-inset-top, 0px));
   --background: #f4f0e6;
   --foreground: #2a1f1a;
   --surface: #fffcf7;
@@ -115,7 +116,7 @@ html {
   background: var(--background);
   color: var(--foreground);
   overflow-x: clip;
-  scroll-padding-top: calc(3.5rem + env(safe-area-inset-top, 0px));
+  scroll-padding-top: var(--admin-header-offset);
 }
 
 body {
