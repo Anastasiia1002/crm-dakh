@@ -77,6 +77,7 @@ export function CalendarPage() {
   const [selectionNote, setSelectionNote] = useState<string | null>(null)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [legendOpen, setLegendOpen] = useState(false)
+  const [rangePicking, setRangePicking] = useState(false)
   const [peek, setPeek] = useState<ChessboardStayPeek | null>(null)
   const [inspecting, setInspecting] = useState<{
     roomId: string
@@ -204,6 +205,7 @@ export function CalendarPage() {
   }
 
   function selectEmptyNight(roomId: string, date: string) {
+    if (compact && canWrite && !rangePicking) return
     if (nightIntent === 'book') {
       createBooking({ roomId, startDate: date, endDate: addCalendarDays(date, 1) })
       return
@@ -388,6 +390,7 @@ export function CalendarPage() {
             onClick={() => {
               setSelection(null)
               setSelectionNote(null)
+              setRangePicking(false)
             }}
           >
             Скасувати
@@ -435,7 +438,7 @@ export function CalendarPage() {
         <Chessboard
           model={fixtureBoard?.model ?? boardModel ?? board.model!}
           selected={blocking ? draft : selection}
-          emptyMode={nightIntent}
+          emptyMode={compact && canWrite ? (rangePicking ? 'select' : 'browse') : nightIntent}
           compact={compact}
           onAdminBar={openBlockDetails}
           onBooking={openStay}
@@ -476,13 +479,35 @@ export function CalendarPage() {
                 <ChevronDown className={cn('size-4 transition', filtersOpen && 'rotate-180')} />
               </button>
               {filtersOpen ? <div className="w-full">{filterControls}</div> : null}
+              {canWrite ? (
+                <button
+                  type="button"
+                  className={cn(
+                    'inline-flex items-center gap-1 text-sm',
+                    rangePicking ? 'text-foreground' : 'text-muted-foreground',
+                  )}
+                  aria-pressed={rangePicking}
+                  onClick={() => {
+                    if (rangePicking) {
+                      setRangePicking(false)
+                      setSelection(null)
+                      setSelectionNote(null)
+                      return
+                    }
+                    setRangePicking(true)
+                  }}
+                >
+                  Обрати період
+                </button>
+              ) : null}
               <button
                 type="button"
                 className="inline-flex items-center gap-1 text-sm text-muted-foreground"
+                aria-label="Статуси"
                 aria-expanded={legendOpen}
                 onClick={() => setLegendOpen((open) => !open)}
               >
-                Легенда статусів
+                Статуси
                 <ChevronDown className={cn('size-4 transition', legendOpen && 'rotate-180')} />
               </button>
               {legendOpen ? <div className="w-full">{legend}</div> : null}

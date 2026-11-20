@@ -78,3 +78,13 @@ export function chessboardPointerIsTap(
   const dy = point.y - origin.y
   return dx * dx + dy * dy <= slopPx * slopPx
 }
+
+/** Once the pointer has panned or the browser cancelled the gesture, clicks must not select or open dialogs. */
+export function chessboardTapAllowed(input: {
+  origin: { x: number; y: number } | null
+  point: { x: number; y: number }
+  panned: boolean
+}) {
+  if (input.panned) return false
+  return chessboardPointerIsTap(input.origin, input.point)
+}

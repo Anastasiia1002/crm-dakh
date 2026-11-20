@@ -346,6 +346,11 @@ textarea {
   font-style: italic;
 }
 
+/* Both axes: do not use separate Tailwind pan-x and pan-y classes (the last one wins). */
+.chessboard-pan {
+  touch-action: pan-x pan-y;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
