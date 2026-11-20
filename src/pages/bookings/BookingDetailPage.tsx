@@ -27,6 +27,7 @@ import {
   canEditAdminBookingProfile,
   canReassignAdminBookingRoom,
   formatAdminBookingMoney,
+  formatAdminBookingServiceMoney,
   isAdminBookingTerminal,
 } from '@/lib/admin-booking-view'
 import { createSubmitLock } from '@/lib/booking-form'
@@ -234,9 +235,7 @@ export function BookingDetailPage() {
                       <span className="ml-2 text-muted-foreground">× {service.quantity}</span>
                     </span>
                     <span className="tabular-nums">
-                      {service.totalPrice == null
-                        ? 'Оплата за домовленістю'
-                        : formatAdminBookingMoney(service.totalPrice, price.currency)}
+                      {formatAdminBookingServiceMoney(service.totalPrice, price.currency)}
                     </span>
                   </li>
                 ))}

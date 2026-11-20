@@ -52,6 +52,7 @@ import {
   LIVE_PUBLIC_SERVICE_CHARGE_BASES,
   SERVICE_ONLINE_PRICING_HELP,
   onlineConfigurationError,
+  requiresOnlineUnitPrice,
   SERVICE_ONLINE_PRICING_LABEL,
   SERVICE_ONLINE_TOGGLE_HINT,
   serviceOnlineFieldHint,
@@ -738,6 +739,9 @@ function main() {
   assert(page.includes('SERVICE_ONLINE_PRICING_HELP'), 'each site pricing mode has Ukrainian guidance')
   assert(SERVICE_ONLINE_PRICING_HELP.GUEST_QUANTITY.includes('кількість × ціна'), 'guest quantity help is generic')
   assert(SERVICE_ONLINE_PRICING_HELP.REQUEST_ONLY.includes('не входить у грошовий підсумок'), 'request-only help excludes totals')
+  assert(SERVICE_ONLINE_PRICING_LABEL.FREE === 'Безкоштовно', 'free mode has a guest-facing Ukrainian label')
+  assert(SERVICE_ONLINE_PRICING_HELP.FREE.includes('0 ₴'), 'free help records a zero snapshot without raising the stay total')
+  assert(!requiresOnlineUnitPrice('FREE') && !requiresOnlineUnitPrice('REQUEST_ONLY'), 'free and request-only omit a catalog unit price')
   assert(
     page.includes('SERVICE_SITE_BADGE') && page.includes('SERVICE_CRM_BADGE') && page.includes('SERVICE_ONLINE_UNAVAILABLE_BADGE'),
     'the catalog shows effective guest availability',
@@ -756,6 +760,7 @@ function main() {
   assert(SERVICE_CHARGE_BASIS_LABEL.PER_NIGHT === 'За ніч' && SERVICE_CHARGE_BASIS_LABEL.PER_PERSON_DAY === 'За людину на добу', 'charge bases have Ukrainian unit labels')
 
   const picker = readFileSync(new URL('../components/bookings/AdminServicePicker.tsx', import.meta.url), 'utf8')
+  assert(picker.includes('formatAdminBookingServiceMoney'), 'picker labels a stored 0.00 extra as free')
   assert(picker.includes('savedLine.unitPrice'), 'picker shows saved historical unitPrice')
   assert(picker.includes('Немає в активному каталозі'), 'inactive saved lines stay on the booking form')
   assert(picker.includes('SERVICE_CHARGE_BASIS_LABEL'), 'picker shows the unit hint')
@@ -798,7 +803,18 @@ function main() {
       bookable: true,
       onlinePricing: 'REQUEST_ONLY',
     }).ok,
-    'public bookable create may omit a price only for request-only extras',
+    'public bookable create may omit a price for request-only extras',
+  )
+  assert(
+    buildAdminServiceCreateBody({
+      name: 'Вітальний напій',
+      description: '',
+      price: '',
+      active: true,
+      bookable: true,
+      onlinePricing: 'FREE',
+    }).ok,
+    'public bookable create may omit a price for free extras',
   )
   const existing = parseManagedAdminService({
     id: BREAKFAST,
@@ -900,7 +916,7 @@ function main() {
   assert(api.includes('/api/admin/services/ensure-suggested'), 'API client can insert suggested services')
   assert(SERVICE_PUBLIC_NEEDS_PRICE.includes('безкоштовно'), 'missing catalog price is never described as free')
   const detail = readFileSync(new URL('../pages/bookings/BookingDetailPage.tsx', import.meta.url), 'utf8')
-  assert(detail.includes('Оплата за домовленістю'), 'CRM booking detail labels request-only extras')
+  assert(detail.includes('formatAdminBookingServiceMoney'), 'CRM booking detail labels request-only and free extras from the snapshot')
 
   console.log('PASS: admin extra-service catalog uses GET /api/admin/services')
 }

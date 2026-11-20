@@ -105,6 +105,7 @@ const schema = z
       values.bookable &&
       values.onlinePricing &&
       values.onlinePricing !== 'REQUEST_ONLY' &&
+      values.onlinePricing !== 'FREE' &&
       !values.price.trim()
     ) {
       ctx.addIssue({ code: 'custom', path: ['price'], message: SERVICE_ONLINE_PRICED_NEEDS_PRICE })
