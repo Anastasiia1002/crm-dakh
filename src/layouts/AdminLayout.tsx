@@ -13,7 +13,7 @@ export function AdminLayout() {
   }, [desktop])
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground">
       {desktop ? (
         <aside className="fixed inset-y-0 left-0 z-40 w-60 border-r border-sidebar-border pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
           <Sidebar />

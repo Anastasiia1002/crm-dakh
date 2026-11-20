@@ -22,5 +22,8 @@ assert(page.includes('Дії для промокоду'), 'row actions sit in a 
 assert(page.includes('ActionsMenu'), 'promo actions use the shared dropdown')
 assert(page.includes('ConfirmDialog'), 'delete keeps a confirmation')
 assert(page.includes('collisionPadding'), 'the menu stays in the viewport')
+assert(page.includes('flex flex-col gap-4 md:gap-5'), 'toolbar stays 16–24px above the list and empty state')
+assert(page.includes('<PageHeader'), 'create sits in the page header toolbar')
+assert(page.includes('MobileList'), 'mobile cards follow the same page stack')
 
 console.log('PASS: promo codes are managed through the hotel API')
