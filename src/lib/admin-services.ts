@@ -18,9 +18,9 @@ export const SERVICE_PUBLIC_NEEDS_PRICE =
 export const SERVICE_ONLINE_TOGGLE_HINT =
   'Незалежно від «Активна». Гість бачить послугу лише коли обидва перемикачі увімкнені.'
 export const SERVICE_PUBLIC_STAY_ONLY_HINT =
-  'Сніданок: гість вводить кількість. Трансфер: заявка з оплатою за домовленістю, без суми в підсумку.'
+  'На сайті гість бачить кожну активну послугу з увімкненим онлайн і обраним способом розрахунку. Нарахування в CRM на суму на сайті не впливає.'
 export const SERVICE_PER_NIGHT_PENDING_HINT =
-  '«За ніч» на сайті множиться на ночі проживання (виїзд не враховується).'
+  'Ціна множиться на ночі проживання (виїзд не враховується).'
 export const SERVICE_UNSUPPORTED_PUBLIC_BASIS_HINT =
   'Порожня ціна ніколи не показується як 0 ₴. Заявку з оплатою за домовленістю задають окремим способом розрахунку на сайті.'
 export const SERVICE_SAVED_ONLINE_FLAG_HINT =
@@ -59,6 +59,13 @@ export const SERVICE_ONLINE_PRICING_LABEL: Record<OnlinePricingMode, string> = {
   REQUEST_ONLY: 'Оплата за домовленістю',
 }
 
+export const SERVICE_ONLINE_PRICING_HELP: Record<OnlinePricingMode, string> = {
+  FIXED_ONCE: 'Гість додає послугу один раз. Кількість не вводить; сума дорівнює зазначеній ціні.',
+  GUEST_QUANTITY: 'Гість вводить кількість. Сума = кількість × ціна. Ночі й гості не множаться автоматично.',
+  PER_NIGHT: 'Сума = ціна × ночі проживання. Виїзд не враховується. Кількість гість не змінює.',
+  REQUEST_ONLY: 'Гість може додати заявку з оплатою за домовленістю. Ціна не обов’язкова; рядок не входить у грошовий підсумок.',
+}
+
 export const SERVICE_ONLINE_PRICING_REQUIRED = 'Оберіть спосіб розрахунку на сайті.'
 export const SERVICE_ONLINE_PRICED_NEEDS_PRICE =
   'Для цього способу розрахунку потрібна ціна. Порожня ціна не є безкоштовною і не стає заявкою сама.'
@@ -79,14 +86,6 @@ export function onlineConfigurationError(input: {
   if (!input.bookable) return null
   if (!input.onlinePricing) return SERVICE_ONLINE_PRICING_REQUIRED
   if (requiresOnlineUnitPrice(input.onlinePricing) && !input.price) return SERVICE_ONLINE_PRICED_NEEDS_PRICE
-  return null
-}
-
-/** Owner-approved names only. Other catalog rows stay unassigned until staff pick a mode. */
-export function suggestedOnlinePricingForName(name: string): OnlinePricingMode | null {
-  if (name === 'Сніданок') return 'GUEST_QUANTITY'
-  if (name === 'Трансфер') return 'REQUEST_ONLY'
-  if (name === 'Додаткове спальне місце') return 'PER_NIGHT'
   return null
 }
 
@@ -520,19 +519,10 @@ export function serviceOnlineFieldHint(input: {
   price?: string | null
 }) {
   if (input.bookable && !input.active) return SERVICE_SAVED_ONLINE_FLAG_HINT
-  if (input.onlinePricing === 'REQUEST_ONLY') {
-    return `${SERVICE_ONLINE_TOGGLE_HINT} ${SERVICE_ONLINE_PRICING_LABEL.REQUEST_ONLY}, без суми в підсумку.`
+  if (input.onlinePricing) {
+    return `${SERVICE_ONLINE_TOGGLE_HINT} ${SERVICE_ONLINE_PRICING_HELP[input.onlinePricing]}`
   }
-  if (input.onlinePricing === 'GUEST_QUANTITY') {
-    return `${SERVICE_ONLINE_TOGGLE_HINT} ${SERVICE_ONLINE_PRICING_LABEL.GUEST_QUANTITY}. Для сніданку — кількість сніданків, без множення на ночі чи гостей.`
-  }
-  if (input.onlinePricing === 'PER_NIGHT') {
-    return `${SERVICE_ONLINE_TOGGLE_HINT} ${SERVICE_PER_NIGHT_PENDING_HINT}`
-  }
-  if (input.onlinePricing === 'FIXED_ONCE') {
-    return `${SERVICE_ONLINE_TOGGLE_HINT} ${SERVICE_ONLINE_PRICING_LABEL.FIXED_ONCE}.`
-  }
-  return `${SERVICE_ONLINE_TOGGLE_HINT} Спосіб розрахунку на сайті задається окремо від нарахування в CRM.`
+  return `${SERVICE_ONLINE_TOGGLE_HINT} Спосіб розрахунку на сайті задається окремо від нарахування в CRM і від назви послуги.`
 }
 
 export function parseOptionalServiceQuantity(

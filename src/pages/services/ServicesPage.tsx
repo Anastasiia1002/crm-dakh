@@ -35,6 +35,7 @@ import {
   SERVICE_CRM_BADGE,
   SERVICE_ONLINE_UNAVAILABLE_BADGE,
   SERVICE_ONLINE_PRICING_LABEL,
+  SERVICE_ONLINE_PRICING_HELP,
   SERVICE_ONLINE_PRICING_REQUIRED,
   SERVICE_ONLINE_PRICED_NEEDS_PRICE,
   SERVICE_PUBLIC_NEEDS_PRICE,
@@ -507,7 +508,15 @@ function ServiceDialog({
             })}
           </p>
         </div>
-        <Field label="Розрахунок на сайті" error={form.formState.errors.onlinePricing?.message}>
+        <Field
+          label="Розрахунок на сайті"
+          error={form.formState.errors.onlinePricing?.message}
+          hint={
+            form.watch('onlinePricing')
+              ? SERVICE_ONLINE_PRICING_HELP[form.watch('onlinePricing')!]
+              : 'Обов’язково, якщо послуга показується гостю. Не визначається з назви чи з порожньої ціни.'
+          }
+        >
           <Select
             value={form.watch('onlinePricing') ?? 'none'}
             onValueChange={(value) =>

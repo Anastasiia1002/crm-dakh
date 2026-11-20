@@ -50,7 +50,7 @@ import {
   validateServiceQuantityBounds,
   isPubliclyBookableService,
   LIVE_PUBLIC_SERVICE_CHARGE_BASES,
-  suggestedOnlinePricingForName,
+  SERVICE_ONLINE_PRICING_HELP,
   onlineConfigurationError,
   SERVICE_ONLINE_PRICING_LABEL,
   SERVICE_ONLINE_TOGGLE_HINT,
@@ -532,15 +532,26 @@ function main() {
     serviceSiteVisibilityLabel(breakfastPersonDay) === SERVICE_SITE_BADGE,
     'breakfast with both switches on is available on the site',
   )
+  const namedSpa = parseManagedAdminService({
+    id: '88888888-8888-4888-8888-888888888899',
+    name: 'Чан біля ставка',
+    description: null,
+    price: '900.00',
+    currency: 'UAH',
+    active: true,
+    bookable: true,
+    onlinePricing: 'FIXED_ONCE',
+    chargeBasis: 'PER_DAY',
+    minQuantity: null,
+    maxQuantity: null,
+    createdAt: '2026-10-01T00:00:00.000Z',
+    updatedAt: '2026-10-02T00:00:00.000Z',
+  })
+  assert(isPubliclyBookableService(namedSpa), 'any correctly configured name is listed for guests')
   assert(
-    suggestedOnlinePricingForName('Сніданок') === 'GUEST_QUANTITY',
-    'breakfast uses guest-entered quantity online',
+    !isPubliclyBookableService({ ...namedSpa, bookable: false }),
+    'the online switch still hides a fully priced row',
   )
-  assert(
-    suggestedOnlinePricingForName('Трансфер') === 'REQUEST_ONLY',
-    'transfer is request-only',
-  )
-  assert(suggestedOnlinePricingForName('Паркування') === null, 'parking waits for an owner-selected online mode')
   assert(
     onlineConfigurationError({ bookable: true, onlinePricing: 'GUEST_QUANTITY', price: null }) != null,
     'a priced online mode without a price is invalid',
@@ -562,7 +573,7 @@ function main() {
       chargeBasis: 'PER_NIGHT',
       onlinePricing: 'PER_NIGHT',
       price: '40.00',
-    }).includes('За ніч'),
+    }).includes('ночі проживання'),
     'per-night copy names nights',
   )
   assert(
@@ -572,7 +583,7 @@ function main() {
       chargeBasis: 'PER_TRIP',
       onlinePricing: 'REQUEST_ONLY',
     }).includes('домовленістю'),
-    'transfer copy names payment by agreement',
+    'request-only copy names payment by agreement',
   )
   assert(serviceOnlineFieldHint({ bookable: false, active: true, chargeBasis: 'PER_STAY' }).includes(SERVICE_ONLINE_TOGGLE_HINT), 'the two switches are independent')
   const ignoredToggle = buildAdminServicePatchBody(breakfastPersonDay, {
@@ -722,8 +733,11 @@ function main() {
   assert(page.includes('serviceOnlineFieldHint'), 'the form uses one field hint for guest vs saved online')
   assert(page.includes('role="switch"'), 'public availability is a switch')
   assert(page.includes('ADMIN_SERVICE_CHARGE_BASES') && page.includes('SERVICE_CHARGE_BASIS_LABEL'), 'the form offers staff charge bases')
-  assert(SERVICE_PUBLIC_STAY_ONLY_HINT.includes('Сніданок'), 'public booking copy names breakfast quantity')
-  assert(SERVICE_PER_NIGHT_PENDING_HINT.includes('За ніч'), 'per-night online booking waits for the server')
+  assert(SERVICE_PUBLIC_STAY_ONLY_HINT.includes('способом розрахунку'), 'public booking copy is not limited to named extras')
+  assert(SERVICE_PER_NIGHT_PENDING_HINT.includes('ночі проживання'), 'per-night online booking multiplies by stay nights')
+  assert(page.includes('SERVICE_ONLINE_PRICING_HELP'), 'each site pricing mode has Ukrainian guidance')
+  assert(SERVICE_ONLINE_PRICING_HELP.GUEST_QUANTITY.includes('кількість × ціна'), 'guest quantity help is generic')
+  assert(SERVICE_ONLINE_PRICING_HELP.REQUEST_ONLY.includes('не входить у грошовий підсумок'), 'request-only help excludes totals')
   assert(
     page.includes('SERVICE_SITE_BADGE') && page.includes('SERVICE_CRM_BADGE') && page.includes('SERVICE_ONLINE_UNAVAILABLE_BADGE'),
     'the catalog shows effective guest availability',
