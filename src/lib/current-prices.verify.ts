@@ -45,6 +45,13 @@ assert(picker.includes('triggerRef'), 'Escape returns focus to the period trigge
 assert(picker.includes('keyboardDayFromTarget'), 'keyboard selection follows the focused day')
 assert(picker.includes('flushSync'), 'open focuses a day before the next click')
 assert(!picker.includes('requestAnimationFrame'), 'picker focus is not delayed past the next click')
+assert(picker.includes('createPortal'), 'price calendar opens outside the toolbar')
+assert(cssHasPickerLayout(), 'shared calendar layout is independent of the trigger')
+
+function cssHasPickerLayout() {
+  const css = readFileSync(new URL('../index.css', import.meta.url), 'utf8')
+  return css.includes('min-width: 20rem') && css.includes('minmax(2.75rem, 1fr)')
+}
 assert(calendar.includes('label="Період"'), 'current prices period uses the shared field label')
 assert(workspace.includes('label="Період"'), 'editor period uses the shared field label')
 assert(!workspace.includes('type="date"'), 'editor does not use native date inputs')

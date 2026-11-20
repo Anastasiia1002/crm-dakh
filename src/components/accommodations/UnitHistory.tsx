@@ -36,7 +36,7 @@ export function UnitHistory({ roomId }: { roomId: string }) {
         та попередні призначення кімнати в журналі не зберігаються.
       </p>
       <div className="flex flex-wrap items-end gap-3">
-        <label className="space-y-1 text-xs">
+        <label className="date-range-filter space-y-1 text-xs">
           <span className="text-muted-foreground">Період</span>
           <DateRangePicker
             start={from}

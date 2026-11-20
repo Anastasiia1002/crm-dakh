@@ -112,7 +112,7 @@ export function AnalyticsPage() {
                 </Button>
               </div>
             </Filter>
-            <Filter label="Період">
+            <Filter label="Період" className="date-range-filter">
               <DateRangePicker
                 start={filters.from}
                 end={filters.to}
@@ -347,9 +347,9 @@ function FilterStep({
   )
 }
 
-function Filter({ label, children }: { label: string; children: ReactNode }) {
+function Filter({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
   return (
-    <label className="space-y-1.5">
+    <label className={className ? `space-y-1.5 ${className}` : 'space-y-1.5'}>
       <span className="block text-[11px] tracking-[0.12em] text-muted uppercase">{label}</span>
       {children}
     </label>

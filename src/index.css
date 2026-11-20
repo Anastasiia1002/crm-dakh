@@ -166,6 +166,181 @@ textarea {
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 0.75rem;
+  overflow: visible;
+}
+
+.date-range-picker,
+.date-range-filter {
+  width: 100%;
+  min-width: 0;
+}
+
+@media (min-width: 40rem) {
+  .date-range-picker,
+  .date-range-filter {
+    flex: 1 0 20rem;
+    min-width: 20rem;
+  }
+}
+
+.date-range-picker-trigger {
+  display: flex;
+  height: 2.75rem;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  overflow: hidden;
+  border-radius: 0.375rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  padding: 0 0.75rem;
+  text-align: left;
+  font-size: 0.875rem;
+}
+
+.date-range-picker-trigger:hover {
+  border-color: color-mix(in srgb, var(--primary) 30%, var(--border));
+}
+
+.date-range-picker-trigger:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.date-range-picker-trigger span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.date-range-calendar {
+  box-sizing: border-box;
+  z-index: 70;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--background);
+  box-shadow: 0 12px 40px rgb(40 32 24 / 0.16);
+}
+
+.date-range-calendar--popover {
+  position: fixed;
+  width: min(22.5rem, calc(100vw - 1.5rem));
+}
+
+.date-range-calendar--sheet {
+  position: fixed;
+  right: 0.75rem;
+  bottom: max(0.75rem, env(safe-area-inset-bottom));
+  left: 0.75rem;
+  width: auto;
+  max-height: min(36rem, calc(100dvh - 2rem));
+  overflow: auto;
+}
+
+.date-range-calendar-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 69;
+  background: rgb(40 32 24 / 0.35);
+}
+
+.date-range-calendar-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.date-range-calendar-nav-btn {
+  display: inline-flex;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: 0 0 2.75rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  background: var(--surface);
+}
+
+.date-range-calendar-nav-btn:disabled {
+  opacity: 0.4;
+}
+
+.date-range-calendar-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: center;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.date-range-calendar-week,
+.date-range-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.25rem;
+}
+
+.date-range-calendar--popover .date-range-calendar-week,
+.date-range-calendar--popover .date-range-calendar-grid {
+  grid-template-columns: repeat(7, minmax(2.75rem, 1fr));
+}
+
+.date-range-weekday {
+  min-width: 0;
+  padding-block: 0.25rem;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--muted-foreground);
+}
+
+.date-range-day {
+  display: flex;
+  width: 100%;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.date-range-day:disabled {
+  cursor: not-allowed;
+}
+
+.date-range-day-edge {
+  background: var(--primary);
+  font-weight: 600;
+  color: var(--primary-foreground);
+}
+
+.date-range-day-in-range {
+  background: var(--secondary);
+  font-weight: 500;
+}
+
+.date-range-day-closed {
+  color: color-mix(in srgb, var(--muted-foreground) 45%, transparent);
+  opacity: 0.4;
+}
+
+.date-range-day-in-month {
+  background: var(--surface);
+}
+
+.date-range-day-in-month:hover {
+  background: var(--surface-muted);
+}
+
+.date-range-day-outside {
+  color: color-mix(in srgb, var(--muted-foreground) 70%, transparent);
+  font-style: italic;
 }
 
 @media (prefers-reduced-motion: reduce) {

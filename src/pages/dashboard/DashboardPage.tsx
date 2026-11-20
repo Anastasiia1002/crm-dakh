@@ -119,7 +119,7 @@ export function DashboardPage() {
               30 днів
             </PresetButton>
           </div>
-          <label className="space-y-1">
+          <label className="date-range-filter space-y-1">
             <span className="block text-[11px] tracking-[0.12em] text-muted uppercase">Період</span>
             <DateRangePicker
               start={from}
