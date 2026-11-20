@@ -456,66 +456,68 @@ export function CalendarPage() {
       />
 
       {compact ? (
-        <div className="sticky top-[var(--admin-header-offset)] z-[21] -mx-4 flex max-h-[calc(100dvh-var(--admin-header-offset))] flex-col gap-2 bg-background px-1">
-          <div className="rounded-md border border-border bg-surface p-2">
-            {periodControls}
-            <div className="mt-2 grid gap-2">
-              <p className="text-sm font-medium">{rangeLabel}</p>
-              <DateRangePicker
-                mode="single"
-                start={start}
-                onChange={(next) => setStart(next.start)}
-                placeholder="Дата"
-              />
-            </div>
-            <div className="mt-2 flex flex-col items-start gap-1">
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 text-sm text-muted-foreground"
-                aria-expanded={filtersOpen}
-                onClick={() => setFiltersOpen((open) => !open)}
-              >
-                Фільтри
-                <ChevronDown className={cn('size-4 transition', filtersOpen && 'rotate-180')} />
-              </button>
-              {filtersOpen ? <div className="w-full">{filterControls}</div> : null}
-              {canWrite ? (
+        <>
+          <div className="sticky top-[var(--admin-header-offset)] z-[21] -mx-4 space-y-2 bg-background px-1">
+            <div className="rounded-md border border-border bg-surface p-2">
+              {periodControls}
+              <div className="mt-2 grid gap-2">
+                <p className="text-sm font-medium">{rangeLabel}</p>
+                <DateRangePicker
+                  mode="single"
+                  start={start}
+                  onChange={(next) => setStart(next.start)}
+                  placeholder="Дата"
+                />
+              </div>
+              <div className="mt-2 flex flex-col items-start gap-1">
                 <button
                   type="button"
-                  className={cn(
-                    'inline-flex items-center gap-1 text-sm',
-                    rangePicking ? 'text-foreground' : 'text-muted-foreground',
-                  )}
-                  aria-pressed={rangePicking}
-                  onClick={() => {
-                    if (rangePicking) {
-                      setRangePicking(false)
-                      setSelection(null)
-                      setSelectionNote(null)
-                      return
-                    }
-                    setRangePicking(true)
-                  }}
+                  className="inline-flex items-center gap-1 text-sm text-muted-foreground"
+                  aria-expanded={filtersOpen}
+                  onClick={() => setFiltersOpen((open) => !open)}
                 >
-                  Обрати період
+                  Фільтри
+                  <ChevronDown className={cn('size-4 transition', filtersOpen && 'rotate-180')} />
                 </button>
-              ) : null}
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 text-sm text-muted-foreground"
-                aria-label="Статуси"
-                aria-expanded={legendOpen}
-                onClick={() => setLegendOpen((open) => !open)}
-              >
-                Статуси
-                <ChevronDown className={cn('size-4 transition', legendOpen && 'rotate-180')} />
-              </button>
-              {legendOpen ? <div className="w-full">{legend}</div> : null}
+                {filtersOpen ? <div className="w-full">{filterControls}</div> : null}
+                {canWrite ? (
+                  <button
+                    type="button"
+                    className={cn(
+                      'inline-flex items-center gap-1 text-sm',
+                      rangePicking ? 'text-foreground' : 'text-muted-foreground',
+                    )}
+                    aria-pressed={rangePicking}
+                    onClick={() => {
+                      if (rangePicking) {
+                        setRangePicking(false)
+                        setSelection(null)
+                        setSelectionNote(null)
+                        return
+                      }
+                      setRangePicking(true)
+                    }}
+                  >
+                    Обрати період
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 text-sm text-muted-foreground"
+                  aria-label="Статуси"
+                  aria-expanded={legendOpen}
+                  onClick={() => setLegendOpen((open) => !open)}
+                >
+                  Статуси
+                  <ChevronDown className={cn('size-4 transition', legendOpen && 'rotate-180')} />
+                </button>
+                {legendOpen ? <div className="w-full">{legend}</div> : null}
+              </div>
             </div>
+            {selectionBar}
           </div>
-          {selectionBar}
-          <div className="flex min-h-0 flex-1 flex-col">{boardArea}</div>
-        </div>
+          {boardArea}
+        </>
       ) : (
         <>
           <div className="flex flex-col gap-3 rounded-md border border-border bg-surface p-3">
