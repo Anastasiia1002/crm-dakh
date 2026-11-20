@@ -171,7 +171,7 @@ export function ServicesPage() {
       {!catalog.isError && visible.length > 0 ? (
         <>
           <div className="hidden md:block">
-            <Table containerClassName="rounded-md border border-border bg-surface">
+            <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Назва</TableHead>

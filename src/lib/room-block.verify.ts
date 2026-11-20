@@ -26,6 +26,7 @@ import {
   formatExclusiveSpanUk,
   formatNightSpanUk,
   lastBlockedNight,
+  listVisibleRoomBlocks,
   unblockConfirmMessage,
 } from './room-block'
 
@@ -63,6 +64,19 @@ assert(
   blockPreviewMessage('2027-01-05', '2027-01-08') ===
     'Буде закрито 3 ночі: 2027-01-05, 2027-01-06, 2027-01-07. 2027-01-08 залишиться днем виїзду: тоді знову можна заселити гостя, якщо немає бронювання.',
   'preview names checkout rather than occupancy',
+)
+assert(
+  listVisibleRoomBlocks(
+    [
+      { id: 'past', startDate: '2026-10-01', endDate: '2026-11-01' },
+      { id: 'current', startDate: '2026-11-18', endDate: '2026-11-22' },
+      { id: 'upcoming', startDate: '2026-12-01', endDate: '2026-12-05' },
+    ],
+    '2026-11-20',
+  )
+    .map((block) => block.id)
+    .join(',') === 'current,upcoming',
+  'list hides past October blocks and keeps current and upcoming',
 )
 assert(!BLOCK_DIALOG_DESCRIPTION.includes('напіввідкритий'), 'staff copy avoids interval jargon')
 assert(BLOCK_END_DATE_LABEL === 'Дата виїзду', 'end field is checkout')

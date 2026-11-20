@@ -15,7 +15,6 @@ export function GuestBookingHistory({ history }: { history: AdminGuestHistoryIte
       {history.length === 0 ? (
         <EmptyState>Бронювань поки немає.</EmptyState>
       ) : (
-        <div className="overflow-x-auto">
           <Table className="min-w-[880px]">
             <TableHeader>
               <TableRow>
@@ -68,7 +67,6 @@ export function GuestBookingHistory({ history }: { history: AdminGuestHistoryIte
               ))}
             </TableBody>
           </Table>
-        </div>
       )}
     </section>
   )

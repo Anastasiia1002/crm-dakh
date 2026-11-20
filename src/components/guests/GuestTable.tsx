@@ -9,7 +9,7 @@ export function GuestTable({ guests }: { guests: AdminGuestListItem[] }) {
 
   return (
     <>
-      <div className="hidden overflow-x-auto md:block">
+      <div className="hidden md:block">
         <Table className="min-w-[860px]">
           <TableHeader>
             <TableRow>
@@ -52,14 +52,14 @@ export function GuestTable({ guests }: { guests: AdminGuestListItem[] }) {
           </TableBody>
         </Table>
       </div>
-      <ul className="divide-y divide-border md:hidden">
+      <ul className="divide-y divide-border rounded-md border border-border bg-surface md:hidden">
         {guests.map((guest) => {
           const name = fullName(guest.firstName, guest.lastName)
           return (
             <li key={guest.id}>
               <button
                 type="button"
-                className="w-full space-y-1 py-4 text-left"
+                className="w-full space-y-1 px-4 py-3 text-left"
                 onClick={() => navigate(`/admin/guests/${guest.id}`)}
               >
                 <p className="font-medium">{name}</p>

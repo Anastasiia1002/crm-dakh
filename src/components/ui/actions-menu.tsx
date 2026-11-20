@@ -25,7 +25,7 @@ export function ActionsMenu({
           variant="ghost"
           aria-haspopup="menu"
           aria-label={label}
-          className="size-11 bg-transparent shadow-none hover:bg-transparent"
+          className="size-11 bg-transparent shadow-none transition-none hover:bg-transparent focus-visible:bg-transparent data-[state=open]:bg-transparent"
         >
           <EllipsisVertical className="size-5" aria-hidden />
         </Button>

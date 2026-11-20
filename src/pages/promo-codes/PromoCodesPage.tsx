@@ -74,6 +74,7 @@ export function PromoCodesPage() {
       {promos.isError ? <p className="text-sm text-destructive">Не вдалося завантажити промокоди</p> : null}
       {!promos.isLoading && !promos.isError && items.length === 0 ? <EmptyState>Промокодів ще немає.</EmptyState> : null}
       {!promos.isError && items.length > 0 ? (
+        <div className="hidden md:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -140,6 +141,49 @@ export function PromoCodesPage() {
             ))}
           </TableBody>
         </Table>
+        </div>
+      ) : null}
+      {!promos.isError && items.length > 0 ? (
+        <ul className="divide-y divide-border rounded-md border border-border bg-surface md:hidden">
+          {items.map((promo) => (
+            <li key={promo.id} className="space-y-2 px-4 py-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-medium tracking-wide">{promo.code}</p>
+                  <p className="text-sm text-muted-foreground">{promo.description || '—'}</p>
+                </div>
+                <Badge tone={promo.active ? 'success' : 'neutral'}>{promo.active ? 'Активний' : 'Вимкнений'}</Badge>
+              </div>
+              {canWrite ? (
+                <PromoRowActions
+                  promo={promo}
+                  onEdit={() => setEditing(promo)}
+                  onToggle={async () => {
+                    try {
+                      await toggle.mutateAsync({ id: promo.id, active: !promo.active })
+                    } catch (error) {
+                      toast.error(errorMessage(error))
+                    }
+                  }}
+                  onDelete={
+                    promo.usageCount === 0
+                      ? async () => {
+                          try {
+                            await remove.mutateAsync(promo.id)
+                            toast.success('Видалено')
+                          } catch (error) {
+                            toast.error(errorMessage(error))
+                          }
+                        }
+                      : undefined
+                  }
+                />
+              ) : (
+                <span className="text-xs text-muted-foreground">Лише перегляд</span>
+              )}
+            </li>
+          ))}
+        </ul>
       ) : null}
       <PromoDialog
         open={editing !== null}

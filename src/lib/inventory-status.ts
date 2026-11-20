@@ -8,8 +8,13 @@ export function activeFilterToQuery(filter: InventoryActiveFilter): boolean | un
   return undefined
 }
 
+/** Catalog `active` flag only. Not occupancy and not a date block. */
 export const INVENTORY_ACTIVE_FILTER_LABEL: Record<InventoryActiveFilter, string> = {
-  active: 'Активні',
-  archived: 'Вимкнені',
+  active: 'Активний',
+  archived: 'Неактивний',
   all: 'Усі',
+}
+
+export function catalogActivityLabel(active: boolean) {
+  return active ? 'Активний' : 'Неактивний'
 }

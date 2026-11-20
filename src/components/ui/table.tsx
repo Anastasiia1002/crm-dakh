@@ -1,6 +1,7 @@
 import type { HTMLAttributes, TdHTMLAttributes, ThHTMLAttributes } from 'react'
 import { cn } from '@/lib/utils'
 
+const ROW_BG_TRANSITION = 'transition-none'
 const stickyActionsClass =
   'sticky right-0 z-[1] bg-[var(--row-bg)] shadow-[-12px_0_12px_-12px_rgba(91,56,43,0.22)]'
 
@@ -10,7 +11,7 @@ export function Table({
   ...props
 }: HTMLAttributes<HTMLTableElement> & { containerClassName?: string }) {
   return (
-    <div className={cn('w-full overflow-x-auto scroll-thin', containerClassName)}>
+    <div className={cn('w-full overflow-x-auto scroll-thin rounded-md border border-border bg-[var(--table-row-bg)]', containerClassName)}>
       <table className={cn('w-full caption-bottom bg-[var(--table-row-bg)] text-sm', className)} {...props} />
     </div>
   )
@@ -36,7 +37,7 @@ export function TableRow({ className, ...props }: HTMLAttributes<HTMLTableRowEle
   return (
     <tr
       className={cn(
-        'group border-b border-border/80 bg-[var(--row-bg)] transition-colors [--row-bg:var(--table-row-bg)]',
+        `border-b border-border/80 bg-[var(--row-bg)] ${ROW_BG_TRANSITION} [--row-bg:var(--table-row-bg)]`,
         'even:[--row-bg:var(--table-row-bg-alt)]',
         'hover:[--row-bg:var(--table-row-bg-hover)]',
         'focus-within:[--row-bg:var(--table-row-bg-hover)]',
@@ -56,7 +57,7 @@ export function TableHead({
   return (
     <th
       className={cn(
-        'h-10 px-3 text-left align-middle text-[11px] font-medium tracking-[0.12em] text-muted uppercase first:pl-3 last:pr-3',
+        `h-10 bg-[var(--row-bg)] px-3 text-left align-middle text-[11px] font-medium tracking-[0.12em] text-muted uppercase first:pl-3 last:pr-3 ${ROW_BG_TRANSITION}`,
         stickyActions && stickyActionsClass,
         className,
       )}
@@ -72,7 +73,11 @@ export function TableCell({
 }: TdHTMLAttributes<HTMLTableCellElement> & { stickyActions?: boolean }) {
   return (
     <td
-      className={cn('px-3 py-3 align-middle first:pl-3 last:pr-3', stickyActions && stickyActionsClass, className)}
+      className={cn(
+        `bg-[var(--row-bg)] px-3 py-3 align-middle first:pl-3 last:pr-3 ${ROW_BG_TRANSITION}`,
+        stickyActions && stickyActionsClass,
+        className,
+      )}
       {...props}
     />
   )

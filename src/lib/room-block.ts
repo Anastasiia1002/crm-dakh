@@ -1,6 +1,6 @@
 import { ApiError } from '@/lib/api-error'
 import { unitDisplayTitle } from '@/lib/accommodation-labels'
-import { addCalendarDays, nightsBetween } from '@/lib/dates'
+import { addCalendarDays, isCurrentOrUpcomingInterval, nightsBetween } from '@/lib/dates'
 import { errorMessage } from '@/lib/errors'
 import { nightsLabel } from '@/lib/format'
 import { roomBlockTypeLabel } from '@/lib/labels'
@@ -77,6 +77,14 @@ export function blockPreviewMessage(startDate: string, endDate: string) {
   const nights = blockedNights(startDate, endDate)
   if (nights.length === 0) return null
   return `Буде закрито ${nightsLabel(nights.length)}: ${nights.join(', ')}. ${endDate} залишиться днем виїзду: тоді знову можна заселити гостя, якщо немає бронювання.`
+}
+
+/** List current and upcoming blocks. Past [start, end) intervals stay in unit history. */
+export function listVisibleRoomBlocks<T extends { startDate: string; endDate: string }>(
+  blocks: readonly T[],
+  today: string,
+) {
+  return blocks.filter((block) => isCurrentOrUpcomingInterval(today, block.startDate, block.endDate))
 }
 
 export function blockedNights(startDate: string, endDate: string): string[] {
