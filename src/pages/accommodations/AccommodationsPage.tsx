@@ -21,13 +21,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAuth } from '@/hooks/useAuth'
 import { useAdminRoomBlocks, useAdminRooms, useAdminRoomTypes, useDeleteAdminRoomBlock } from '@/hooks/useHotel'
 import { unitDisplayCode, unitDisplayTitle } from '@/lib/accommodation-labels'
-import { isDateInHalfOpenRange, todayIso } from '@/lib/dates'
+import { todayIso } from '@/lib/dates'
 import { formatDate } from '@/lib/format'
 import { roomStatusLabel } from '@/lib/labels'
-import { blockConflictMessage, blockReasonLabel, unblockConfirmMessage } from '@/lib/room-block'
+import { blockConflictMessage, blockReasonLabel, listVisibleRoomBlocks, unblockConfirmMessage } from '@/lib/room-block'
 import {
   INVENTORY_ACTIVE_FILTER_LABEL,
   activeFilterToQuery,
+  catalogActivityLabel,
   type InventoryActiveFilter,
 } from '@/lib/inventory-status'
 import { canManageAccommodations } from '@/lib/roles'
@@ -98,7 +99,7 @@ export function AccommodationsPage() {
     >
       <PageHeader
         title="Номери та будиночки"
-        description="«У роботі» означає, що одиниця в каталозі, а не що сьогодні вільна. Закриті дати — окремо від заселення."
+        description="«Активний» означає, що одиниця в каталозі, а не що сьогодні вільна чи доступна до бронювання. Закриті дати — окремо від заселення."
       />
       <TabsList>
         <TabsTrigger value="rooms">Номери</TabsTrigger>
@@ -253,9 +254,9 @@ function UnitSection({
         }
       />
       <p className="mb-4 max-w-2xl text-sm text-muted-foreground">
-        «У роботі» означає, що {kind === 'ROOM' ? 'номер' : 'будиночок'} у каталозі, а не що сьогодні вільний.
-        Закриті дати (ремонт чи інша причина) — окремо від заселення. Історія заїздів — у картці клієнта. За
-        замовчуванням показано лише активні.
+        «Активний» означає, що {kind === 'ROOM' ? 'номер' : 'будиночок'} є в каталозі, а не що сьогодні вільний чи
+        доступний до бронювання. Поточні й майбутні закриті дати (ремонт чи інша причина) — окремо від заселення.
+        Минулі закриття лишаються в історії одиниці. За замовчуванням показано лише активні.
       </p>
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end">
         <form
@@ -275,12 +276,12 @@ function UnitSection({
           </Button>
         </form>
         <div className="w-full max-w-xs">
-          <Field label="Статус">
+          <Field label="Активність">
             <Select
               value={inventoryFilter}
               onValueChange={(value: InventoryActiveFilter) => onInventoryFilterChange(value)}
             >
-              <SelectTrigger>
+              <SelectTrigger aria-label="Активність">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -299,12 +300,14 @@ function UnitSection({
           {kind === 'ROOM' ? 'Номерів за цим запитом немає.' : 'Будиночків за цим запитом немає.'}
         </EmptyState>
       ) : (
+        <>
+        <div className="hidden md:block">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Назва</TableHead>
               <TableHead>Місткість</TableHead>
-              <TableHead>Стан</TableHead>
+              <TableHead>Активність</TableHead>
               <TableHead stickyActions>
                 <span className="sr-only">Дії</span>
               </TableHead>
@@ -312,11 +315,11 @@ function UnitSection({
           </TableHeader>
           <TableBody>
             {items.map((item) => {
-              const ownBlocks = blocksByRoom.get(item.id) ?? []
-              const state = presence(item, ownBlocks, today)
+              const ownBlocks = listVisibleRoomBlocks(blocksByRoom.get(item.id) ?? [], today)
               const typeMeta = typeMetaById.get(item.roomTypeId)
               const title = unitDisplayTitle(item, typeMeta?.name)
               const code = unitDisplayCode(item, title)
+              const condition = operationalCondition(item)
               return (
                 <TableRow key={item.id}>
                   <TableCell>
@@ -326,8 +329,8 @@ function UnitSection({
                   <TableCell>{typeMeta ? `до ${typeMeta.maxGuests}` : '—'}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap items-center gap-2">
-                      <Badge tone={state.tone}>{state.label}</Badge>
-                      {!item.active ? <Badge tone="neutral">Вимкнений</Badge> : null}
+                      <Badge tone={item.active ? 'success' : 'neutral'}>{catalogActivityLabel(item.active)}</Badge>
+                      {condition ? <Badge tone={condition.tone}>{condition.label}</Badge> : null}
                     </div>
                     {ownBlocks.length > 0 ? (
                       <div className="mt-1 space-y-1 text-xs text-muted-foreground">
@@ -373,6 +376,56 @@ function UnitSection({
             })}
           </TableBody>
         </Table>
+        </div>
+        <ul className="divide-y divide-border rounded-md border border-border bg-surface md:hidden">
+          {items.map((item) => {
+            const ownBlocks = listVisibleRoomBlocks(blocksByRoom.get(item.id) ?? [], today)
+            const typeMeta = typeMetaById.get(item.roomTypeId)
+            const title = unitDisplayTitle(item, typeMeta?.name)
+            const code = unitDisplayCode(item, title)
+            const condition = operationalCondition(item)
+            return (
+              <li key={item.id} className="space-y-2 px-4 py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium">{title}</p>
+                    {code ? <p className="text-xs text-muted-foreground">{code}</p> : null}
+                    <p className="mt-0.5 text-sm text-muted-foreground">
+                      {typeMeta ? `до ${typeMeta.maxGuests}` : '—'}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap justify-end gap-1">
+                    <Badge tone={item.active ? 'success' : 'neutral'}>{catalogActivityLabel(item.active)}</Badge>
+                    {condition ? <Badge tone={condition.tone}>{condition.label}</Badge> : null}
+                  </div>
+                </div>
+                {ownBlocks.map((block) => (
+                  <div key={block.id} className="text-xs text-muted-foreground">
+                    <button
+                      type="button"
+                      className="text-left underline-offset-2 hover:underline"
+                      onClick={() => setInspecting({ room: item, block })}
+                    >
+                      Закрито на дати: {formatDate(block.startDate)} — {formatDate(block.endDate)} ·{' '}
+                      {blockReasonLabel(block)}
+                    </button>
+                  </div>
+                ))}
+                {canWrite ? (
+                  <ActionsMenu label={`Дії для ${title}`}>
+                    <DropdownMenuItem asChild>
+                      <Link to={`/admin/accommodations/${item.id}/edit`}>Редагувати</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => openBlock(item)}>Заблокувати дати</DropdownMenuItem>
+                  </ActionsMenu>
+                ) : (
+                  <span className="text-xs text-muted-foreground">Лише перегляд</span>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+        </>
       )}
       <Pagination page={page} pageSize={pageSize} total={total} onPageChange={onPageChange} />
       <BlockDatesDialog
@@ -434,22 +487,12 @@ function UnitSection({
   )
 }
 
-function presence(item: Accommodation, blocks: Block[], today: string) {
-  const activeBlock = blocks.find((block) => isDateInHalfOpenRange(today, block.startDate, block.endDate))
-  if (activeBlock) {
-    return {
-      label: 'Заблоковано',
-      tone: 'cancelled' as const,
-    }
-  }
-  if (item.status === 'AVAILABLE' && item.active) {
-    return { label: roomStatusLabel.AVAILABLE, tone: 'neutral' as const }
-  }
+function operationalCondition(item: Accommodation) {
   if (item.status === 'MAINTENANCE') {
     return { label: roomStatusLabel.MAINTENANCE, tone: 'pending' as const }
   }
   if (item.status === 'OUT_OF_ORDER') {
     return { label: roomStatusLabel.OUT_OF_ORDER, tone: 'cancelled' as const }
   }
-  return { label: roomStatusLabel.INACTIVE, tone: 'neutral' as const }
+  return null
 }

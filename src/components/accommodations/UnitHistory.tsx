@@ -62,7 +62,6 @@ export function UnitHistory({ roomId }: { roomId: string }) {
         <EmptyState>Записів історії немає.</EmptyState>
       ) : null}
       {(history.data?.items.length ?? 0) > 0 ? (
-        <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -104,7 +103,6 @@ export function UnitHistory({ roomId }: { roomId: string }) {
               ))}
             </TableBody>
           </Table>
-        </div>
       ) : null}
       <Pagination
         page={page}

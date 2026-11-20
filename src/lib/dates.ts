@@ -51,6 +51,11 @@ export function isDateInHalfOpenRange(date: string, startDate: string, endDate: 
   return date >= startDate && date < endDate
 }
 
+/** Current or upcoming half-open block: exclusive end is still after today. */
+export function isCurrentOrUpcomingInterval(today: string, startDate: string, endDate: string) {
+  return startDate < endDate && endDate > today
+}
+
 export function roomDisplayName(room: { name: string | null; number: string }) {
   const named = room.name?.trim()
   return named || room.number
