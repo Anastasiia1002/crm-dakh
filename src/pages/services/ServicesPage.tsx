@@ -17,6 +17,7 @@ import { EmptyState, LoadingState } from '@/components/ui/states'
 import { ActionsMenu } from '@/components/ui/actions-menu'
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { MobileCard, MobileCardBadges, MobileCardDetail, MobileCardDetails, MobileCardHeader, MobileList } from '@/components/ui/mobile-list'
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/hooks/useAuth'
 import {
@@ -184,7 +185,9 @@ export function ServicesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {visible.map((item) => (
+                {visible.map((item) => {
+                  const onlineReason = serviceOnlineUnavailableReason(item)
+                  return (
                   <TableRow key={item.id}>
                     <TableCell className="max-w-[18rem]">
                       <p className="font-medium" title={item.name}>
@@ -199,7 +202,10 @@ export function ServicesPage() {
                     <TableCell className="whitespace-nowrap tabular-nums">{formatManagedServicePrice(item.price)}</TableCell>
                     <TableCell>{SERVICE_CHARGE_BASIS_LABEL[item.chargeBasis]}</TableCell>
                     <TableCell>
-                      <ServiceAvailability item={item} />
+                      <div className="flex flex-wrap gap-1">
+                        <ServiceAvailabilityBadges item={item} />
+                      </div>
+                      {onlineReason ? <p className="mt-1 text-xs text-muted-foreground">{onlineReason}</p> : null}
                     </TableCell>
                     <TableCell stickyActions className="text-right">
                       <ServiceActions
@@ -219,41 +225,50 @@ export function ServicesPage() {
                       />
                     </TableCell>
                   </TableRow>
-                ))}
+                  )
+                })}
               </TableBody>
             </Table>
           </div>
-          <ul className="divide-y divide-border rounded-md border border-border bg-surface md:hidden">
+          <MobileList>
             {visible.map((item) => (
-              <li key={item.id} className="space-y-2 px-4 py-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-medium">{item.name}</p>
-                    <p className="mt-0.5 text-sm tabular-nums">
-                      {formatManagedServicePrice(item.price)}
-                      <span className="text-muted-foreground"> · {SERVICE_CHARGE_BASIS_LABEL[item.chargeBasis]}</span>
-                    </p>
-                  </div>
-                  <ServiceAvailability item={item} />
-                </div>
-                <ServiceActions
-                  item={item}
-                  canWrite={canWrite}
-                  onEdit={() => setEditing(item)}
-                  onToggle={() => {
-                    if (item.active) {
-                      setPendingDeactivate(item)
-                      return
-                    }
-                    void update
-                      .mutateAsync({ id: item.id, input: { active: true } })
-                      .then(() => toast.success('Послугу увімкнено'))
-                      .catch((error) => toast.error(errorMessage(error)))
-                  }}
+              <MobileCard key={item.id}>
+                <MobileCardHeader
+                  title={item.name}
+                  actions={
+                    <ServiceActions
+                      item={item}
+                      canWrite={canWrite}
+                      onEdit={() => setEditing(item)}
+                      onToggle={() => {
+                        if (item.active) {
+                          setPendingDeactivate(item)
+                          return
+                        }
+                        void update
+                          .mutateAsync({ id: item.id, input: { active: true } })
+                          .then(() => toast.success('Послугу увімкнено'))
+                          .catch((error) => toast.error(errorMessage(error)))
+                      }}
+                    />
+                  }
                 />
-              </li>
+                <MobileCardBadges>
+                  <ServiceAvailabilityBadges item={item} />
+                </MobileCardBadges>
+                <MobileCardDetails>
+                  <MobileCardDetail label="Ціна">
+                    <span className="tabular-nums">{formatManagedServicePrice(item.price)}</span>
+                  </MobileCardDetail>
+                  <MobileCardDetail label="Нарахування">{SERVICE_CHARGE_BASIS_LABEL[item.chargeBasis]}</MobileCardDetail>
+                  {item.description ? <MobileCardDetail label="Опис">{item.description}</MobileCardDetail> : null}
+                  {serviceOnlineUnavailableReason(item) ? (
+                    <MobileCardDetail label="Сайт">{serviceOnlineUnavailableReason(item)}</MobileCardDetail>
+                  ) : null}
+                </MobileCardDetails>
+              </MobileCard>
             ))}
-          </ul>
+          </MobileList>
         </>
       ) : null}
       <ServiceDialog
@@ -292,9 +307,8 @@ export function ServicesPage() {
   )
 }
 
-function ServiceAvailability({ item }: { item: AdminManagedService }) {
+function ServiceAvailabilityBadges({ item }: { item: AdminManagedService }) {
   const visibility = serviceSiteVisibilityLabel(item)
-  const reason = serviceOnlineUnavailableReason(item)
   const visibilityTone =
     visibility === SERVICE_SITE_BADGE
       ? 'confirmed'
@@ -304,13 +318,10 @@ function ServiceAvailability({ item }: { item: AdminManagedService }) {
           ? 'neutral'
           : 'neutral'
   return (
-    <div className="space-y-1">
-      <div className="flex flex-wrap gap-1">
-        <Badge tone={item.active ? 'success' : 'neutral'}>{item.active ? 'Активна' : 'Вимкнена'}</Badge>
-        <Badge tone={visibilityTone}>{visibility}</Badge>
-      </div>
-      {reason ? <p className="text-xs text-muted-foreground">{reason}</p> : null}
-    </div>
+    <>
+      <Badge tone={item.active ? 'success' : 'neutral'}>{item.active ? 'Активна' : 'Вимкнена'}</Badge>
+      <Badge tone={visibilityTone}>{visibility}</Badge>
+    </>
   )
 }
 
@@ -325,7 +336,7 @@ function ServiceActions({
   onEdit: () => void
   onToggle: () => void
 }) {
-  if (!canWrite) return <span className="text-xs text-muted-foreground">Лише перегляд</span>
+  if (!canWrite) return null
   return (
     <ActionsMenu label={`Дії для послуги ${item.name}`}>
       <DropdownMenuItem onSelect={onEdit}>Редагувати</DropdownMenuItem>

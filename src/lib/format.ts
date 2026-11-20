@@ -174,3 +174,11 @@ export function nightsLabel(nights: number) {
   if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${nights} ночі`
   return `${nights} ночей`
 }
+
+/** Catalog capacity after «До»: genitive гість / гості counts. */
+export function formatCapacityGuests(count: number) {
+  const mod10 = count % 10
+  const mod100 = count % 100
+  if (mod10 === 1 && mod100 !== 11) return `До ${count} гостя`
+  return `До ${count} гостей`
+}

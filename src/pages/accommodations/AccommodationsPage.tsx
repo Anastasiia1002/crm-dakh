@@ -17,12 +17,21 @@ import { EmptyState, LoadingState, SectionHeading } from '@/components/ui/states
 import { ActionsMenu } from '@/components/ui/actions-menu'
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import {
+  MobileCard,
+  MobileCardBadges,
+  MobileCardDetail,
+  MobileCardDetails,
+  MobileCardHeader,
+  MobileList,
+  mobileCardControlClass,
+} from '@/components/ui/mobile-list'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAuth } from '@/hooks/useAuth'
 import { useAdminRoomBlocks, useAdminRooms, useAdminRoomTypes, useDeleteAdminRoomBlock } from '@/hooks/useHotel'
-import { unitDisplayCode, unitDisplayTitle } from '@/lib/accommodation-labels'
+import { unitDisplayCode, unitDisplayLabel, unitDisplayTitle } from '@/lib/accommodation-labels'
 import { todayIso } from '@/lib/dates'
-import { formatDate } from '@/lib/format'
+import { formatCapacityGuests, formatDate } from '@/lib/format'
 import { roomStatusLabel } from '@/lib/labels'
 import { blockConflictMessage, blockReasonLabel, listVisibleRoomBlocks, unblockConfirmMessage } from '@/lib/room-block'
 import {
@@ -377,54 +386,50 @@ function UnitSection({
           </TableBody>
         </Table>
         </div>
-        <ul className="divide-y divide-border rounded-md border border-border bg-surface md:hidden">
+        <MobileList>
           {items.map((item) => {
             const ownBlocks = listVisibleRoomBlocks(blocksByRoom.get(item.id) ?? [], today)
             const typeMeta = typeMetaById.get(item.roomTypeId)
             const title = unitDisplayTitle(item, typeMeta?.name)
-            const code = unitDisplayCode(item, title)
+            const fullName = unitDisplayLabel(item, typeMeta?.name)
             const condition = operationalCondition(item)
             return (
-              <li key={item.id} className="space-y-2 px-4 py-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-medium">{title}</p>
-                    {code ? <p className="text-xs text-muted-foreground">{code}</p> : null}
-                    <p className="mt-0.5 text-sm text-muted-foreground">
-                      {typeMeta ? `до ${typeMeta.maxGuests}` : '—'}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap justify-end gap-1">
-                    <Badge tone={item.active ? 'success' : 'neutral'}>{catalogActivityLabel(item.active)}</Badge>
-                    {condition ? <Badge tone={condition.tone}>{condition.label}</Badge> : null}
-                  </div>
-                </div>
-                {ownBlocks.map((block) => (
-                  <div key={block.id} className="text-xs text-muted-foreground">
-                    <button
-                      type="button"
-                      className="text-left underline-offset-2 hover:underline"
-                      onClick={() => setInspecting({ room: item, block })}
-                    >
-                      Закрито на дати: {formatDate(block.startDate)} — {formatDate(block.endDate)} ·{' '}
-                      {blockReasonLabel(block)}
-                    </button>
-                  </div>
-                ))}
-                {canWrite ? (
-                  <ActionsMenu label={`Дії для ${title}`}>
-                    <DropdownMenuItem asChild>
-                      <Link to={`/admin/accommodations/${item.id}/edit`}>Редагувати</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => openBlock(item)}>Заблокувати дати</DropdownMenuItem>
-                  </ActionsMenu>
-                ) : (
-                  <span className="text-xs text-muted-foreground">Лише перегляд</span>
-                )}
-              </li>
+              <MobileCard key={item.id}>
+                <MobileCardHeader
+                  title={fullName}
+                  actions={
+                    canWrite ? (
+                      <ActionsMenu label={`Дії для ${title}`}>
+                        <DropdownMenuItem asChild>
+                          <Link to={`/admin/accommodations/${item.id}/edit`}>Редагувати</Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => openBlock(item)}>Заблокувати дати</DropdownMenuItem>
+                      </ActionsMenu>
+                    ) : undefined
+                  }
+                />
+                <MobileCardBadges>
+                  <Badge tone={item.active ? 'success' : 'neutral'}>{catalogActivityLabel(item.active)}</Badge>
+                  {condition ? <Badge tone={condition.tone}>{condition.label}</Badge> : null}
+                </MobileCardBadges>
+                <MobileCardDetails>
+                  {typeMeta ? <MobileCardDetail label="Місткість">{formatCapacityGuests(typeMeta.maxGuests)}</MobileCardDetail> : null}
+                  {ownBlocks.map((block) => (
+                    <MobileCardDetail key={block.id} label="Закрито">
+                      <button
+                        type="button"
+                        className={mobileCardControlClass}
+                        onClick={() => setInspecting({ room: item, block })}
+                      >
+                        {formatDate(block.startDate)} — {formatDate(block.endDate)} · {blockReasonLabel(block)}
+                      </button>
+                    </MobileCardDetail>
+                  ))}
+                </MobileCardDetails>
+              </MobileCard>
             )
           })}
-        </ul>
+        </MobileList>
         </>
       )}
       <Pagination page={page} pageSize={pageSize} total={total} onPageChange={onPageChange} />

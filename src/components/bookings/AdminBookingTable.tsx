@@ -3,6 +3,15 @@ import { BookingStatusBadge } from '@/components/bookings/BookingStatusBadge'
 import { EmptyState } from '@/components/ui/states'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import {
+  MobileCard,
+  MobileCardBadges,
+  MobileCardDetail,
+  MobileCardDetails,
+  MobileCardHeader,
+  MobileList,
+  mobileCardControlClass,
+} from '@/components/ui/mobile-list'
+import {
   adminBookingRef,
   adminGuestName,
   adminRoomsLabel,
@@ -12,7 +21,6 @@ import { formatDate, formatGuests } from '@/lib/format'
 import { adminBookingSourceLabel } from '@/lib/labels'
 import { canReadGuests } from '@/lib/roles'
 import { shouldOpenRow } from '@/lib/row-navigation'
-import { cn } from '@/lib/utils'
 import type { AdminBookingListItem, UserRole } from '@/types'
 
 export function AdminBookingTable({
@@ -96,44 +104,49 @@ export function AdminBookingTable({
         </Table>
       </div>
 
-      <ul className="divide-y divide-border rounded-md border border-border bg-surface md:hidden">
-        {bookings.map((booking) => (
-          <li key={booking.id} className="px-4 py-3">
-            <span className="flex items-start justify-between gap-3">
-              <span className="min-w-0">
-                {guestReadable && booking.guest.id ? (
-                  <Link to={`/admin/guests/${booking.guest.id}`} className="block truncate font-medium hover:underline">
-                    {adminGuestName(booking.guest)}
-                  </Link>
-                ) : (
-                  <span className="block truncate font-medium">{adminGuestName(booking.guest)}</span>
-                )}
-                <Link
-                  to={`/admin/bookings/${booking.id}`}
-                  className={cn('mt-0.5 block truncate text-sm text-muted-foreground hover:underline')}
-                >
-                  {adminRoomsLabel(booking.rooms)}
-                </Link>
-              </span>
-              <BookingStatusBadge status={booking.status} />
-            </span>
-            <Link to={`/admin/bookings/${booking.id}`} className="mt-2 block">
-              <span className="flex items-baseline justify-between gap-3 text-sm">
-                <span className="tabular-nums text-muted-foreground">
-                  {formatDate(booking.checkIn)} — {formatDate(booking.checkOut)}
-                </span>
-                <span className="tabular-nums font-medium">
-                  {formatAdminBookingMoney(booking.totalAmount, booking.currency)}
-                </span>
-              </span>
-              <span className="mt-1 block text-[11px] text-muted-foreground">
-                {adminBookingRef(booking.id)} · {formatGuests(booking.adults, booking.children)} ·{' '}
-                {adminBookingSourceLabel[booking.source]}
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
+      <MobileList>
+        {bookings.map((booking) => {
+          const guestName = adminGuestName(booking.guest)
+          return (
+            <MobileCard key={booking.id}>
+              <MobileCardHeader
+                title={
+                  guestReadable && booking.guest.id ? (
+                    <Link to={`/admin/guests/${booking.guest.id}`} className={`${mobileCardControlClass} font-medium`}>
+                      {guestName}
+                    </Link>
+                  ) : (
+                    guestName
+                  )
+                }
+              />
+              <MobileCardBadges>
+                <BookingStatusBadge status={booking.status} />
+              </MobileCardBadges>
+              <Link
+                to={`/admin/bookings/${booking.id}`}
+                className={`${mobileCardControlClass} mt-1.5 block no-underline hover:no-underline`}
+              >
+                <MobileCardDetails>
+                  <MobileCardDetail label="Розміщення">{adminRoomsLabel(booking.rooms)}</MobileCardDetail>
+                  <MobileCardDetail label="Дати">
+                    <span className="tabular-nums">
+                      {formatDate(booking.checkIn)} — {formatDate(booking.checkOut)}
+                    </span>
+                  </MobileCardDetail>
+                  <MobileCardDetail label="Сума">
+                    <span className="tabular-nums">{formatAdminBookingMoney(booking.totalAmount, booking.currency)}</span>
+                  </MobileCardDetail>
+                  <MobileCardDetail label="Бронювання">{adminBookingRef(booking.id)}</MobileCardDetail>
+                  <MobileCardDetail label="Гості">{formatGuests(booking.adults, booking.children)}</MobileCardDetail>
+                  {booking.guest.phone ? <MobileCardDetail label="Телефон">{booking.guest.phone}</MobileCardDetail> : null}
+                  <MobileCardDetail label="Джерело">{adminBookingSourceLabel[booking.source]}</MobileCardDetail>
+                </MobileCardDetails>
+              </Link>
+            </MobileCard>
+          )
+        })}
+      </MobileList>
     </>
   )
 }
