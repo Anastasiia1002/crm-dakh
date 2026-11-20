@@ -65,7 +65,7 @@ export function PromoCodesPage() {
   const items = promos.data?.items ?? []
 
   return (
-    <div>
+    <div className="flex flex-col gap-4 md:gap-5">
       <PageHeader
         title="Промокоди"
         description="Код порівнюється точно, з урахуванням регістру. Знижка діє на проживання всього бронювання, не на послуги і не на окремий тип номера. Якщо автоматична знижка за 6 ночей більша, застосовується вона. Однаковий розмір лишає промокод. Суми не складаються."

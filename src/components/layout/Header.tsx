@@ -29,7 +29,7 @@ export function Header({
   const menuButtonRef = useRef<HTMLButtonElement>(null)
 
   return (
-    <header className="sticky top-0 z-30 flex min-h-14 items-center justify-between gap-3 border-b border-border bg-background/92 px-4 pt-[env(safe-area-inset-top)] backdrop-blur-sm md:px-7">
+    <header className="sticky top-0 z-40 flex min-h-14 items-center justify-between gap-3 border-b border-border bg-background px-4 pt-[env(safe-area-inset-top)] md:px-7">
       <div className="flex min-w-0 items-center gap-2">
         <button
           ref={menuButtonRef}
