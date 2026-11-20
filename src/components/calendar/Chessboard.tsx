@@ -88,8 +88,14 @@ export function Chessboard({
 
         {groups.map((group) => (
           <div key={group.kind}>
-            <div className="sticky left-0 z-20 border-b border-border bg-surface-muted px-3 py-2 text-[11px] font-medium tracking-[0.14em] text-foreground uppercase">
-              {kindSectionLabel(group.kind)}
+            <div className="flex border-b border-border bg-surface-muted" style={{ width: LABEL_WIDTH + width }}>
+              <div
+                className="sticky left-0 z-20 shrink-0 border-r border-border bg-surface-muted px-3 py-2 text-[11px] font-medium tracking-[0.14em] text-foreground uppercase"
+                style={{ width: LABEL_WIDTH }}
+              >
+                {kindSectionLabel(group.kind)}
+              </div>
+              <div className="shrink-0" style={{ width }} aria-hidden />
             </div>
             {group.rooms.map((room) => {
               const stayBars = model.bookingBars

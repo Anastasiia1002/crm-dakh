@@ -24,6 +24,8 @@ assert(!chessboardCell.today.includes('checked-in'), 'today markers are not occu
 const board = readFileSync(new URL('../components/calendar/Chessboard.tsx', import.meta.url), 'utf8')
 const calendar = readFileSync(new URL('../pages/calendar/CalendarPage.tsx', import.meta.url), 'utf8')
 assert(board.includes('chessboardCell'), 'the grid uses the shared cell colors')
+assert(board.includes('sticky left-0 z-20 shrink-0'), 'section labels stick inside the name column')
+assert(board.includes('bg-surface-muted'), 'section labels stay opaque over booking bars')
 assert(!board.includes("available && 'bg-status-checked-in/25'"), 'free nights are not a green wash')
 assert(!board.includes("highlighted && 'bg-status-checked-in'"), 'selection is not occupancy green')
 assert(board.includes('bg-status-checked-in text-status-checked-in-foreground'), 'checked-in bars stay green')
