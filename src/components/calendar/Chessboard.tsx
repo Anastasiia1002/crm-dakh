@@ -10,7 +10,6 @@ import {
   chessboardMetrics,
   chessboardPointerIsTap,
   CHESSBOARD_DESKTOP_ROW_PX,
-  CHESSBOARD_MOBILE_ROW_PX,
   CHESSBOARD_MOBILE_SECTION_PX,
 } from '@/lib/chessboard-layout'
 import { calendarDayOfMonth, calendarWeekday, todayIso } from '@/lib/dates'
@@ -82,7 +81,6 @@ export function Chessboard({
   const metrics = chessboardMetrics({ compact, availableWidth })
   const LABEL_WIDTH = metrics.labelWidth
   const CELL = metrics.cellWidth
-  const rowHeight = compact ? CHESSBOARD_MOBILE_ROW_PX : ROW_MIN
   const sectionHeight = compact ? CHESSBOARD_MOBILE_SECTION_PX : undefined
   const width = dates.length * CELL
 
@@ -192,30 +190,40 @@ export function Chessboard({
                       return { primary: desktop.title, secondary: desktop.subtitle, hasStructuredNumber: Boolean(room.displayCode) }
                     })()
                 return (
-                  <div key={room.roomId} className="flex border-b border-border" style={{ height: rowHeight, minHeight: compact ? rowHeight : ROW_MIN }}>
+                  <div
+                    key={room.roomId}
+                    className="flex items-stretch border-b border-border"
+                    style={compact ? undefined : { minHeight: ROW_MIN }}
+                  >
                     {compact ? (
-                      <button
-                        type="button"
-                        className="relative sticky left-0 z-10 flex min-h-11 shrink-0 flex-col justify-center overflow-hidden border-r border-border bg-surface px-2 py-1 pr-5 text-left"
-                        style={{ width: LABEL_WIDTH, height: rowHeight }}
-                        aria-label="Показати повну назву"
-                        onClick={() => setRoomDetails(room)}
+                      <div
+                        className="relative sticky left-0 z-10 flex min-h-11 shrink-0 items-start overflow-hidden border-r border-border bg-surface py-1 pl-2 pr-7"
+                        style={{ width: LABEL_WIDTH }}
                       >
-                        <span
-                          className={cn(
-                            'min-w-0 text-sm font-medium leading-tight text-foreground',
-                            sticky.hasStructuredNumber ? 'truncate' : 'line-clamp-2',
-                          )}
+                        <div className="min-w-0 py-0.5">
+                          <div
+                            className={cn(
+                              'text-sm font-medium leading-tight text-foreground',
+                              sticky.hasStructuredNumber ? 'truncate' : 'line-clamp-2',
+                            )}
+                          >
+                            {sticky.primary}
+                          </div>
+                          {sticky.secondary ? (
+                            <div className="text-[11px] leading-tight text-muted-foreground line-clamp-1">
+                              {sticky.secondary}
+                            </div>
+                          ) : null}
+                        </div>
+                        <button
+                          type="button"
+                          className="absolute top-0 right-0 flex size-11 items-center justify-center text-muted-foreground"
+                          aria-label="Показати повну назву"
+                          onClick={() => setRoomDetails(room)}
                         >
-                          {sticky.primary}
-                        </span>
-                        {sticky.secondary ? (
-                          <span className="min-w-0 text-[11px] leading-tight text-muted-foreground line-clamp-2">
-                            {sticky.secondary}
-                          </span>
-                        ) : null}
-                        <Info className="pointer-events-none absolute top-1.5 right-1 size-3.5 text-muted-foreground" aria-hidden />
-                      </button>
+                          <Info className="size-3.5" aria-hidden />
+                        </button>
+                      </div>
                     ) : (
                       <div
                         className="sticky left-0 z-10 flex shrink-0 items-center border-r border-border bg-surface px-3 py-2"
@@ -231,7 +239,10 @@ export function Chessboard({
                         </div>
                       </div>
                     )}
-                    <div className="relative overflow-hidden" style={{ width, height: rowHeight, minHeight: compact ? rowHeight : ROW_MIN }}>
+                    <div
+                      className={cn('relative self-stretch overflow-hidden', compact && 'min-h-11')}
+                      style={{ width, minHeight: compact ? undefined : ROW_MIN }}
+                    >
                       <div className="absolute inset-0 flex">
                         {room.nights.map((night) => {
                           const day = calendarWeekday(night.date)
@@ -286,7 +297,7 @@ export function Chessboard({
                         const caption = chessboardBarCaption(bar.label, barWidth)
                         const className = cn(
                           'absolute flex items-center overflow-hidden rounded-sm border px-1.5 text-left text-[11px]',
-                          compact ? 'top-2 bottom-2 min-h-11' : 'top-1.5 min-h-9',
+                          compact ? 'inset-y-1' : 'top-1.5 min-h-9',
                           bar.kind === 'MAINTENANCE' &&
                             'border-status-cancelled-mark bg-status-cancelled text-status-cancelled-foreground',
                           bar.kind === 'BLOCKED' &&
@@ -340,7 +351,7 @@ export function Chessboard({
                             type="button"
                             className={cn(
                               'absolute flex items-center overflow-hidden rounded-sm border px-1.5 text-left text-[12px]',
-                              compact ? 'top-2 bottom-2 min-h-11' : 'top-1.5 min-h-9',
+                              compact ? 'inset-y-1' : 'top-1.5 min-h-9',
                               bar.status === 'CHECKED_IN' &&
                                 'border-status-checked-in-mark bg-status-checked-in text-status-checked-in-foreground',
                               bar.status === 'CONFIRMED' &&
@@ -388,24 +399,14 @@ export function Chessboard({
       <Dialog open={roomDetails !== null} onOpenChange={(open) => !open && setRoomDetails(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Розміщення</DialogTitle>
-            <DialogDescription>Повна назва з календаря, без вигаданих номерів.</DialogDescription>
+            <DialogTitle>{roomDetails?.displayTitle ?? 'Розміщення'}</DialogTitle>
+            <DialogDescription className="sr-only">Деталі розміщення</DialogDescription>
           </DialogHeader>
-          {roomDetails ? (
-            <dl className="grid grid-cols-1 gap-3 text-sm">
-              <div>
-                <dt className="text-muted-foreground">Назва</dt>
-                <dd>{roomDetails.displayTitle}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Номер</dt>
-                <dd>{roomDetails.displayCode ?? '—'}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Категорія</dt>
-                <dd>{roomDetails.roomTypeName}</dd>
-              </div>
-            </dl>
+          {roomDetails?.displayCode ? (
+            <p className="text-sm">
+              <span className="text-muted-foreground">Номер </span>
+              {roomDetails.displayCode}
+            </p>
           ) : null}
         </DialogContent>
       </Dialog>

@@ -5,8 +5,8 @@ export const CHESSBOARD_MOBILE_LABEL_MIN_PX = 104
 export const CHESSBOARD_MOBILE_LABEL_MAX_PX = 120
 export const CHESSBOARD_MOBILE_CELL_MIN_PX = 44
 export const CHESSBOARD_MOBILE_CELL_MAX_PX = 48
-export const CHESSBOARD_MOBILE_ROW_PX = 88
 export const CHESSBOARD_MOBILE_SECTION_PX = 38
+export const CHESSBOARD_MOBILE_DETAILS_PX = 44
 export const CHESSBOARD_TAP_SLOP_PX = 12
 
 export type ChessboardMetrics = {
@@ -47,7 +47,7 @@ export function chessboardVisibleDateCount(metrics: ChessboardMetrics, available
 
 /**
  * Unit number first. Secondary text is the existing title, never a parsed id.
- * CSS clamps the grid to one primary line plus at most two secondary lines.
+ * The grid clamps the whole label to two lines.
  */
 export function chessboardCompactStickyLabel(input: { displayTitle: string; displayCode: string | null }) {
   const title = input.displayTitle.trim()
