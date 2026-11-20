@@ -242,6 +242,11 @@ export function guestStayRoomLabel(rooms: readonly { displayLabel: string }[]) {
   return labels.length > 0 ? labels.join(', ') : '—'
 }
 
+/** Visible ПІБ: surname then given name. Does not rewrite stored fields. Patronymic is not stored. */
+export function guestPib(firstName: string, lastName: string) {
+  return [lastName, firstName].map((part) => part.trim()).filter((part) => part.length > 0).join(' ')
+}
+
 export function guestPlaceLabel(country: string | null, city: string | null) {
   const parts = [country?.trim(), city?.trim()].filter((part): part is string => Boolean(part))
   return parts.length > 0 ? parts.join(', ') : '—'
