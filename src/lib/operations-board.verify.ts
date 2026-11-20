@@ -2,7 +2,7 @@
  * Operational date rules. Run: npx --yes tsx src/lib/operations-board.verify.ts
  */
 import { readFileSync } from 'node:fs'
-import { occupancyForNight, sellablePercent, splitStayOperations, bookingsOnHotelDate, stayCoversNight, attentionBookings, matchesOperationSearch, movementWindow, timestampWindow, operationPageDecision, uniqueOperationBookings } from './operations-board'
+import { occupancyForNight, occupancyCheckOut, sellablePercent, splitStayOperations, bookingsOnHotelDate, stayCoversNight, attentionBookings, matchesOperationSearch, movementWindow, timestampWindow, operationPageDecision, uniqueOperationBookings } from './operations-board'
 import type { OperationBooking } from './operations-board'
 import type { AdminCalendarView } from '@/types'
 
@@ -13,6 +13,8 @@ function assert(condition: boolean, message: string) {
 const booking = (patch: Partial<OperationBooking> & Pick<OperationBooking, 'id' | 'status' | 'checkIn' | 'checkOut'>): OperationBooking => ({
   createdAt: '2026-11-03T22:30:00.000Z',
   cancelledAt: null,
+  checkedOutAt: null,
+  actualCheckOut: null,
   guestName: 'Олена Коваль',
   accommodation: '101',
   ...patch,
@@ -31,10 +33,32 @@ function main() {
     booking({ id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', status: 'CHECKED_IN', checkIn: '2026-11-02', checkOut: '2026-11-04', guestName: 'Ігор Мельник' }),
     booking({ id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', status: 'CANCELLED', checkIn: '2026-11-04', checkOut: '2026-11-07' }),
     booking({ id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', status: 'PENDING', checkIn: '2026-11-04', checkOut: '2026-11-05', guestName: 'Марія' }),
-    booking({ id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', status: 'CHECKED_OUT', checkIn: '2026-11-03', checkOut: '2026-11-04' }),
+    booking({
+      id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+      status: 'CHECKED_OUT',
+      checkIn: '2026-11-03',
+      checkOut: '2026-11-04',
+      actualCheckOut: '2026-11-04',
+    }),
   ]
   const split = splitStayOperations(rows, date)
   assert(split.inHouse.map((item) => item.id[0]).join('') === 'ad', 'in-house is bookings on the night, not cancelled')
+  const early = booking({
+    id: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
+    status: 'CHECKED_OUT',
+    checkIn: '2026-11-19',
+    checkOut: '2026-11-26',
+    actualCheckOut: '2026-11-20',
+    checkedOutAt: '2026-11-20T10:00:00.000Z',
+  })
+  assert(occupancyCheckOut(early) === '2026-11-20', 'confirmed early checkout ends occupancy on the hotel date')
+  const earlySplit = splitStayOperations([early], '2026-11-20')
+  assert(earlySplit.inHouse.length === 0, 'early checkout leaves the current in-house list')
+  assert(earlySplit.departures.map((item) => item.id[0]).join('') === 'f', 'early checkout is a departure on the actual date')
+  assert(splitStayOperations([early], '2026-11-19').inHouse.map((item) => item.id[0]).join('') === 'f', 'occupied historical nights stay in-house for that date')
+  assert(splitStayOperations([early], '2026-11-21').inHouse.length === 0, 'unused nights after actual checkout are not in-house')
+  const legacyOut = booking({ id: '11111111-1111-4111-8111-111111111111', status: 'CHECKED_OUT', checkIn: '2026-11-19', checkOut: '2026-11-26' })
+  assert(splitStayOperations([legacyOut], '2026-11-20').inHouse.length === 0, 'legacy checkout without actualCheckOut is not in-house')
   assert(split.arrivals.map((item) => item.id[0]).join('') === 'ad', 'arrivals exclude cancelled and no-show')
   assert(split.departures.map((item) => item.id[0]).join('') === 'be', 'departures keep confirmed, checked-in, and checked-out')
   assert(attentionBookings(split.inHouse, split.arrivals).map((item) => item.id[0]).join('') === 'd', 'attention is pending only')
@@ -91,6 +115,8 @@ function main() {
   assert(hook.includes('createdLocalFrom: date'), 'new bookings use the hotel-local created day')
   assert(hook.includes('createdFrom: stamps.from'), 'an older server can still answer through the UTC created window')
   assert(hook.includes('hotelLocal: false'), 'UTC created fallback still applies the hotel calendar date')
+  const bookingHooks = readFileSync(new URL('../hooks/useBookings.ts', import.meta.url), 'utf8')
+  assert(bookingHooks.includes("'admin-operations-board'") && bookingHooks.includes("'admin-calendar'"), 'checkout invalidates Overview and chessboard queries')
   assert(board.includes('TabsList') && board.includes('chooseTab'), 'the booking table is tabbed')
   assert(board.includes("id: 'inHouse'") && board.includes("id: 'cancelled'"), 'tabs cover in-house through cancelled')
   assert(!board.includes('onDate(tab') && board.includes('setTab(next)'), 'changing tabs does not change the selected date')

@@ -1038,6 +1038,10 @@ export type AdminBookingListItem = {
   createdAt: string
   /** Present once the booking list includes the stored cancellation time. */
   cancelledAt?: string | null
+  /** Staff-confirmed checkout instant. Never inferred from updatedAt. */
+  checkedOutAt?: string | null
+  /** Hotel stay date that ends occupancy after confirmed checkout (YYYY-MM-DD). */
+  actualCheckOut?: string | null
   guest: AdminBookingGuest
   rooms: AdminBookingRoom[]
   totalAmount: string

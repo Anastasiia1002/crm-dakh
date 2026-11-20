@@ -11,6 +11,8 @@ export type OperationBooking = {
   checkOut: string
   createdAt: string
   cancelledAt: string | null
+  checkedOutAt: string | null
+  actualCheckOut: string | null
   guestName: string
   accommodation: string
 }
@@ -72,6 +74,8 @@ export function toOperationBooking(item: AdminBookingListItem): OperationBooking
     checkOut: item.checkOut,
     createdAt: item.createdAt,
     cancelledAt: item.cancelledAt ?? null,
+    checkedOutAt: item.checkedOutAt ?? null,
+    actualCheckOut: item.actualCheckOut ?? null,
     guestName: adminGuestName(item.guest),
     accommodation: adminRoomsLabel(item.rooms),
   }
@@ -81,13 +85,31 @@ export function stayCoversNight(checkIn: string, checkOut: string, date: string)
   return checkIn <= date && checkOut > date
 }
 
+/**
+ * Occupancy end for Overview and historical nights. CHECKED_OUT without a
+ * persisted actualCheckOut is fully released (legacy rows). Planned checkOut
+ * stays on the booking for display and finance.
+ */
+export function occupancyCheckOut(booking: {
+  status: BookingStatus
+  checkIn: string
+  checkOut: string
+  actualCheckOut?: string | null
+}) {
+  if (booking.status !== 'CHECKED_OUT') return booking.checkOut
+  if (!booking.actualCheckOut) return booking.checkIn
+  return booking.actualCheckOut < booking.checkOut ? booking.actualCheckOut : booking.checkOut
+}
+
 export function splitStayOperations(bookings: readonly OperationBooking[], date: string) {
   return {
     inHouse: bookings.filter(
-      (booking) => stayCoversNight(booking.checkIn, booking.checkOut, date) && !ARRIVAL_EXCLUDED.has(booking.status),
+      (booking) => stayCoversNight(booking.checkIn, occupancyCheckOut(booking), date) && !ARRIVAL_EXCLUDED.has(booking.status),
     ),
     arrivals: bookings.filter((booking) => booking.checkIn === date && !ARRIVAL_EXCLUDED.has(booking.status)),
-    departures: bookings.filter((booking) => booking.checkOut === date && DEPARTURE_STATUSES.has(booking.status)),
+    departures: bookings.filter(
+      (booking) => occupancyCheckOut(booking) === date && DEPARTURE_STATUSES.has(booking.status),
+    ),
   }
 }
 
