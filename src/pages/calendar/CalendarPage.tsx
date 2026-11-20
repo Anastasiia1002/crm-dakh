@@ -446,14 +446,14 @@ export function CalendarPage() {
   )
 
   return (
-    <div className="space-y-5">
+    <div className={cn('space-y-5', compact && 'space-y-3')}>
       <PageHeader
         title="Шахматка"
         description="Одиниці зліва, дати зверху. Заброньовані ночі відкривають картку, вільні — створення або блокування."
       />
 
       {compact ? (
-        <div className="sticky top-[var(--admin-header-offset)] z-[21] flex max-h-[calc(100dvh-var(--admin-header-offset))] flex-col gap-2 bg-background">
+        <div className="sticky top-[var(--admin-header-offset)] z-[21] -mx-4 flex max-h-[calc(100dvh-var(--admin-header-offset))] flex-col gap-2 bg-background px-1">
           <div className="rounded-md border border-border bg-surface p-2">
             {periodControls}
             <div className="mt-2 grid gap-2">
