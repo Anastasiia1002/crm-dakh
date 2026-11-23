@@ -47,6 +47,67 @@ export function lengthStayRoomTypeIdsForSave(input: {
   return [...input.roomTypeIds]
 }
 
+export type LengthStayKind = 'ROOM' | 'COTTAGE'
+
+const KIND_LABEL: Record<LengthStayKind, string> = {
+  ROOM: 'Номери',
+  COTTAGE: 'Будиночки',
+}
+
+export function lengthStayKindLabel(kind: LengthStayKind) {
+  return KIND_LABEL[kind]
+}
+
+/** Hotel-wide empty list, otherwise every type in the ticked kind groups. */
+export function roomTypeIdsForLengthStayKinds(
+  types: readonly { id: string; kind: LengthStayKind }[],
+  kinds: readonly LengthStayKind[],
+): string[] {
+  const unique = [...new Set(kinds)]
+  if (unique.length === 0 || unique.length === 2) return []
+  return types.filter((type) => unique.includes(type.kind)).map((type) => type.id)
+}
+
+export function kindsFromLengthStayRoomTypes(
+  types: readonly { id: string; kind: LengthStayKind }[],
+  roomTypeIds: readonly string[],
+): LengthStayKind[] {
+  if (roomTypeIds.length === 0) return ['ROOM', 'COTTAGE']
+  const selected = new Set(roomTypeIds)
+  const kinds = new Set(types.filter((type) => selected.has(type.id)).map((type) => type.kind))
+  return (['ROOM', 'COTTAGE'] as const).filter((kind) => kinds.has(kind))
+}
+
+export function lengthStayRuleSummary(input: {
+  minNights: number
+  discountValue: string
+  kinds: readonly LengthStayKind[]
+  active: boolean
+  nightFrom?: string | null
+  nightToExclusive?: string | null
+}) {
+  const percent = input.discountValue.replace(/\.00$/, '').replace(/(\.\d)0$/, '$1')
+  const groups =
+    input.kinds.length === 0 || input.kinds.length === 2
+      ? 'Номери і будиночки'
+      : input.kinds.map(lengthStayKindLabel).join(' і ')
+  const window =
+    input.nightFrom && input.nightToExclusive
+      ? ` Ночі ${input.nightFrom} … ${input.nightToExclusive} (дата виїзду не входить).`
+      : input.nightFrom
+        ? ` З ночі ${input.nightFrom}.`
+        : input.nightToExclusive
+          ? ` До ночі перед ${input.nightToExclusive}.`
+          : ' Без обмеження дат.'
+  const state = input.active ? 'Активна.' : 'Вимкнена.'
+  return `Від ${input.minNights} ночей −${percent}% на проживання (${groups}).${window} Послуги не знижуються. ${state}`
+}
+
+export const PROPOSED_LENGTH_STAY_RULES = [
+  { name: 'Від 3 ночей', minNights: 3, discountValue: '10.00', kinds: ['ROOM', 'COTTAGE'] as LengthStayKind[] },
+  { name: 'Від 7 ночей', minNights: 7, discountValue: '15.00', kinds: ['ROOM', 'COTTAGE'] as LengthStayKind[] },
+] as const
+
 /** A day-price rule is created only from a complete active-room catalog. */
 export function dayPriceSaveAllowed(catalogComplete: boolean) {
   return catalogComplete
