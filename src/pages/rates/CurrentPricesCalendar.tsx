@@ -34,6 +34,7 @@ export function CurrentPricesCalendar({
   lastNight,
   preset,
   highlightedRoomIds = [],
+  embedded = false,
   onRangeChange,
   onEditPrices,
 }: {
@@ -41,6 +42,7 @@ export function CurrentPricesCalendar({
   lastNight: string
   preset: PricePeriodPresetId
   highlightedRoomIds?: string[]
+  embedded?: boolean
   onRangeChange: (next: { preset: PricePeriodPresetId; firstNight: string; lastNight: string }) => void
   onEditPrices: () => void
 }) {
@@ -70,17 +72,19 @@ export function CurrentPricesCalendar({
 
   return (
     <section className="space-y-6">
-      <PageHeader
-        title="Ціни"
-        description="Діючі ціни по номерах і будиночках. Щоб змінити їх — «Змінити ціни»."
-        actions={
-          canWrite ? (
-            <Button type="button" onClick={onEditPrices}>
-              Змінити ціни
-            </Button>
-          ) : null
-        }
-      />
+      {embedded ? null : (
+        <PageHeader
+          title="Ціни"
+          description="Діючі ціни по номерах і будиночках. Щоб змінити їх — «Змінити ціни»."
+          actions={
+            canWrite ? (
+              <Button type="button" onClick={onEditPrices}>
+                Змінити ціни
+              </Button>
+            ) : null
+          }
+        />
+      )}
 
       <div className="grid gap-4 overflow-visible rounded-md border border-border bg-surface p-3 sm:grid-cols-2">
         <Field label="Шаблон">

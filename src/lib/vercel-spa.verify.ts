@@ -64,6 +64,8 @@ assert(
 
 const pages = readFileSync(new URL('../../.github/workflows/deploy.yml', import.meta.url), 'utf8')
 assert(pages.includes("GITHUB_PAGES: 'true'"), 'Pages workflow sets the base')
+assert(pages.includes("VITE_LENGTH_STAY_NIGHT_WINDOW: 'true'"), 'Pages production build enables stay-date windows')
 assert(pages.includes('cp dist/index.html dist/404.html'), 'Pages keeps the 404.html fallback')
+assert(viteConfig.includes("VITE_LENGTH_STAY_NIGHT_WINDOW = 'true'"), 'Silk production builds enable stay-date windows')
 
 console.log('All Vercel SPA routing checks passed.')

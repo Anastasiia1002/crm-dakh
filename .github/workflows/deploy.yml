@@ -54,6 +54,7 @@ jobs:
         env:
           GITHUB_PAGES: 'true'
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          VITE_LENGTH_STAY_NIGHT_WINDOW: 'true'
       - run: cp dist/index.html dist/404.html
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -2,7 +2,7 @@
 
 interface ImportMetaEnv {
   readonly VITE_API_BASE_URL?: string
-  /** Set to "true" only after backend #26 is deployed and length-stay night windows are verified. */
+  /** "true" on Silk production and GitHub Pages builds; optional for local/staging. */
   readonly VITE_LENGTH_STAY_NIGHT_WINDOW?: string
   readonly MODE: string
   readonly DEV: boolean
