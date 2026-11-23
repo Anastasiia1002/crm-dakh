@@ -10,6 +10,9 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   // Fail the Vite process early when API origin is missing or unsafe for this mode.
   assertViteApiBaseUrl(env.VITE_API_BASE_URL, mode)
+  if (mode === 'production' || githubPages) {
+    process.env.VITE_LENGTH_STAY_NIGHT_WINDOW = 'true'
+  }
 
   return {
     base: githubPages ? '/crm-dakh/' : '/',

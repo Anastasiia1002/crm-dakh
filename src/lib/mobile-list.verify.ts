@@ -30,6 +30,7 @@ const pages = [
   ['guests', readFileSync(new URL('../components/guests/GuestTable.tsx', import.meta.url), 'utf8')],
   ['promo', readFileSync(new URL('../pages/promo-codes/PromoCodesPage.tsx', import.meta.url), 'utf8')],
   ['users', readFileSync(new URL('../pages/users/UsersPage.tsx', import.meta.url), 'utf8')],
+  ['discounts', readFileSync(new URL('../pages/rates/StayPricingSections.tsx', import.meta.url), 'utf8')],
 ] as const
 
 for (const [name, source] of pages) {

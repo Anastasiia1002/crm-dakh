@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input'
 import { Pagination } from '@/components/ui/pagination'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { EmptyState, LoadingState, SectionHeading } from '@/components/ui/states'
+import { MobileCard, MobileCardBadges, MobileCardDetail, MobileCardDetails, MobileCardHeader, MobileList } from '@/components/ui/mobile-list'
 import { ActionsMenu } from '@/components/ui/actions-menu'
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -51,8 +52,9 @@ import {
   lengthStayNightWindowWritable,
   lengthStayRoomTypeIdsForSave,
   lengthStayRuleSummary,
+  lengthStayScopeCopy,
+  lengthStayWindowCopy,
   lengthStayWritePayload,
-  PROPOSED_LENGTH_STAY_RULES,
   storedLengthStayWindow,
   roomTypeIdsForLengthStayKinds,
   roomTypeIdsForUnits,
@@ -101,6 +103,11 @@ export function StayPricingSections() {
       <LengthStaySection canWrite={canWrite} />
     </>
   )
+}
+
+export function LengthStayDiscountsPanel() {
+  const { user } = useAuth()
+  return <LengthStaySection canWrite={canManageRates(user?.role)} />
 }
 
 function DayPriceSection({ canWrite }: { canWrite: boolean }) {
@@ -237,41 +244,26 @@ function LengthStaySection({ canWrite }: { canWrite: boolean }) {
         title="Знижки за тривалість проживання"
         action={canWrite ? <Button onClick={() => setEditing('new')}>Додати знижку</Button> : undefined}
       />
-      <p className="mb-4 max-w-2xl text-sm text-muted-foreground">
-        Знижка рахується від мінімуму ночей без дати виїзду і застосовується лише до проживання, не до послуг.
-        Обираються групи «Номери» або «Будиночки», не окрема фізична одиниця. Якщо підходять кілька порогів, береться
-        найвищий мінімум один раз: 10% і 15% ніколи не додаються. Промокод порівнюється з автоматичною знижкою: більша
-        сума перемагає, рівні суми лишають промокод.
-      </p>
-      <div className="mb-6 rounded-md border border-dashed border-border p-4 text-sm">
-        <p className="font-medium">Запропоновані правила для перегляду</p>
-        <p className="mt-1 text-muted-foreground">
-          Не записуються в каталог автоматично і не вмикаються. Створіть вручну як вимкнені, якщо погодите.
-        </p>
-        <ul className="mt-3 space-y-2">
-          {PROPOSED_LENGTH_STAY_RULES.map((rule) => (
-            <li key={rule.minNights}>
-              {lengthStayRuleSummary({
-                minNights: rule.minNights,
-                discountValue: rule.discountValue,
-                kinds: rule.kinds,
-                active: false,
-              })}
-            </li>
-          ))}
-        </ul>
-      </div>
       {query.isLoading && !query.data ? <LoadingState /> : null}
       {query.isError ? <p className="text-sm text-destructive">Не вдалося завантажити знижки</p> : null}
-      {!query.isLoading && !query.isError && items.length === 0 ? <EmptyState>Знижок ще немає.</EmptyState> : null}
+      {!query.isLoading && !query.isError && items.length === 0 ? (
+        <div className="space-y-3 py-8">
+          <EmptyState>Знижок ще немає</EmptyState>
+          <p className="text-sm text-muted-foreground">Додайте знижку за тривалість проживання.</p>
+          {canWrite ? <Button onClick={() => setEditing('new')}>Додати знижку</Button> : null}
+        </div>
+      ) : null}
       {!query.isError && items.length > 0 ? (
+        <>
+        <div className="hidden md:block">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Назва</TableHead>
-              <TableHead>Від</TableHead>
-              <TableHead>Знижка</TableHead>
-              <TableHead>Коротко</TableHead>
+              <TableHead>Мінімум ночей</TableHead>
+              <TableHead>Відсоток</TableHead>
+              <TableHead>Охоплення</TableHead>
+              <TableHead>Вікно ночей</TableHead>
               <TableHead>Стан</TableHead>
               <TableHead stickyActions>
                 <span className="sr-only">Дії</span>
@@ -279,21 +271,16 @@ function LengthStaySection({ canWrite }: { canWrite: boolean }) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {items.map((rule) => (
+            {items.map((rule) => {
+              const kinds = kindsFromLengthStayRoomTypes(types, rule.roomTypeIds)
+              const window = storedLengthStayWindow(rule)
+              return (
               <TableRow key={rule.id}>
                 <TableCell>{rule.name}</TableCell>
-                <TableCell>{rule.minNights} ночей</TableCell>
-                <TableCell>{rule.discountValue}%</TableCell>
-                <TableCell>
-                  {lengthStayRuleSummary({
-                    minNights: rule.minNights,
-                    discountValue: rule.discountValue,
-                    kinds: kindsFromLengthStayRoomTypes(types, rule.roomTypeIds),
-                    active: rule.active,
-                    nightFrom: storedLengthStayWindow(rule).nightFrom,
-                    nightToExclusive: storedLengthStayWindow(rule).nightToExclusive,
-                  })}
-                </TableCell>
+                <TableCell>{rule.minNights}</TableCell>
+                <TableCell>{formatLengthStayPercent(rule.discountValue)}</TableCell>
+                <TableCell>{lengthStayScopeCopy(kinds)}</TableCell>
+                <TableCell>{lengthStayWindowCopy(window)}</TableCell>
                 <TableCell>
                   <Badge tone={rule.active ? 'success' : 'neutral'}>{rule.active ? 'Активна' : 'Вимкнена'}</Badge>
                 </TableCell>
@@ -313,9 +300,47 @@ function LengthStaySection({ canWrite }: { canWrite: boolean }) {
                   )}
                 </TableCell>
               </TableRow>
-            ))}
+              )
+            })}
           </TableBody>
         </Table>
+        </div>
+        <MobileList>
+          {items.map((rule) => {
+            const kinds = kindsFromLengthStayRoomTypes(types, rule.roomTypeIds)
+            const window = storedLengthStayWindow(rule)
+            return (
+              <MobileCard key={rule.id}>
+                <MobileCardHeader
+                  title={rule.name}
+                  actions={
+                    canWrite ? (
+                      <ActionsMenu label={`Дії для знижки ${rule.name}`}>
+                        <DropdownMenuItem onSelect={() => setEditing(rule)}>Редагувати</DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onSelect={() => setPendingDelete(rule)}
+                        >
+                          Видалити
+                        </DropdownMenuItem>
+                      </ActionsMenu>
+                    ) : undefined
+                  }
+                />
+                <MobileCardBadges>
+                  <Badge tone={rule.active ? 'success' : 'neutral'}>{rule.active ? 'Активна' : 'Вимкнена'}</Badge>
+                </MobileCardBadges>
+                <MobileCardDetails>
+                  <MobileCardDetail label="Мінімум ночей">{rule.minNights}</MobileCardDetail>
+                  <MobileCardDetail label="Відсоток">{formatLengthStayPercent(rule.discountValue)}</MobileCardDetail>
+                  <MobileCardDetail label="Охоплення">{lengthStayScopeCopy(kinds)}</MobileCardDetail>
+                  <MobileCardDetail label="Вікно ночей">{lengthStayWindowCopy(window)}</MobileCardDetail>
+                </MobileCardDetails>
+              </MobileCard>
+            )
+          })}
+        </MobileList>
+        </>
       ) : null}
       <Pagination page={page} pageSize={PAGE_SIZE} total={query.data?.pagination.total ?? 0} onPageChange={setPage} />
       <LengthStayDialog
@@ -796,7 +821,7 @@ function LengthStayDialog({
             hint={
               nightWindowWritable
                 ? 'Перший клік — перша тарифікована ніч, другий — остання. Дата виїзду не входить. Усі ночі проживання мають лежати в цьому вікні.'
-                : 'Поля вимкнені, доки бекенд із вікном ночей (PR #26) не буде розгорнуто й перевірено. Збереження не надсилає ці дати і не стирає вже записане вікно.'
+                : 'Вікно ночей у цьому середовищі лише для перегляду. Збереження не надсилає дати і не стирає вже записане вікно.'
             }
             error={form.formState.errors.nightFrom?.message || form.formState.errors.nightToExclusive?.message}
           >
@@ -916,6 +941,10 @@ function useNames(planIds: string[], typeIds: string[]) {
     plan: (id: string) => uniquePlans.map((value, index) => (value === id ? planQueries[index]?.data?.name : null)).find(Boolean) ?? '—',
     type: (id: string) => uniqueTypes.map((value, index) => (value === id ? typeQueries[index]?.data?.name : null)).find(Boolean) ?? '—',
   }
+}
+
+function formatLengthStayPercent(value: string) {
+  return `${value.replace(/\.00$/, '').replace(/(\.\d)0$/, '$1')}%`
 }
 
 function weekendLabel(days: number[]) {

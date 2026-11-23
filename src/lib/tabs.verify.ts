@@ -11,6 +11,7 @@ function assert(condition: boolean, message: string) {
 const tabs = readFileSync(new URL('../components/ui/tabs.tsx', import.meta.url), 'utf8')
 const users = readFileSync(new URL('../pages/users/UsersPage.tsx', import.meta.url), 'utf8')
 const accommodations = readFileSync(new URL('../pages/accommodations/AccommodationsPage.tsx', import.meta.url), 'utf8')
+const rates = readFileSync(new URL('../pages/rates/RatesPage.tsx', import.meta.url), 'utf8')
 
 assert(tabs.includes('min-h-11'), 'tab triggers stay at least 44px high')
 assert(tabs.includes('overflow-x-auto'), 'tab lists can scroll on small screens')
@@ -27,5 +28,9 @@ assert(tabs.includes('focus-visible:ring-2'), 'keyboard focus is visible')
 assert(users.includes('TabsTrigger'), 'users / invitations / audit use the shared tabs')
 assert(users.includes('USERS_PAGE_TAB_LABEL'), 'users tab labels stay permission-gated')
 assert(accommodations.includes('TabsTrigger'), 'accommodation kind tabs use the shared component')
+assert(rates.includes('TabsTrigger'), 'Ціни uses the shared tabs')
+assert(rates.includes('>Поточні ціни<'), 'Ціни keeps Поточні ціни')
+assert(rates.includes('>Знижки<'), 'Ціни shows Знижки beside current prices')
+assert(rates.includes("tab === 'discounts'"), 'discounts tab is addressable')
 
 console.log('PASS: shared tabs show a visible active state')

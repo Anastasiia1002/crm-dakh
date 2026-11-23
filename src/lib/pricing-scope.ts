@@ -58,6 +58,20 @@ export function lengthStayKindLabel(kind: LengthStayKind) {
   return KIND_LABEL[kind]
 }
 
+export function lengthStayScopeCopy(kinds: readonly LengthStayKind[]) {
+  if (kinds.length === 0 || kinds.length === 2) return 'Номери і будиночки'
+  return kinds.map(lengthStayKindLabel).join(' і ')
+}
+
+export function lengthStayWindowCopy(input: { nightFrom?: string | null; nightToExclusive?: string | null }) {
+  const nightFrom = input.nightFrom?.trim() || null
+  const nightToExclusive = input.nightToExclusive?.trim() || null
+  if (!nightFrom && !nightToExclusive) return 'Без обмеження дат'
+  if (nightFrom && nightToExclusive) return `Ночі ${nightFrom} … ${nightToExclusive} (дата виїзду не входить)`
+  if (nightFrom) return `З ночі ${nightFrom}`
+  return `До ночі перед ${nightToExclusive}`
+}
+
 /** Hotel-wide empty list, otherwise every type in the ticked kind groups. */
 export function roomTypeIdsForLengthStayKinds(
   types: readonly { id: string; kind: LengthStayKind }[],
@@ -87,25 +101,16 @@ export function lengthStayRuleSummary(input: {
   nightToExclusive?: string | null
 }) {
   const percent = input.discountValue.replace(/\.00$/, '').replace(/(\.\d)0$/, '$1')
-  const groups =
-    input.kinds.length === 0 || input.kinds.length === 2
-      ? 'Номери і будиночки'
-      : input.kinds.map(lengthStayKindLabel).join(' і ')
-  const window =
-    input.nightFrom && input.nightToExclusive
-      ? ` Ночі ${input.nightFrom} … ${input.nightToExclusive} (дата виїзду не входить).`
-      : input.nightFrom
-        ? ` З ночі ${input.nightFrom}.`
-        : input.nightToExclusive
-          ? ` До ночі перед ${input.nightToExclusive}.`
-          : ''
+  const groups = lengthStayScopeCopy(input.kinds)
+  const window = lengthStayWindowCopy(input)
+  const windowSuffix = window === 'Без обмеження дат' ? '' : ` ${window}.`
   const state = input.active ? 'Активна.' : 'Вимкнена.'
-  return `Від ${input.minNights} ночей −${percent}% на проживання (${groups}).${window} Послуги не знижуються. ${state}`
+  return `Від ${input.minNights} ночей −${percent}% на проживання (${groups}).${windowSuffix} Послуги не знижуються. ${state}`
 }
 
 /**
- * Night-window writes stay off until backend #26 is deployed and this flag is set.
- * Do not infer support from a 400 or extra JSON keys.
+ * Silk production and GitHub Pages builds set this to "true".
+ * Local/staging writes stay off unless the env is set explicitly.
  */
 export function lengthStayNightWindowWritable() {
   return import.meta.env.VITE_LENGTH_STAY_NIGHT_WINDOW === 'true'

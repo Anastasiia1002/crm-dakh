@@ -10,6 +10,8 @@ import {
   kindsFromLengthStayRoomTypes,
   lengthStayRoomTypeIdsForSave,
   lengthStayRuleSummary,
+  lengthStayScopeCopy,
+  lengthStayWindowCopy,
   lengthStayWritePayload,
   PROPOSED_LENGTH_STAY_RULES,
   storedLengthStayWindow,
@@ -50,12 +52,22 @@ const shared = unselectedUnitsSharingType(named, ['room-1'])
 assert(shared.length === 1 && shared[0]?.titles.join(',') === 'Карпати', 'unticked sibling of a shared type is named')
 
 const page = readFileSync(new URL('../pages/rates/StayPricingSections.tsx', import.meta.url), 'utf8')
+const ratesPage = readFileSync(new URL('../pages/rates/RatesPage.tsx', import.meta.url), 'utf8')
 assert(page.includes('окремий номер'), 'day-price copy keeps category scope')
 assert(page.includes('categoryScopeCopy'), 'day-price table shows unit count')
-assert(page.includes('lengthStayRuleSummary'), 'length-stay table shows a readable rule summary')
+assert(page.includes('lengthStayScopeCopy'), 'length-stay table shows scope')
+assert(page.includes('lengthStayWindowCopy'), 'length-stay table shows the stay-date window')
 assert(page.includes('Номери'), 'length-stay groups rooms')
 assert(page.includes('Будиночки'), 'length-stay groups cottages')
-assert(page.includes('Запропоновані правила'), 'proposed 3/7 night rules stay review-only')
+assert(page.includes('Знижок ще немає'), 'empty discounts copy')
+assert(page.includes('Додайте знижку за тривалість проживання.'), 'empty discounts hint')
+assert(page.includes('Додати знижку'), 'empty discounts keeps the create action')
+assert(!page.includes('Запропоновані правила'), 'proposed 3/7 night rules are not shown as live catalog')
+assert(ratesPage.includes('LengthStayDiscountsPanel'), 'Ціни reuses the existing length-stay panel')
+assert(ratesPage.includes('Знижки'), 'Ціни has a visible Знижки tab')
+assert(ratesPage.includes('автоматично до вартості проживання'), 'discounts tab states automatic stay pricing')
+assert(ratesPage.includes('Додаткові послуги оплачуються окремо'), 'discounts tab keeps extras out of the discount')
+assert(ratesPage.includes('однакові суми лишають промокод'), 'promo vs automatic policy stays accurate')
 assert(!page.includes('ціна лише для цього номера'), 'no physical-room price claim')
 assert(page.includes('Зимовий сезон'), 'winter season is the example')
 assert(page.includes('Ночі сезону'), 'inclusive season nights are labeled')
@@ -84,6 +96,8 @@ assert(JSON.stringify(roomTypeIdsForLengthStayKinds(typed, ['ROOM', 'COTTAGE']))
 assert(JSON.stringify(roomTypeIdsForLengthStayKinds(typed, ['ROOM'])) === JSON.stringify(['type-a']), 'rooms map to room types')
 assert(JSON.stringify(kindsFromLengthStayRoomTypes(typed, [])) === JSON.stringify(['ROOM', 'COTTAGE']), 'empty ids are both groups')
 assert(PROPOSED_LENGTH_STAY_RULES[0]?.minNights === 3 && PROPOSED_LENGTH_STAY_RULES[1]?.minNights === 7, 'review draft keeps 3 and 7 night thresholds')
+assert(lengthStayScopeCopy(['ROOM', 'COTTAGE']) === 'Номери і будиночки', 'both groups are hotel-wide')
+assert(lengthStayWindowCopy({}).includes('Без обмеження дат'), 'missing dates are unlabeled as a window')
 assert(lengthStayRuleSummary({ minNights: 3, discountValue: '10.00', kinds: ['ROOM', 'COTTAGE'], active: false }).includes('Вимкнена'), 'summary names inactive state')
 assert(!lengthStayRuleSummary({ minNights: 3, discountValue: '10.00', kinds: ['ROOM', 'COTTAGE'], active: false }).includes('Без обмеження дат'), 'summary does not claim an unsaved date window')
 assert(
@@ -125,7 +139,14 @@ assert(
 assert(storedLengthStayWindow({ nightFrom: '2026-12-01', nightToExclusive: '' }).nightFrom === '2026-12-01', 'stored window is kept')
 assert(page.includes('lengthStayNightWindowWritable'), 'length-stay form uses an explicit night-window gate')
 assert(page.includes('не стирає вже записане вікно'), 'disabled window copy says existing dates stay')
+assert(!page.includes('PR #26'), 'owner copy no longer waits on backend #26')
+assert(!page.includes('бекенд із вікном ночей'), 'owner copy no longer waits on an undeployed night window')
 const scope = readFileSync(new URL('./pricing-scope.ts', import.meta.url), 'utf8')
-assert(scope.includes("VITE_LENGTH_STAY_NIGHT_WINDOW === 'true'"), 'night-window writes wait for the configured capability')
+assert(scope.includes("VITE_LENGTH_STAY_NIGHT_WINDOW === 'true'"), 'night-window writes stay behind the configured capability')
+const viteConfig = readFileSync(new URL('../../vite.config.ts', import.meta.url), 'utf8')
+assert(viteConfig.includes("mode === 'production' || githubPages"), 'Silk production and Pages enable the night-window gate')
+assert(viteConfig.includes("VITE_LENGTH_STAY_NIGHT_WINDOW = 'true'"), 'production builds write nightFrom/nightToExclusive')
+const pages = readFileSync(new URL('../../.github/workflows/deploy.yml', import.meta.url), 'utf8')
+assert(pages.includes("VITE_LENGTH_STAY_NIGHT_WINDOW: 'true'"), 'GitHub Pages build sets the night-window gate')
 
 console.log('PASS: pricing rules stay category-scoped; unit count is visible')
