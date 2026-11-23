@@ -10,7 +10,9 @@ import {
   kindsFromLengthStayRoomTypes,
   lengthStayRoomTypeIdsForSave,
   lengthStayRuleSummary,
+  lengthStayWritePayload,
   PROPOSED_LENGTH_STAY_RULES,
+  storedLengthStayWindow,
   roomTypeIdsForLengthStayKinds,
   roomTypeIdsForUnits,
   selectedCategoriesScopeCopy,
@@ -83,5 +85,47 @@ assert(JSON.stringify(roomTypeIdsForLengthStayKinds(typed, ['ROOM'])) === JSON.s
 assert(JSON.stringify(kindsFromLengthStayRoomTypes(typed, [])) === JSON.stringify(['ROOM', 'COTTAGE']), 'empty ids are both groups')
 assert(PROPOSED_LENGTH_STAY_RULES[0]?.minNights === 3 && PROPOSED_LENGTH_STAY_RULES[1]?.minNights === 7, 'review draft keeps 3 and 7 night thresholds')
 assert(lengthStayRuleSummary({ minNights: 3, discountValue: '10.00', kinds: ['ROOM', 'COTTAGE'], active: false }).includes('Вимкнена'), 'summary names inactive state')
+assert(!lengthStayRuleSummary({ minNights: 3, discountValue: '10.00', kinds: ['ROOM', 'COTTAGE'], active: false }).includes('Без обмеження дат'), 'summary does not claim an unsaved date window')
+assert(
+  JSON.stringify(
+    lengthStayWritePayload({
+      name: 'Від 3 ночей',
+      minNights: 3,
+      discountValue: '10.00',
+      roomTypeIds: [],
+      active: false,
+      nightFrom: '2026-12-01',
+      nightToExclusive: '2027-03-01',
+      nightWindowWritable: false,
+    }),
+  ) ===
+    JSON.stringify({
+      name: 'Від 3 ночей',
+      minNights: 3,
+      discountValue: '10.00',
+      roomTypeIds: [],
+      active: false,
+    }),
+  'save omits night windows until the explicit capability is on',
+)
+assert(
+  'nightFrom' in
+    lengthStayWritePayload({
+      name: 'Від 3 ночей',
+      minNights: 3,
+      discountValue: '10.00',
+      roomTypeIds: [],
+      active: false,
+      nightFrom: '2026-12-01',
+      nightToExclusive: '2027-03-01',
+      nightWindowWritable: true,
+    }),
+  'verified night-window API receives the dates',
+)
+assert(storedLengthStayWindow({ nightFrom: '2026-12-01', nightToExclusive: '' }).nightFrom === '2026-12-01', 'stored window is kept')
+assert(page.includes('lengthStayNightWindowWritable'), 'length-stay form uses an explicit night-window gate')
+assert(page.includes('не стирає вже записане вікно'), 'disabled window copy says existing dates stay')
+const scope = readFileSync(new URL('./pricing-scope.ts', import.meta.url), 'utf8')
+assert(scope.includes("VITE_LENGTH_STAY_NIGHT_WINDOW === 'true'"), 'night-window writes wait for the configured capability')
 
 console.log('PASS: pricing rules stay category-scoped; unit count is visible')

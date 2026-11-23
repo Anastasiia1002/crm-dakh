@@ -98,9 +98,48 @@ export function lengthStayRuleSummary(input: {
         ? ` З ночі ${input.nightFrom}.`
         : input.nightToExclusive
           ? ` До ночі перед ${input.nightToExclusive}.`
-          : ' Без обмеження дат.'
+          : ''
   const state = input.active ? 'Активна.' : 'Вимкнена.'
   return `Від ${input.minNights} ночей −${percent}% на проживання (${groups}).${window} Послуги не знижуються. ${state}`
+}
+
+/**
+ * Night-window writes stay off until backend #26 is deployed and this flag is set.
+ * Do not infer support from a 400 or extra JSON keys.
+ */
+export function lengthStayNightWindowWritable() {
+  return import.meta.env.VITE_LENGTH_STAY_NIGHT_WINDOW === 'true'
+}
+
+export function storedLengthStayWindow(item?: { nightFrom?: string | null; nightToExclusive?: string | null } | null) {
+  const nightFrom = item?.nightFrom?.trim() ? item.nightFrom : null
+  const nightToExclusive = item?.nightToExclusive?.trim() ? item.nightToExclusive : null
+  return { nightFrom, nightToExclusive }
+}
+
+export function lengthStayWritePayload(input: {
+  name: string
+  minNights: number
+  discountValue: string
+  roomTypeIds: string[]
+  active: boolean
+  nightFrom?: string | null
+  nightToExclusive?: string | null
+  nightWindowWritable: boolean
+}) {
+  const payload = {
+    name: input.name,
+    minNights: input.minNights,
+    discountValue: input.discountValue,
+    roomTypeIds: input.roomTypeIds,
+    active: input.active,
+  }
+  if (!input.nightWindowWritable) return payload
+  return {
+    ...payload,
+    nightFrom: input.nightFrom || null,
+    nightToExclusive: input.nightToExclusive || null,
+  }
 }
 
 export const PROPOSED_LENGTH_STAY_RULES = [

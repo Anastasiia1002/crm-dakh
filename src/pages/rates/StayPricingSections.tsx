@@ -48,9 +48,12 @@ import {
   dayPriceSaveAllowed,
   kindsFromLengthStayRoomTypes,
   lengthStayKindLabel,
+  lengthStayNightWindowWritable,
   lengthStayRoomTypeIdsForSave,
   lengthStayRuleSummary,
+  lengthStayWritePayload,
   PROPOSED_LENGTH_STAY_RULES,
+  storedLengthStayWindow,
   roomTypeIdsForLengthStayKinds,
   roomTypeIdsForUnits,
   unselectedUnitsSharingType,
@@ -287,8 +290,8 @@ function LengthStaySection({ canWrite }: { canWrite: boolean }) {
                     discountValue: rule.discountValue,
                     kinds: kindsFromLengthStayRoomTypes(types, rule.roomTypeIds),
                     active: rule.active,
-                    nightFrom: rule.nightFrom,
-                    nightToExclusive: rule.nightToExclusive,
+                    nightFrom: storedLengthStayWindow(rule).nightFrom,
+                    nightToExclusive: storedLengthStayWindow(rule).nightToExclusive,
                   })}
                 </TableCell>
                 <TableCell>
@@ -670,6 +673,8 @@ function LengthStayDialog({
   })
   const catalogReady = unitsQuery.isSuccess && typesQuery.isSuccess
   const types = typesQuery.data ?? []
+  const nightWindowWritable = lengthStayNightWindowWritable()
+  const storedWindow = storedLengthStayWindow(item)
   const pending = create.isPending || update.isPending
   const form = useForm<z.infer<typeof staySchema>>({
     resolver: zodResolver(staySchema),
@@ -678,8 +683,10 @@ function LengthStayDialog({
       minNights: item ? String(item.minNights) : '3',
       discountValue: item?.discountValue ?? '10.00',
       kinds: item ? kindsFromLengthStayRoomTypes(types, item.roomTypeIds) : ['ROOM', 'COTTAGE'],
-      nightFrom: item?.nightFrom ?? '',
-      nightToExclusive: item?.nightToExclusive ?? '',
+      nightFrom: lengthStayNightWindowWritable() ? storedLengthStayWindow(item).nightFrom ?? '' : '',
+      nightToExclusive: lengthStayNightWindowWritable()
+        ? storedLengthStayWindow(item).nightToExclusive ?? ''
+        : '',
       active: item ? (item.active === false ? 'no' : 'yes') : 'no',
       previewCheckIn: '',
       previewCheckOut: '',
@@ -712,15 +719,16 @@ function LengthStayDialog({
               return
             }
             try {
-              const input = {
+              const input = lengthStayWritePayload({
                 name: values.name.trim(),
                 minNights,
                 discountValue,
                 roomTypeIds,
+                active: values.active === 'yes',
                 nightFrom: values.nightFrom || null,
                 nightToExclusive: values.nightToExclusive || null,
-                active: values.active === 'yes',
-              }
+                nightWindowWritable,
+              })
               if (item) await update.mutateAsync({ id: item.id, input })
               else await create.mutateAsync(input)
               toast.success('Збережено')
@@ -778,21 +786,43 @@ function LengthStayDialog({
               discountValue: form.watch('discountValue') || '0',
               kinds: selectedKinds,
               active: form.watch('active') === 'yes',
-              nightFrom: form.watch('nightFrom') || null,
-              nightToExclusive: form.watch('nightToExclusive') || null,
+              nightFrom: storedWindow.nightFrom || (nightWindowWritable ? form.watch('nightFrom') || null : null),
+              nightToExclusive:
+                storedWindow.nightToExclusive || (nightWindowWritable ? form.watch('nightToExclusive') || null : null),
             })}
           </p>
           <Field
             label="Вікно ночей (необовʼязково)"
-            hint="Перший клік — перша тарифікована ніч, другий — остання. Дата виїзду не входить. Усі ночі проживання мають лежати в цьому вікні."
+            hint={
+              nightWindowWritable
+                ? 'Перший клік — перша тарифікована ніч, другий — остання. Дата виїзду не входить. Усі ночі проживання мають лежати в цьому вікні.'
+                : 'Поля вимкнені, доки бекенд із вікном ночей (PR #26) не буде розгорнуто й перевірено. Збереження не надсилає ці дати і не стирає вже записане вікно.'
+            }
             error={form.formState.errors.nightFrom?.message || form.formState.errors.nightToExclusive?.message}
           >
+            {storedWindow.nightFrom || storedWindow.nightToExclusive ? (
+              <p className="text-sm">
+                Записане вікно збережено
+                {storedWindow.nightFrom ? ` з ${storedWindow.nightFrom}` : ''}
+                {storedWindow.nightToExclusive ? ` до ${storedWindow.nightToExclusive}` : ''}
+                {nightWindowWritable ? '.' : ' і не буде стерте цим збереженням.'}
+              </p>
+            ) : null}
             <DateRangePicker
-              start={form.watch('nightFrom')}
-              end={form.watch('nightToExclusive') ? lastNightFromExclusiveEnd(form.watch('nightToExclusive')) : ''}
+              start={nightWindowWritable ? form.watch('nightFrom') : storedWindow.nightFrom ?? ''}
+              end={
+                nightWindowWritable
+                  ? form.watch('nightToExclusive')
+                    ? lastNightFromExclusiveEnd(form.watch('nightToExclusive'))
+                    : ''
+                  : storedWindow.nightToExclusive
+                    ? lastNightFromExclusiveEnd(storedWindow.nightToExclusive)
+                    : ''
+              }
               allowPast
-              disabled={!canWrite}
+              disabled={!canWrite || !nightWindowWritable}
               onChange={({ start, end }) => {
+                if (!nightWindowWritable) return
                 form.setValue('nightFrom', start, { shouldValidate: true })
                 if (end) form.setValue('nightToExclusive', exclusiveEndFromLastNight(end), { shouldValidate: true })
                 if (!start && !end) {
