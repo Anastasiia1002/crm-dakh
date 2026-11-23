@@ -635,6 +635,8 @@ export type LengthStayDiscount = {
   discountValue: string
   active: boolean
   roomTypeIds: string[]
+  nightFrom?: string | null
+  nightToExclusive?: string | null
   createdAt: string
   updatedAt: string
 }
@@ -650,6 +652,8 @@ export type LengthStayDiscountCreateInput = {
   minNights: number
   discountValue: string
   roomTypeIds?: string[]
+  nightFrom?: string | null
+  nightToExclusive?: string | null
   active?: boolean
 }
 
@@ -658,6 +662,8 @@ export type LengthStayDiscountUpdateInput = {
   minNights?: number
   discountValue?: string
   roomTypeIds?: string[]
+  nightFrom?: string | null
+  nightToExclusive?: string | null
   active?: boolean
 }
 

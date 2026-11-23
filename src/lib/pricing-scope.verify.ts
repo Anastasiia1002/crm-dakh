@@ -7,7 +7,13 @@ import {
   categoryScopeCopy,
   categoryUnitCount,
   dayPriceSaveAllowed,
+  kindsFromLengthStayRoomTypes,
   lengthStayRoomTypeIdsForSave,
+  lengthStayRuleSummary,
+  lengthStayWritePayload,
+  PROPOSED_LENGTH_STAY_RULES,
+  storedLengthStayWindow,
+  roomTypeIdsForLengthStayKinds,
   roomTypeIdsForUnits,
   selectedCategoriesScopeCopy,
   unselectedUnitsSharingType,
@@ -46,7 +52,10 @@ assert(shared.length === 1 && shared[0]?.titles.join(',') === 'Карпати', 
 const page = readFileSync(new URL('../pages/rates/StayPricingSections.tsx', import.meta.url), 'utf8')
 assert(page.includes('окремий номер'), 'day-price copy keeps category scope')
 assert(page.includes('categoryScopeCopy'), 'day-price table shows unit count')
-assert(page.includes('selectedCategoriesScopeCopy'), 'length-stay table shows category scope')
+assert(page.includes('lengthStayRuleSummary'), 'length-stay table shows a readable rule summary')
+assert(page.includes('Номери'), 'length-stay groups rooms')
+assert(page.includes('Будиночки'), 'length-stay groups cottages')
+assert(page.includes('Запропоновані правила'), 'proposed 3/7 night rules stay review-only')
 assert(!page.includes('ціна лише для цього номера'), 'no physical-room price claim')
 assert(page.includes('Зимовий сезон'), 'winter season is the example')
 assert(page.includes('Ночі сезону'), 'inclusive season nights are labeled')
@@ -66,5 +75,57 @@ const chosen = lengthStayRoomTypeIdsForSave({ catalogComplete: true, roomTypeIds
 assert(JSON.stringify(chosen) === JSON.stringify(['type-a']), 'selected categories are unchanged')
 assert(dayPriceSaveAllowed(false) === false, 'day price is not saved from a partial room list')
 assert(dayPriceSaveAllowed(true) === true, 'day price can be saved from a complete room list')
+
+const typed = [
+  { id: 'type-a', kind: 'ROOM' as const },
+  { id: 'type-b', kind: 'COTTAGE' as const },
+]
+assert(JSON.stringify(roomTypeIdsForLengthStayKinds(typed, ['ROOM', 'COTTAGE'])) === '[]', 'both kinds stay hotel-wide')
+assert(JSON.stringify(roomTypeIdsForLengthStayKinds(typed, ['ROOM'])) === JSON.stringify(['type-a']), 'rooms map to room types')
+assert(JSON.stringify(kindsFromLengthStayRoomTypes(typed, [])) === JSON.stringify(['ROOM', 'COTTAGE']), 'empty ids are both groups')
+assert(PROPOSED_LENGTH_STAY_RULES[0]?.minNights === 3 && PROPOSED_LENGTH_STAY_RULES[1]?.minNights === 7, 'review draft keeps 3 and 7 night thresholds')
+assert(lengthStayRuleSummary({ minNights: 3, discountValue: '10.00', kinds: ['ROOM', 'COTTAGE'], active: false }).includes('Вимкнена'), 'summary names inactive state')
+assert(!lengthStayRuleSummary({ minNights: 3, discountValue: '10.00', kinds: ['ROOM', 'COTTAGE'], active: false }).includes('Без обмеження дат'), 'summary does not claim an unsaved date window')
+assert(
+  JSON.stringify(
+    lengthStayWritePayload({
+      name: 'Від 3 ночей',
+      minNights: 3,
+      discountValue: '10.00',
+      roomTypeIds: [],
+      active: false,
+      nightFrom: '2026-12-01',
+      nightToExclusive: '2027-03-01',
+      nightWindowWritable: false,
+    }),
+  ) ===
+    JSON.stringify({
+      name: 'Від 3 ночей',
+      minNights: 3,
+      discountValue: '10.00',
+      roomTypeIds: [],
+      active: false,
+    }),
+  'save omits night windows until the explicit capability is on',
+)
+assert(
+  'nightFrom' in
+    lengthStayWritePayload({
+      name: 'Від 3 ночей',
+      minNights: 3,
+      discountValue: '10.00',
+      roomTypeIds: [],
+      active: false,
+      nightFrom: '2026-12-01',
+      nightToExclusive: '2027-03-01',
+      nightWindowWritable: true,
+    }),
+  'verified night-window API receives the dates',
+)
+assert(storedLengthStayWindow({ nightFrom: '2026-12-01', nightToExclusive: '' }).nightFrom === '2026-12-01', 'stored window is kept')
+assert(page.includes('lengthStayNightWindowWritable'), 'length-stay form uses an explicit night-window gate')
+assert(page.includes('не стирає вже записане вікно'), 'disabled window copy says existing dates stay')
+const scope = readFileSync(new URL('./pricing-scope.ts', import.meta.url), 'utf8')
+assert(scope.includes("VITE_LENGTH_STAY_NIGHT_WINDOW === 'true'"), 'night-window writes wait for the configured capability')
 
 console.log('PASS: pricing rules stay category-scoped; unit count is visible')

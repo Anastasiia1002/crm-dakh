@@ -43,14 +43,21 @@ import { errorMessage } from '@/lib/errors'
 import { formatDate, formatMoneyAmount, normalizeMoneyString, parseStayNights } from '@/lib/format'
 import { exclusiveEndFromLastNight, lastNightFromExclusiveEnd } from '@/lib/price-nights'
 import {
-  allCategoriesScopeCopy,
   categoryScopeCopy,
   categoryUnitCount,
   dayPriceSaveAllowed,
+  kindsFromLengthStayRoomTypes,
+  lengthStayKindLabel,
+  lengthStayNightWindowWritable,
   lengthStayRoomTypeIdsForSave,
+  lengthStayRuleSummary,
+  lengthStayWritePayload,
+  PROPOSED_LENGTH_STAY_RULES,
+  storedLengthStayWindow,
+  roomTypeIdsForLengthStayKinds,
   roomTypeIdsForUnits,
-  selectedCategoriesScopeCopy,
   unselectedUnitsSharingType,
+  type LengthStayKind,
 } from '@/lib/pricing-scope'
 import { CATALOG_STALE_TIME } from '@/lib/queryClient'
 import { canManageRates } from '@/lib/roles'
@@ -215,8 +222,14 @@ function LengthStaySection({ canWrite }: { canWrite: boolean }) {
   const [editing, setEditing] = useState<LengthStayDiscount | 'new' | null>(null)
   const [pendingDelete, setPendingDelete] = useState<LengthStayDiscount | null>(null)
   const query = useAdminLengthStayDiscounts({ page, limit: PAGE_SIZE })
+  const typesQuery = useQuery({
+    queryKey: ['admin-room-types-all', { active: undefined }],
+    queryFn: ({ signal }) => listAllRoomTypes({}, signal),
+    staleTime: CATALOG_STALE_TIME,
+  })
   const remove = useDeleteAdminLengthStayDiscount()
   const items = query.data?.items ?? []
+  const types = typesQuery.data ?? []
 
   return (
     <section>
@@ -225,10 +238,29 @@ function LengthStaySection({ canWrite }: { canWrite: boolean }) {
         action={canWrite ? <Button onClick={() => setEditing('new')}>Додати знижку</Button> : undefined}
       />
       <p className="mb-4 max-w-2xl text-sm text-muted-foreground">
-        Щоб дати 10% від 6 ночей, створіть правило з мінімумом 6 ночей і знижкою 10%. Воно діє лише на проживання,
-        не на послуги, і на всі одиниці обраного типу. Окремого правила на один номер немає. Якщо гість має промокод,
-        більша знижка перемагає, суми не складаються. Якщо суми однакові, лишається промокод.
+        Знижка рахується від мінімуму ночей без дати виїзду і застосовується лише до проживання, не до послуг.
+        Обираються групи «Номери» або «Будиночки», не окрема фізична одиниця. Якщо підходять кілька порогів, береться
+        найвищий мінімум один раз: 10% і 15% ніколи не додаються. Промокод порівнюється з автоматичною знижкою: більша
+        сума перемагає, рівні суми лишають промокод.
       </p>
+      <div className="mb-6 rounded-md border border-dashed border-border p-4 text-sm">
+        <p className="font-medium">Запропоновані правила для перегляду</p>
+        <p className="mt-1 text-muted-foreground">
+          Не записуються в каталог автоматично і не вмикаються. Створіть вручну як вимкнені, якщо погодите.
+        </p>
+        <ul className="mt-3 space-y-2">
+          {PROPOSED_LENGTH_STAY_RULES.map((rule) => (
+            <li key={rule.minNights}>
+              {lengthStayRuleSummary({
+                minNights: rule.minNights,
+                discountValue: rule.discountValue,
+                kinds: rule.kinds,
+                active: false,
+              })}
+            </li>
+          ))}
+        </ul>
+      </div>
       {query.isLoading && !query.data ? <LoadingState /> : null}
       {query.isError ? <p className="text-sm text-destructive">Не вдалося завантажити знижки</p> : null}
       {!query.isLoading && !query.isError && items.length === 0 ? <EmptyState>Знижок ще немає.</EmptyState> : null}
@@ -239,7 +271,7 @@ function LengthStaySection({ canWrite }: { canWrite: boolean }) {
               <TableHead>Назва</TableHead>
               <TableHead>Від</TableHead>
               <TableHead>Знижка</TableHead>
-              <TableHead>Категорії</TableHead>
+              <TableHead>Коротко</TableHead>
               <TableHead>Стан</TableHead>
               <TableHead stickyActions>
                 <span className="sr-only">Дії</span>
@@ -252,7 +284,16 @@ function LengthStaySection({ canWrite }: { canWrite: boolean }) {
                 <TableCell>{rule.name}</TableCell>
                 <TableCell>{rule.minNights} ночей</TableCell>
                 <TableCell>{rule.discountValue}%</TableCell>
-                <TableCell>{selectedCategoriesScopeCopy(rule.roomTypeIds.length)}</TableCell>
+                <TableCell>
+                  {lengthStayRuleSummary({
+                    minNights: rule.minNights,
+                    discountValue: rule.discountValue,
+                    kinds: kindsFromLengthStayRoomTypes(types, rule.roomTypeIds),
+                    active: rule.active,
+                    nightFrom: storedLengthStayWindow(rule).nightFrom,
+                    nightToExclusive: storedLengthStayWindow(rule).nightToExclusive,
+                  })}
+                </TableCell>
                 <TableCell>
                   <Badge tone={rule.active ? 'success' : 'neutral'}>{rule.active ? 'Активна' : 'Вимкнена'}</Badge>
                 </TableCell>
@@ -585,16 +626,30 @@ function DayPriceDialog({
   )
 }
 
-const staySchema = z.object({
-  name: z.string().trim().min(1, 'Вкажіть назву'),
-  minNights: z.string(),
-  discountValue: z.string().trim().regex(MONEY_RE, 'Відсоток з не більше ніж двома знаками після коми'),
-  roomTypeIds: z.array(z.string()),
-  active: z.enum(['yes', 'no']),
-  previewCheckIn: z.string(),
-  previewCheckOut: z.string(),
-  previewSubtotal: z.string(),
-})
+const staySchema = z
+  .object({
+    name: z.string().trim().min(1, 'Вкажіть назву'),
+    minNights: z.string(),
+    discountValue: z.string().trim().regex(MONEY_RE, 'Відсоток з не більше ніж двома знаками після коми'),
+    kinds: z.array(z.enum(['ROOM', 'COTTAGE'])).min(1, 'Оберіть Номери або Будиночки'),
+    nightFrom: z.string(),
+    nightToExclusive: z.string(),
+    active: z.enum(['yes', 'no']),
+    previewCheckIn: z.string(),
+    previewCheckOut: z.string(),
+    previewSubtotal: z.string(),
+  })
+  .superRefine((values, ctx) => {
+    if (values.nightFrom && !DATE_RE.test(values.nightFrom)) {
+      ctx.addIssue({ code: 'custom', path: ['nightFrom'], message: 'Дата у форматі РРРР-ММ-ДД' })
+    }
+    if (values.nightToExclusive && !DATE_RE.test(values.nightToExclusive)) {
+      ctx.addIssue({ code: 'custom', path: ['nightToExclusive'], message: 'Дата у форматі РРРР-ММ-ДД' })
+    }
+    if (values.nightFrom && values.nightToExclusive && values.nightToExclusive <= values.nightFrom) {
+      ctx.addIssue({ code: 'custom', path: ['nightToExclusive'], message: 'Кінець вікна має бути пізніше за першу ніч' })
+    }
+  })
 
 function LengthStayDialog({
   open,
@@ -611,23 +666,34 @@ function LengthStayDialog({
   const update = useUpdateAdminLengthStayDiscount()
   const preview = usePreviewAdminLengthStay()
   const unitsQuery = useAllAdminRooms({ active: true })
-  const catalogReady = unitsQuery.isSuccess
-  const catalog = useUnitCatalog(catalogReady ? unitsQuery.data : undefined)
+  const typesQuery = useQuery({
+    queryKey: ['admin-room-types-all', { active: undefined }],
+    queryFn: ({ signal }) => listAllRoomTypes({}, signal),
+    staleTime: CATALOG_STALE_TIME,
+  })
+  const catalogReady = unitsQuery.isSuccess && typesQuery.isSuccess
+  const types = typesQuery.data ?? []
+  const nightWindowWritable = lengthStayNightWindowWritable()
+  const storedWindow = storedLengthStayWindow(item)
   const pending = create.isPending || update.isPending
   const form = useForm<z.infer<typeof staySchema>>({
     resolver: zodResolver(staySchema),
     values: {
       name: item?.name ?? 'Знижка за тривале проживання',
-      minNights: item ? String(item.minNights) : '6',
+      minNights: item ? String(item.minNights) : '3',
       discountValue: item?.discountValue ?? '10.00',
-      roomTypeIds: item?.roomTypeIds ?? [],
-      active: item?.active === false ? 'no' : 'yes',
+      kinds: item ? kindsFromLengthStayRoomTypes(types, item.roomTypeIds) : ['ROOM', 'COTTAGE'],
+      nightFrom: lengthStayNightWindowWritable() ? storedLengthStayWindow(item).nightFrom ?? '' : '',
+      nightToExclusive: lengthStayNightWindowWritable()
+        ? storedLengthStayWindow(item).nightToExclusive ?? ''
+        : '',
+      active: item ? (item.active === false ? 'no' : 'yes') : 'no',
       previewCheckIn: '',
       previewCheckOut: '',
       previewSubtotal: '',
     },
   })
-  const selected = form.watch('roomTypeIds')
+  const selectedKinds = form.watch('kinds')
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -646,20 +712,23 @@ function LengthStayDialog({
             }
             const roomTypeIds = lengthStayRoomTypeIdsForSave({
               catalogComplete: catalogReady,
-              roomTypeIds: values.roomTypeIds,
+              roomTypeIds: roomTypeIdsForLengthStayKinds(types, values.kinds),
             })
             if (roomTypeIds === null) {
               toast.error('Список розміщень завантажено не повністю. Збереження скасовано.')
               return
             }
             try {
-              const input = {
+              const input = lengthStayWritePayload({
                 name: values.name.trim(),
                 minNights,
                 discountValue,
                 roomTypeIds,
                 active: values.active === 'yes',
-              }
+                nightFrom: values.nightFrom || null,
+                nightToExclusive: values.nightToExclusive || null,
+                nightWindowWritable,
+              })
               if (item) await update.mutateAsync({ id: item.id, input })
               else await create.mutateAsync(input)
               toast.success('Збережено')
@@ -679,7 +748,7 @@ function LengthStayDialog({
             </>
           }
         >
-          {unitsQuery.isError ? (
+          {unitsQuery.isError || typesQuery.isError ? (
             <p className="text-sm text-destructive">Не вдалося завантажити повний список розміщень. Збереження вимкнено.</p>
           ) : null}
           <Field label="Назва" error={form.formState.errors.name?.message}>
@@ -693,35 +762,76 @@ function LengthStayDialog({
               <Input inputMode="decimal" disabled={!canWrite} {...form.register('discountValue')} />
             </Field>
           </div>
-          <Field label="Розміщення" hint={allCategoriesScopeCopy()}>
-            <div className="max-h-40 space-y-2 overflow-auto rounded border border-border p-2">
-              {catalog.map((unit) => (
-                <label key={unit.id} className="flex items-center gap-2 text-sm">
+          <Field label="Для кого" hint="Лише групи Номери / Будиночки. Окремої одиниці немає." error={form.formState.errors.kinds?.message}>
+            <div className="space-y-2 rounded border border-border p-2">
+              {(['ROOM', 'COTTAGE'] as const).map((kind) => (
+                <label key={kind} className="flex items-center gap-2 text-sm">
                   <Checkbox
-                    checked={selected.includes(unit.roomTypeId)}
+                    checked={selectedKinds.includes(kind)}
                     disabled={!canWrite}
                     onCheckedChange={(checked) => {
-                      const next = checked === true ? [...selected, unit.roomTypeId] : selected.filter((id) => id !== unit.roomTypeId)
-                      form.setValue('roomTypeIds', [...new Set(next)])
+                      const next =
+                        checked === true ? [...selectedKinds, kind] : selectedKinds.filter((value) => value !== kind)
+                      form.setValue('kinds', next as LengthStayKind[], { shouldValidate: true })
                     }}
                   />
-                  {unit.title}
+                  {lengthStayKindLabel(kind)}
                 </label>
               ))}
             </div>
           </Field>
-          {selected.map((typeId) => {
-            const titles = catalog.filter((unit) => unit.roomTypeId === typeId).map((unit) => unit.title)
-            return (
-              <p key={typeId} className="text-sm text-muted-foreground">
-                {titles.length > 1
-                  ? `Ця знижка спільна для: ${titles.join(', ')}.`
-                  : titles.length === 1
-                    ? `Ця знижка стосується: ${titles[0]}.`
-                    : 'Для цього типу ще немає розміщення в списку.'}
+          <p className="text-sm text-muted-foreground">
+            {lengthStayRuleSummary({
+              minNights: parseStayNights(form.watch('minNights')) ?? 0,
+              discountValue: form.watch('discountValue') || '0',
+              kinds: selectedKinds,
+              active: form.watch('active') === 'yes',
+              nightFrom: storedWindow.nightFrom || (nightWindowWritable ? form.watch('nightFrom') || null : null),
+              nightToExclusive:
+                storedWindow.nightToExclusive || (nightWindowWritable ? form.watch('nightToExclusive') || null : null),
+            })}
+          </p>
+          <Field
+            label="Вікно ночей (необовʼязково)"
+            hint={
+              nightWindowWritable
+                ? 'Перший клік — перша тарифікована ніч, другий — остання. Дата виїзду не входить. Усі ночі проживання мають лежати в цьому вікні.'
+                : 'Поля вимкнені, доки бекенд із вікном ночей (PR #26) не буде розгорнуто й перевірено. Збереження не надсилає ці дати і не стирає вже записане вікно.'
+            }
+            error={form.formState.errors.nightFrom?.message || form.formState.errors.nightToExclusive?.message}
+          >
+            {storedWindow.nightFrom || storedWindow.nightToExclusive ? (
+              <p className="text-sm">
+                Записане вікно збережено
+                {storedWindow.nightFrom ? ` з ${storedWindow.nightFrom}` : ''}
+                {storedWindow.nightToExclusive ? ` до ${storedWindow.nightToExclusive}` : ''}
+                {nightWindowWritable ? '.' : ' і не буде стерте цим збереженням.'}
               </p>
-            )
-          })}
+            ) : null}
+            <DateRangePicker
+              start={nightWindowWritable ? form.watch('nightFrom') : storedWindow.nightFrom ?? ''}
+              end={
+                nightWindowWritable
+                  ? form.watch('nightToExclusive')
+                    ? lastNightFromExclusiveEnd(form.watch('nightToExclusive'))
+                    : ''
+                  : storedWindow.nightToExclusive
+                    ? lastNightFromExclusiveEnd(storedWindow.nightToExclusive)
+                    : ''
+              }
+              allowPast
+              disabled={!canWrite || !nightWindowWritable}
+              onChange={({ start, end }) => {
+                if (!nightWindowWritable) return
+                form.setValue('nightFrom', start, { shouldValidate: true })
+                if (end) form.setValue('nightToExclusive', exclusiveEndFromLastNight(end), { shouldValidate: true })
+                if (!start && !end) {
+                  form.setValue('nightFrom', '', { shouldValidate: true })
+                  form.setValue('nightToExclusive', '', { shouldValidate: true })
+                }
+              }}
+            />
+          </Field>
           <Field label="Стан">
             <Select value={form.watch('active')} onValueChange={(value: 'yes' | 'no') => form.setValue('active', value)} disabled={!canWrite}>
               <SelectTrigger>
@@ -763,7 +873,7 @@ function LengthStayDialog({
               }
               const roomTypeIds = lengthStayRoomTypeIdsForSave({
                 catalogComplete: catalogReady,
-                roomTypeIds: form.getValues('roomTypeIds'),
+                roomTypeIds: roomTypeIdsForLengthStayKinds(types, form.getValues('kinds')),
               })
               if (roomTypeIds === null) {
                 toast.error('Список розміщень завантажено не повністю.')
